@@ -22,13 +22,15 @@ Documents du dépôt : [firmware-plan.md](firmware-plan.md) (plan firmware), [de
 
 ---
 
-## État actuel — mis à jour le 25.09.2026
+## État actuel — mis à jour le 25.09.2026 (5ᵉ session)
 
-- **Phase** : plan terminé, **décisions D1 à D7 tranchées** (plan §9), page web de configuration ajoutée au plan (§10, lot 12). Documentation matérielle Turret2 dans le dépôt (`README.md`, `docs/design-plan.md`, `docs/status-and-history.md`). **Aucune ligne de firmware modifiée** : `Turret_firmware/` vient d'être créé comme copie à l'identique de `Fork/` (firmware upstream, fichiers du commit `020a839`).
+- **Phase** : **lot 1 fait** (build reproductible, versions figées). Décisions D1 à D8 tranchées (plan §9). Seul `Turret_firmware/platformio.ini` a changé ; le code source est toujours identique à `Fork/`.
+- **Référence de build** (`lolin_s3_mini`, plateforme `espressif32@7.1.3`) : tout le code compile et se lie, mais l'image **dépasse la partition d'application** de 4 Mo : 1 392 725 octets pour 1 310 720 (106,3 %), RAM 60 784 octets (18,5 %). Normal pour cette carte (partitions 4 Mo), résolu au lot 2 par les partitions 8 Mo (app 3,2 Mo).
+- **Poste de travail** : Windows, PlatformIO 6.1.18 dans `%USERPROFILE%\.platformio\penv\Scripts\pio.exe` (pas dans le PATH). Commande : `& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -d Turret_firmware -e <env>`.
 - **Arborescence (depuis le 25.09.2026, commit `8248fcd` de `main`, fusionné dans la branche)** : `Turret_firmware/` = **firmware Turret2, dossier de travail** (D8) ; `Fork/` = firmware d'origine, intact, référence en lecture seule ; `Turret2_portable/` = projet KiCad ; `Pictures/` = photos ; `docs/`, `README.md`, `CLAUDE.md` à la racine. Dans les entrées de session antérieures au 25.09, `src/…` et `platformio.ini` désignent les mêmes fichiers, aujourd'hui sous `Fork/` (original) et copiés dans `Turret_firmware/` (travail).
 - **Cible** : Turret2 uniquement (plus de compatibilité Wemos / V4, D2).
 - **Branche** : tout est sur **`main`** depuis le 25.09.2026 (avance rapide depuis `claude/admiring-bell-q3hube`, qui est au même commit) — dépôt `lo26lo/portal-turret-v4`.
-- **Prochaine action** : lot 1 du plan (base de build) — installer PlatformIO dans le conteneur, compiler `Turret_firmware/` (encore identique à l'original) avec l'env `lolin_s3_mini` pour avoir la référence (erreurs, tailles), figer les versions. Puis lot 2 (cible Turret2, suppression des envs Wemos).
+- **Prochaine action** : lot 2 du plan (cible Turret2) — `boards/turret2.json`, variant `turret2`, partitions `default_8MB.csv`, envs `turret2*`, `pins.h` complet, suppression des envs `lolin_s3_mini*` ; critère : `pio run -e turret2` passe (y compris la taille).
 - **Décisions ouvertes** : aucune. Reste à vérifier sans urgence : variante latch-off / auto-retry du TPS259573 (le firmware gère les deux, D5).
 - **Matériel** : la carte Turret2 n'est pas encore fabriquée → la mise en service (plan §8) attend les cartes ; tout le reste peut avancer sans elles.
 - **Blocages** : aucun. Limites connues de l'environnement : voir « Erreurs, impasses et pièges ».
@@ -38,7 +40,7 @@ Documents du dépôt : [firmware-plan.md](firmware-plan.md) (plan firmware), [de
 | Lot | Contenu (plan §7) | Statut | Commit / remarque |
 |---|---|---|---|
 | — | Plan + journal + `CLAUDE.md` | fait | commit du 24.09.2026 qui ajoute ces fichiers |
-| 1 | Base de build, versions figées | à faire | PlatformIO absent du conteneur au 24.09 ; dernière compilation `lolin_s3_mini` pour référence |
+| 1 | Base de build, versions figées | fait | 25.09.2026 : plateforme 7.1.3 et toutes les libs figées (transitives comprises) ; build propre reproduit à l'identique ; référence `lolin_s3_mini` = 106,3 % de la partition app (voir session) |
 | 2 | Cible Turret2 (board JSON, variant, partitions, envs, `pins.h`) + suppression des envs Wemos | à faire | D2 |
 | 3 | Bugs existants (plan §5) | à faire | |
 | 4 | Module Board (état sûr, LEDs, boutons, SW1, PWR_FLT, raison du reset, boucle de redémarrage) | à faire | D1, D3, D4, D5 tranchées |
@@ -68,6 +70,8 @@ Documents du dépôt : [firmware-plan.md](firmware-plan.md) (plan firmware), [de
 | 24.09.2026 | Documentation matérielle (révise la décision « non ajoutée au dépôt » ci-dessus) | ajoutée telle quelle : README Turret2 → `README.md` (le dépôt n'en avait pas), `docs/design-plan.md`, `docs/status-and-history.md`. Aucune modification de leur contenu | demande de l'utilisateur ; emplacements indiqués par le README lui-même |
 | 25.09.2026 | Réorganisation du dépôt par l'utilisateur (`Fork/`, `Turret2_portable/`, `Pictures/`) | fusionnée dans la branche de travail (merge, pas de rebase : la branche est publiée) ; chemins mis à jour dans le plan, `CLAUDE.md` et la section « Repository layout » / chemins du `README.md` (`hardware/Turret2` → `Turret2_portable`, `src/` → `Fork/`) | les docs doivent refléter l'arborescence réelle ; seules des corrections de chemins dans le README, pas de fond |
 | 25.09.2026 | D8 emplacement du firmware | dossier séparé **`Turret_firmware/`** (copie de départ de `Fork/` sans `3d/` ni `gerber/`) ; `Fork/` n'est plus modifié | choix de l'utilisateur : ce firmware ne s'installera que sur sa carte ; ma proposition (travailler dans `Fork/`) a été refusée. Nom d'abord créé en `Turret2_firmware/`, renommé à sa demande (« on peut enlever le 2 ») |
+| 25.09.2026 | Versions figées (lot 1) | `espressif32@7.1.3` (arduino-esp32 2.0.17, `framework-arduinoespressif32` 4.20017.260907) ; libs du registre à la version exacte installée ; libs git (Adafruit_Sensor, arduino-libhelix, arduino-audio-tools) figées sur un SHA complet ; dépendances transitives (Adafruit BusIO, AceCommon, AsyncTCP) listées explicitement | ce sont les versions qui compilent aujourd'hui ; audio-tools en HEAD avait reçu un commit le matin même ; une transitive non listée peut changer sans que `platformio.ini` bouge |
+| 25.09.2026 | Dépassement de taille en `lolin_s3_mini` | pas corrigé au lot 1 (ni partitions, ni suppression de code) | cet env est supprimé au lot 2, dont les partitions 8 Mo (app 3,2 Mo) règlent le problème ; le modifier maintenant fausserait la référence |
 | 24.09.2026 | Page web | page de configuration complète embarquée dans le firmware (gzip PROGMEM), générée depuis la liste des réglages, commandes passées à `loop()` par une file | demande de l'utilisateur ; vérifié qu'elle n'existait pas (seulement `GET /` et `GET /settings` en JSON, lecture seule) |
 
 ## Erreurs, impasses et pièges rencontrés
@@ -82,6 +86,10 @@ Documents du dépôt : [firmware-plan.md](firmware-plan.md) (plan firmware), [de
 | 24.09.2026 | La documentation Turret2 citée par le README (`hardware/Turret2/`, `docs/design-plan.md`, `docs/status-and-history.md`) n'existe pas sur la branche distante | travail fait à partir des trois fichiers fournis par l'utilisateur ; les deux `docs/` et le README ont été ajoutés en 3ᵉ session ; `hardware/Turret2/` reste absent (les liens du README vers ce dossier sont donc cassés sur GitHub) |
 | 24.09.2026 | Bugs trouvés dans `Settings` en préparant la page web : paramètre `group` ignoré (`Settings.cpp:10,12`), `Settings::SetFromString` déclarée sans définition (`Settings.h:77`), copie par valeur de `Settings` dans `TurretWebServer.cpp:60` | ajoutés au plan §5, corrigés au lot 12 |
 | 24.09.2026 | Piège documentaire : le README Turret2 affirme que `getEvent()` est inchangé avec le LSM6DSOX | faux : `Adafruit_LSM6DS::getEvent(accel, gyro, temp)` prend trois pointeurs (vérifié dans `Adafruit_LSM6DS.h`) → plan §2.4, lot 11 |
+| 25.09.2026 | Premier build : `fatal error: sdkconfig.h: No such file or directory` dans tous les fichiers | pas un problème de code : le package `framework-arduinoespressif32` du poste était incomplet (installation interrompue plus tôt dans la journée) — `tools/sdk/esp32s3/` n'avait que `bin`, `dio_opi`, `dio_qspi`, `include` (ni `qio_qspi`, ni `lib`, ni `ld`). Ma suppression du package a été refusée par le garde-fou ; il a été **déplacé** vers `%USERPROFILE%\.platformio\framework-arduinoespressif32.incomplet-25.09.2026` (sauvegarde, à supprimer à la main) et PlatformIO l'a réinstallé complet. Si l'erreur revient : vérifier que `tools/sdk/esp32s3/qio_qspi/include/sdkconfig.h` existe |
+| 25.09.2026 | Build propre dans le scratchpad (`PLATFORMIO_WORKSPACE_DIR` sous `AppData\Local\Temp\claude\…`) : `No such file or directory` sur `FastLED/…/flexio/channel_engine_flexio.cpp.hpp`, qui existe pourtant | limite **MAX_PATH (260)** de Windows : chemin de 264 caractères. FastLED 3.10 a des chemins très profonds → garder le dépôt et l'espace de travail PlatformIO sur un chemin court. Build propre refait dans `Turret_firmware/.pio/c` (ignoré par git) : OK |
+| 25.09.2026 | Plan §5 supposait une erreur de compilation sur `#include "config.h"` (`ESP32Downloader.cpp:4`) | faux : ça compile, l'include tombe par hasard sur `mbedtls/config.h` du SDK (vu dans le `.d`). Le fichier reste inutile (fonction jamais appelée) → à supprimer au lot 3 |
+| 25.09.2026 | Avertissement `extra tokens at end of #include directive` à chaque inclusion de `GunShotAudio.h` | ligne 2 : `#include <Arduino.h>>` (un `>` en trop) → lot 3 |
 
 ---
 
@@ -195,3 +203,38 @@ Documents du dépôt : [firmware-plan.md](firmware-plan.md) (plan firmware), [de
 
 **Prochaine étape** : lot 1, sur `main`.
 
+
+### 25.09.2026 (5ᵉ session) — Lot 1 : base de build
+
+**Demande de l'utilisateur** : synchroniser le dépôt, lire le journal de reprise, puis « go » pour le lot 1. Nouveau poste : Windows 11, VS Code.
+
+**Fait**
+- `git pull --ff-only` : `main` de `8248fcd` à `dae8587`, sans conflit.
+- PlatformIO 6.1.18 trouvé dans `%USERPROFILE%\.platformio\penv\Scripts\pio.exe` (hors PATH).
+- Build `pio run -d Turret_firmware -e lolin_s3_mini` avec le `platformio.ini` d'origine (non figé) : la plateforme résolue est `espressif32` 7.1.3.
+  1. 1ᵉʳ essai : `sdkconfig.h` introuvable partout → package framework incomplet sur le poste, déplacé en sauvegarde puis réinstallé (voir « Erreurs »).
+  2. 2ᵉ essai : **compilation et édition de liens OK**, échec au contrôle de taille : 1 392 725 octets pour 1 310 720 (106,3 %) ; RAM 60 784 octets (18,5 %). Avertissements : `GunShotAudio.h:2` (`>` en trop), FastLED (`optimization attribute` dans `fl/gfx/blur`, `ADC_ATTEN_DB_11` déprécié) — sans conséquence.
+- Versions figées dans `Turret_firmware/platformio.ini` (clé `platform` dans `[common]`, reprise par l'env via `${common.platform}`) :
+
+  | Composant | Version |
+  |---|---|
+  | plateforme `espressif32` | 7.1.3 (framework 4.20017.260907 = arduino-esp32 2.0.17, toolchain xtensa 8.4.0+2021r2-patch5) |
+  | Adafruit Unified Sensor (git) | 1.1.15, `0a9127a1e886ff1adb4c1b6f5958b24108d55aa6` |
+  | Adafruit BusIO | 1.17.4 (transitive, ajoutée) |
+  | ESP32Servo | 1.2.1 (était `^1.2.1`) |
+  | Adafruit ADXL345 | 1.3.4 (supprimée au lot 6) |
+  | FastLED | 3.10.5 |
+  | AceCommon | 1.6.2 (transitive, ajoutée) |
+  | AceRoutine | 1.5.1 |
+  | AsyncTCP | 3.5.0 (transitive, ajoutée) |
+  | ESPAsyncWebServer | 3.12.1 |
+  | arduino-libhelix (git) | 0.9.4, `5c0a04302dbd661a56408eeb1756e01dd8d33ba1` |
+  | arduino-audio-tools (git) | 1.2.6, `4b6deecbe81a58b7a846e1cfd2d40a92befe35a6` (commit du 25.09.2026 au matin) |
+
+- **Reproductibilité vérifiée** : build de zéro dans un espace de travail neuf (`PLATFORMIO_WORKSPACE_DIR=Turret_firmware\.pio\c`, libs retéléchargées depuis le `platformio.ini` figé) → mêmes versions, même RAM, flash 1 392 757 octets (+32 octets, attribués aux chemins de fichiers embarqués, plus longs de 2 caractères). Un premier essai dans le scratchpad avait échoué sur la limite MAX_PATH (voir « Erreurs »).
+
+**Non fait** : l'env `lolin_s3_mini` dépasse toujours sa partition (décision : laissé tel quel, réglé au lot 2). Rien n'a été flashé (pas de carte).
+
+**À savoir** : `Turret_firmware/.pio/c` (espace de travail du build de contrôle) peut être supprimé sans risque ; la sauvegarde du framework incomplet aussi (`%USERPROFILE%\.platformio\framework-arduinoespressif32.incomplet-25.09.2026`).
+
+**Prochaine étape** : lot 2 (cible Turret2).

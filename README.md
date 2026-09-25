@@ -1,5 +1,7 @@
 # Turret2 — custom ESP32-S3 controller board for the Portal Sentry Turret v4
 
+![Turret2 v0.1 — KiCad 3D render](Pictures/pcb.jpg)
+
 This fork adds **Turret2**, a custom 4-layer controller PCB for [joranderaaff/portal-turret-v4](https://github.com/joranderaaff/portal-turret-v4). It replaces the Wemos S3 mini and the hand wiring of the original build with a single board that has on-board power protection, audio amplifier, IMU, level shifting for the NeoPixels and keyed connectors for every peripheral.
 
 The board keeps the **exact GPIO mapping of the firmware's `Fork/src/pins.h`**, so the upstream firmware runs on it with one small change (the IMU, see [Firmware](#firmware)).

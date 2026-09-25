@@ -3,3 +3,8 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Fichiers locaux (non versionnés)
+CLAUDE.md
+.vscode/
+docs/firmware-journal.md

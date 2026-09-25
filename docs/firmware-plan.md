@@ -1,6 +1,6 @@
 # Plan d'adaptation du firmware à la carte Turret2
 
-Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décisions D1 à D7 tranchées (§9), **plus de compatibilité Wemos / V4** (Turret2 uniquement), page web de configuration ajoutée (§10, lot 12). Le suivi de l'exécution (ce qui est fait, en cours, les erreurs) est dans [firmware-journal.md](firmware-journal.md) : **lire le journal avant de reprendre le travail**.
+Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décisions D1 à D7 tranchées (§9), **plus de compatibilité Wemos / V4** (Turret2 uniquement), page web de configuration ajoutée (§10, lot 12). Le suivi de l'exécution (ce qui est fait, en cours, les erreurs) est dans le journal de bord `docs/firmware-journal.md`, **local (non versionné)** : le lire avant de reprendre le travail.
 
 > Dates au format JJ.MM.AAAA. Les références `fichier:ligne` pointent sur le code tel qu'il était au commit `020a839` (fichiers identiques, déplacés dans `Fork/` par le commit `8248fcd`, puis copiés dans `Turret_firmware/` : les numéros de ligne valent pour les deux tant que la copie n'a pas été modifiée) (firmware upstream de joranderaaff, avant toute modification).
 
@@ -327,4 +327,4 @@ Il n'y a **pas** de page de configuration : `Turret_firmware/src/web/TurretWebSe
 - Écrire en NVS à chaque mouvement d'un curseur use la flash : n'enregistrer qu'au clic « Enregistrer » ; les curseurs de calibration appliquent en RAM seulement.
 - L'OTA arrive pendant que la tourelle tourne : séquence d'arrêt (§3.3) **avant** d'accepter les données, pas seulement avant le reboot.
 
-Les décisions sont aussi reportées dans le journal ([firmware-journal.md](firmware-journal.md)), section « Décisions ».
+Les décisions sont aussi reportées dans le journal local (`docs/firmware-journal.md`), section « Décisions ».

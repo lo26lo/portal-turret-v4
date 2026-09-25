@@ -8,7 +8,24 @@
 enum SettingId {
   AngleOffsetX,
   AngleOffsetZ,
-  Test,
+  ImuUpAxis,
+  AmpGain,
+  Volume,
+  HallOpenL,
+  HallOpenR,
+  HallCloseL,
+  HallCloseR,
+  WingTrimL,
+  WingTrimR,
+  ServoStagger,
+  ServoIdleMs,
+  LedBright,
+  LedMaxmA,
+  ApSsid,
+  ApPassword,
+  StaSsid,
+  StaPassword,
+  Timezone,
   COUNT
 };
 
@@ -18,7 +35,8 @@ enum class SettingType { Int,
                          Bool,
                          Str };
 
-constexpr size_t SETTING_STRING_MAX = 32;
+// 63 characters + terminator: the longest WPA2 passphrase.
+constexpr size_t SETTING_STRING_MAX = 64;
 
 // One storage slot shared by every type. Only the member matching the
 // entry's SettingType is valid; that's what the type tag is for.
@@ -43,6 +61,7 @@ public:
 
   const char *key;   // NVS + JSON identity, max 15 chars, never rename
   const char *label; // human readable, for the frontend
+  const char *group; // section of the settings page
   SettingType type;
   SettingValue value;
   SettingValue defaultValue;
@@ -78,6 +97,8 @@ public:
   bool FindId(const char *key, SettingId &outId) const;
 
   void ResetToDefaults();
+  // Only the entries of one group (web page "reset" per group).
+  void ResetGroup(const char *group);
 
 private:
   void Persist(const SettingsEntry &entry);

@@ -22,6 +22,9 @@ public:
   void Update(ulong deltaTime);
   const RadarTarget& GetTarget(uint8_t index) const;
   uint8_t GetTargetCount();
+  // True if a complete frame arrived less than maxAgeMs ago (boot step 7).
+  bool IsAlive(ulong maxAgeMs) const;
+  bool HasSeenFrame() const { return frameSeen; }
 
 private:
   void UpdateSerialData();
@@ -48,5 +51,6 @@ private:
 
   uint8_t messageBuffer[256];
 
-  ulong lastSensorUpdateTime;
+  ulong lastSensorUpdateTime = 0;
+  bool frameSeen = false;
 };

@@ -7,4 +7,5 @@ enum class StateId {
   FiringState,
   Disengage,
   Manual,
+  Fault,
 };

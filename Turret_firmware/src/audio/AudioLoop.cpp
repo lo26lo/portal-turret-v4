@@ -1,11 +1,11 @@
 #include "AudioLoop.h"
 
-AudioLoop::AudioLoop(const uint8_t *samplesIn, int loopStartSampleIn,
+AudioLoop::AudioLoop(const uint8_t *samplesIn, int sampleCountIn, int loopStartSampleIn,
                      int loopEndSampleIn) {
   loopStartSample = loopStartSampleIn;
   loopEndSample = loopEndSampleIn;
   samples = samplesIn;
-  totalSampleCount = sizeof(samplesIn) / 2;
+  totalSampleCount = sampleCountIn;
 }
 
 void AudioLoop::Begin() {

@@ -1,8 +1,10 @@
+#pragma once
+
 #include <Arduino.h>
 
 class AudioLoop {
  public:
-  AudioLoop(const uint8_t* samplesIn, int loopStartSampleIn, int loopEndSampleIn);
+  AudioLoop(const uint8_t* samplesIn, int sampleCountIn, int loopStartSampleIn, int loopEndSampleIn);
   void Read(uint8_t* buffer, int len);
   void Begin();
   void Stop();

@@ -82,12 +82,67 @@ IO39–IO42 are unused (the JTAG header was removed). IO0, IO3, IO45 and IO46 ar
 
 ## Firmware
 
-The upstream firmware in `Fork/` works with the same pinout. Changes needed:
+`Turret_firmware/` is the upstream firmware adapted to Turret2 (Turret2 only, no Wemos build). **Everything it does is described in [Turret_firmware/README.md](Turret_firmware/README.md)**; the design is in [docs/firmware-plan.md](docs/firmware-plan.md). **It compiles but has not run on a board yet**: expect calibration and fixes at bring-up.
 
-- **IMU**: the board carries an LSM6DSOX instead of the ADXL345. Change the object type in `Motion.h` and the `lib_deps` entry in `platformio.ini` to the Adafruit LSM6DSOX library; it exposes the same `sensors_event_t` interface through `Adafruit_Sensor`, so `getEvent()` is unchanged.
-- **Optional**: read `PWR_FLT` on IO38 (low = the eFuse cut the power) and drive the debug LEDs on IO33/IO48; set the amplifier gain with IO21/IO47 (never as outputs driven high).
-- Keep `ARDUINO_USB_CDC_ON_BOOT=1`: flashing and the serial console go through the native USB.
-- If SW1 is used as a configuration switch on IO3, **never burn the `STRAP_JTAG_SEL` eFuse**.
+### Build and flash
+
+PlatformIO project; open `Turret_firmware/` itself as the folder in VS Code (the PlatformIO extension only detects a `platformio.ini` at the root of the opened folder). All versions are pinned in `platformio.ini`.
+
+| Environment | Use |
+|---|---|
+| `turret2` (default) | normal firmware |
+| `turret2_bringup` | same, with verbose core logs, button / PWR_FLT events on the console, and a 3 s wait for the USB host |
+| `turret2_ota` | `turret2` uploaded over WiFi (set `TURRET_PASSWORD` first, see below) |
+
+```
+pio run -d Turret_firmware -e turret2 -t upload     # firmware, native USB
+pio run -d Turret_firmware -e turret2 -t uploadfs   # LittleFS image (data/fire.mp3)
+pio device monitor -d Turret_firmware               # console, 115200
+```
+
+First flash: check that the module is an N8 (`esptool.py flash_id` must report 8 MB; the boot banner warns otherwise). If native USB does not enumerate, hold BOOT (SW2) and press RESET (SW3), or use UART0 on J16. Never burn an ESP32 eFuse (`espefuse.py summary` is read-only).
+
+Board definition: `boards/turret2.json` (ESP32-S3-MINI-1-N8, 8 MB QIO flash, **no PSRAM**: IO26 is button A) and `variants/turret2/pins_arduino.h` (I²C on IO35/IO36, no `RGB_BUILTIN`: IO47 is an amplifier gain pin that must never be driven high). The full pinout is in `src/pins.h`.
+
+### What it does at boot
+
+The order of the firmware plan §3.2: outputs to a safe state within a few milliseconds (amplifier in shutdown, gain pins released, status LEDs on), black frame on the NeoPixels, console, settings, LittleFS, I²C (bus recovery + scan), IMU, radar, Hall sensors, audio (the amplifier leaves shutdown only once the I²S clocks run), WiFi and web server, then the **servos one at a time** (250 ms apart, PWR_FLT checked in between) and homing of the wings.
+
+- **IMU**: LSM6DSOX at 0x6A through the Adafruit LSM6DS library. Note that `getEvent()` takes three pointers there (accelerometer, gyro, temperature). The wings refuse to open when the turret is not upright, once the up axis has been calibrated.
+- **Power**: a fault on PWR_FLT (IO38, even a short one) sheds the load at once: servos detached, amplifier in shutdown, LEDs off. The turret resumes 2 s after PWR_FLT goes high again. Three suspicious resets in a row (brownout, crash, power-up) within a minute start a **reduced mode**: no servo, LEDs at 10 %, 9 dB.
+- **Servos at rest**: wings are released as soon as they stop, guns 0.5 s after moving, rotations after `ServoIdleMs` with the wings closed; they are re-attached on their last position, one at a time.
+
+### Buttons, switch and LEDs
+
+| Control | Action |
+|---|---|
+| Button A | demo cycle (open, fire, close) |
+| Button B | mute / unmute; held 3 s: WiFi access point on / off |
+| A + B held at power-up | all settings back to their defaults (WiFi password included) |
+| SW1 closed at power-up | bench mode: no servo attached, state machine stopped, one servo at a time from the console or web page |
+
+Green LED: steady during boot, then a heartbeat. Red LED: steady during boot, then a blink code, lowest number first: 1 brownout / reboot loop, 2 eFuse fault, 3 IMU missing, 4 radar silent, 5 Hall sensor stuck, 6 LittleFS not mounted.
+
+### Web page and console
+
+Connect to the WiFi network **Portal Turret** (WPA2, password `stillalive`): the phone opens the page by itself (captive portal), otherwise browse to `http://192.168.4.1` (user `turret`, same password).
+
+**First setup**: in the *Home WiFi* card at the top of the page, press *Scan*, pick your network, type its password and press *Connect*. The turret joins it straight away (its own network stays on), sets its clock from the Internet (NTP, time zone in the `Timezone` setting, Paris by default) and can then be reached from your home network at `http://portal-turret.local` or at the IP address shown on the page. In AP + STA mode the radio has one channel: a phone on the turret's network may drop for a second when the turret joins the home network. The page shows the status and faults, lets you change every setting, calibrate the Hall sensors, the IMU axis and the wing trims, run hardware tests, read the log and upload a firmware. **Change `ApPassword`** (8 to 31 characters, applied at the next boot).
+
+The same commands are available on the USB console (type `help`): `status`, `scan`, `imu`, `hall`, `servo <n> <angle|µs|off>`, `wings open|close`, `guns extend|retract`, `led all FF0000`, `tone 1000`, `gain 12`, `mute`, `get` / `set <key> <value>`, `resume`, `reboot`…
+
+OTA from PlatformIO: join the access point, then
+
+```
+$env:TURRET_PASSWORD = "stillalive"    # PowerShell; your ApPassword
+pio run -d Turret_firmware -e turret2_ota -t upload
+```
+
+The turret stops before accepting the upload and always reboots afterwards.
+
+### To calibrate on the first board
+
+Hall thresholds (`HallOpenL/R`, `HallCloseL/R`: the sensors now run at 3.3 V; the V4 values are only a starting point), wing trims (`WingTrimL/R`, until a stopped wing does not creep), IMU up axis (`ImuUpAxis`), and the axis offsets as on the V4. All of them are in the Calibration tab of the web page.
 
 ## Open items before the first order
 

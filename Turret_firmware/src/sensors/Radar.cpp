@@ -1,3 +1,4 @@
+#include "board/Log.h"
 #include "Radar.h"
 #include "pins.h"
 
@@ -58,6 +59,8 @@ void Radar::UpdateSerialData() {
         footerIndex++;
         if (footerIndex == 2) {
           previousRadarTargetCount = radarTargetCount;
+          frameSeen = true;
+          lastSensorUpdateTime = millis();
           radarTargetCount = 0;
           readingData = false;
           writeIndex -= 2;
@@ -116,8 +119,8 @@ void Radar::UpdateSerialData() {
           }
 
           if (previousRadarTargetCount != radarTargetCount) {
-            Serial.print("Radar Target Count Changed: ");
-            Serial.println(radarTargetCount);
+            Log.print("Radar Target Count Changed: ");
+            Log.println(radarTargetCount);
           }
 
           footerIndex = 0;
@@ -129,6 +132,10 @@ void Radar::UpdateSerialData() {
       }
     }
   }
+}
+
+bool Radar::IsAlive(ulong maxAgeMs) const {
+  return frameSeen && millis() - lastSensorUpdateTime < maxAgeMs;
 }
 
 uint8_t Radar::GetTargetCount() {

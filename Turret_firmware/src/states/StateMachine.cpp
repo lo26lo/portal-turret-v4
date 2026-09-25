@@ -1,3 +1,4 @@
+#include "board/Log.h"
 #include "states/StateMachine.h"
 
 void StateMachine::Initialize(Turret &turretIn) {
@@ -7,6 +8,7 @@ void StateMachine::Initialize(Turret &turretIn) {
   disengageState.Initialize(this, turretIn);
   manualState.Initialize(this, turretIn);
   firingState.Initialize(this, turretIn);
+  faultState.Initialize(this, turretIn);
 }
 
 void StateMachine::GoToState(StateId nextStateId) {
@@ -15,6 +17,7 @@ void StateMachine::GoToState(StateId nextStateId) {
   }
 
   currentState = GetState(nextStateId);
+  currentStateId = nextStateId;
 
   if (currentState) {
     currentState->OnActivate();
@@ -24,29 +27,45 @@ void StateMachine::GoToState(StateId nextStateId) {
 BaseState *StateMachine::GetState(StateId stateId) {
   switch (stateId) {
   case StateId::Booting:
-    Serial.println("Bootstate");
+    Log.println("Bootstate");
     return &bootState;
     break;
   case StateId::Activate:
-    Serial.println("ActivateState");
+    Log.println("ActivateState");
     return &activateState;
     break;
   case StateId::FiringState:
-    Serial.println("FiringState");
+    Log.println("FiringState");
     return &firingState;
     break;
   case StateId::Disengage:
-    Serial.println("DisengageState");
+    Log.println("DisengageState");
     return &disengageState;
     break;
   case StateId::Idle:
-    Serial.println("IdleState");
+    Log.println("IdleState");
     return &idleState;
   case StateId::Manual:
-    Serial.println("ManualState");
+    Log.println("ManualState");
     return &manualState;
+  case StateId::Fault:
+    Log.println("FaultState");
+    return &faultState;
   }
   return nullptr;
+}
+
+const char *StateMachine::StateName(StateId id) {
+  switch (id) {
+  case StateId::Booting: return "Booting";
+  case StateId::Idle: return "Idle";
+  case StateId::Activate: return "Activate";
+  case StateId::FiringState: return "Firing";
+  case StateId::Disengage: return "Disengage";
+  case StateId::Manual: return "Manual";
+  case StateId::Fault: return "Fault";
+  }
+  return "?";
 }
 
 void StateMachine::Update(ulong deltaTime) {

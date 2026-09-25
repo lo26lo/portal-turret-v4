@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portal Turret</title>
+<style>
+:root{--bg:#f4f4f2;--card:#fff;--fg:#1d1d1f;--muted:#6b6b70;--line:#dcdcdf;--accent:#e07a10;--bad:#c62828;--ok:#2e7d32}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1f1f23;--fg:#ececef;--muted:#9a9aa2;--line:#34343a;--accent:#f0932b;--bad:#ef5350;--ok:#66bb6a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1}
+nav{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg)}
+nav button{white-space:nowrap}
+main{max-width:760px;margin:0 auto;padding:0 16px 40px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0}
+.card h2{font-size:15px;margin:0 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
+.kv span{display:block;color:var(--muted);font-size:12px}
+.badge{padding:2px 8px;border-radius:10px;background:var(--line);font-size:13px}
+.bad{color:var(--bad)}.okc{color:var(--ok)}
+.warn{background:var(--bad);color:#fff;padding:8px 12px;border-radius:8px;margin-top:12px}
+button,input,select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:6px 10px}
+button{cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:active{transform:translateY(1px)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.field:first-of-type{border-top:0}
+.field label{font-size:14px}.field small{grid-column:1/-1;color:var(--muted)}
+.field input{width:9em}.field input[type=text],.field input[type=password]{width:12em}
+pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:60vh;overflow:auto;margin:0}
+input[type=range]{width:100%}
+</style>
+</head>
+<body>
+<header><h1>Portal Turret</h1><span id="state" class="badge">…</span><span id="faults"></span></header>
+<nav id="tabs"></nav>
+<main>
+<div id="pwwarn" class="warn" hidden>The WiFi / web password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
+
+<section id="t-status">
+<div class="card" id="wificard"><h2>Home WiFi</h2>
+<div class="row" id="wifistate">…</div>
+<div id="wifiform">
+<div class="row"><button id="scan">Scan</button><select id="nets" style="flex:1"><option value="">– choose a network –</option></select></div>
+<div class="row"><input id="ssid" placeholder="network name" style="flex:1"><input id="pass" type="password" placeholder="password" style="flex:1"><button class="primary" id="join">Connect</button></div>
+<small>For the clock (NTP) and access from your home network. The turret's own network stays on.</small>
+</div></div>
+<div class="card"><h2>Status</h2><div class="grid" id="status"></div></div>
+</section>
+
+<section id="t-settings"><div id="settings"></div></section>
+
+<section id="t-calib">
+<div class="card"><h2>Hall sensors</h2>
+<div class="grid"><div class="kv"><span>Left (live)</span><b id="hl">–</b></div><div class="kv"><span>Right (live)</span><b id="hr">–</b></div></div>
+<div class="row"><button data-cap="L,open">Left open</button><button data-cap="L,closed">Left closed</button><button data-cap="R,open">Right open</button><button data-cap="R,closed">Right closed</button></div>
+<div class="row" id="caps"></div>
+<div class="row"><button class="primary" id="hallsave">Compute and save thresholds</button></div>
+<small>Move each wing by hand (or with Tests), capture both positions, then save. Thresholds are set at 25 % and 75 % between the two values.</small>
+</div>
+<div class="card"><h2>IMU</h2>
+<div class="row">Dominant axis: <b id="axis">–</b>, setting: <b id="axisset">–</b></div>
+<div class="row"><button class="primary" id="imucap">The turret stands upright: capture</button><button id="imuoff">Disable the check</button></div>
+</div>
+<div class="card"><h2>Wing trims</h2>
+<small>Runs the wing at its stop point for 2 s. Adjust until it does not move, then save.</small>
+<div class="row">Left <b id="tlv">0</b> µs</div><input type="range" id="tl" min="-200" max="200" step="5">
+<div class="row">Right <b id="trv">0</b> µs</div><input type="range" id="tr" min="-200" max="200" step="5">
+<div class="row"><button class="primary" id="trimsave">Save trims</button></div>
+</div>
+</section>
+
+<section id="t-tests">
+<div class="card"><h2>Tests</h2><small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
+<div class="row"><button data-cmd="wings open">Wings open</button><button data-cmd="wings close">Wings close</button><button data-cmd="guns extend">Guns out</button><button data-cmd="guns retract">Guns in</button></div>
+<div class="row"><button data-cmd="tone 1000 500">Tone 1 kHz</button><button data-cmd="mute">Mute / unmute</button><button data-cmd="gain 9">9 dB</button><button data-cmd="gain 12">12 dB</button><button data-cmd="gain 15">15 dB</button></div>
+<div class="row"><button data-cmd="led all FF0000">LEDs red</button><button data-cmd="led all 00FF00">green</button><button data-cmd="led all 0000FF">blue</button><button data-cmd="led all FFFFFF">white</button><button data-cmd="led off">LEDs normal</button></div>
+<div class="row"><select id="sv"><option value="rotz">rotate Z</option><option value="rotx">rotate X</option><option value="gunl">gun left</option><option value="gunr">gun right</option><option value="wingl">wing left</option><option value="wingr">wing right</option></select><input id="svv" value="90" size="5"><button id="svgo">Send</button><button id="svoff">Off</button></div>
+<div class="row"><button data-cmd="scan">I2C scan</button><button data-cmd="imu">IMU</button><button data-cmd="hall">Hall</button><button data-cmd="demo">Demo cycle</button><button class="primary" data-cmd="resume">Resume</button></div>
+<div class="row"><input id="cmd" placeholder="console command (help)" style="flex:1"><button id="cmdgo">Run</button></div>
+<small>Answers appear in the Log tab.</small>
+</div>
+</section>
+
+<section id="t-log">
+<div class="card"><div class="row"><h2 style="flex:1;margin:0">Log</h2><label><input type="checkbox" id="logauto" checked> auto</label><button id="logref">Refresh</button></div><pre id="log"></pre></div>
+</section>
+
+<section id="t-maint">
+<div class="card"><h2>Firmware update</h2>
+<div class="row"><input type="file" id="fw" accept=".bin"><button class="primary" id="fwgo">Upload</button></div>
+<small id="fwmsg">The turret stops before the upload and reboots afterwards.</small>
+</div>
+<div class="card"><h2>System</h2>
+<div class="row"><button id="reboot">Reboot</button><button id="factory">Reset all settings</button></div>
+</div>
+</section>
+</main>
+<script>
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const TABS=[["status","Status"],["settings","Settings"],["calib","Calibration"],["tests","Tests"],["log","Log"],["maint","Maintenance"]];
+const FAULTS={1:"brownout / reboot loop",2:"eFuse",3:"IMU missing",4:"radar silent",5:"Hall sensor",6:"LittleFS"};
+const AXES=["off","+X","-X","+Y","-Y","+Z","-Z"];
+let tab="status",st=null,cap={},wifiEdit=false;
+
+function post(url,data){return fetch(url,{method:"POST",body:new URLSearchParams(data)})}
+function act(cmd){return post("/api/action",{cmd}).then(()=>setTimeout(loadLog,400))}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function show(t){tab=t;$$("section").forEach(s=>s.classList.toggle("on",s.id=="t-"+t));$$("nav button").forEach(b=>b.classList.toggle("primary",b.dataset.t==t));if(t=="settings")loadSettings();if(t=="log")loadLog()}
+$("#tabs").innerHTML=TABS.map(([k,v])=>`<button data-t="${k}">${v}</button>`).join("");
+$$("nav button").forEach(b=>b.onclick=()=>show(b.dataset.t));
+
+function kv(k,v,c){return `<div class="kv"><span>${k}</span><b class="${c||""}">${v}</b></div>`}
+function up(ms){let s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);return h?`${h} h ${m%60} min`:m?`${m} min ${s%60} s`:`${s} s`}
+async function loadStatus(){
+ try{st=await (await fetch("/api/status")).json()}catch(e){$("#state").textContent="offline";return}
+ $("#state").textContent=st.state;
+ $("#faults").innerHTML=st.faults.map(n=>`<span class="badge bad">${n} ${FAULTS[n]}</span>`).join(" ");
+ $("#pwwarn").hidden=!st.wifi.defaultPassword;
+ const sv=Object.entries(st.servos).map(([k,v])=>`${k} ${v===null?"–":v}`).join(", ");
+ $("#status").innerHTML=[
+  kv("Uptime",up(st.uptimeMs)),kv("Reset",esc(st.resetReason)),kv("PWR_FLT",st.pwrFlt?"LOW":"ok",st.pwrFlt?"bad":"okc"),
+  kv("Mode",st.benchMode?"bench":st.reducedMode?"reduced":"normal"),kv("Brownouts / loops",st.brownouts+" / "+st.bootLoopCount),kv("eFuse events",st.powerFaults),
+  kv("Radar",st.radar.alive?st.radar.targets+" target(s)":"silent",st.radar.alive?"":"bad"),
+  kv("IMU",st.imu.available?(st.imu.upright?"upright":"axis "+AXES[st.imu.dominantAxis]):"missing",st.imu.available?"":"bad"),
+  kv("Hall L / R",st.hall.left+" / "+st.hall.right,st.hall.fault?"bad":""),
+  kv("Wings",(st.wings.moving?"moving":(st.wings.leftOpen||st.wings.rightOpen)?"open":"closed")),
+  kv("Amp",st.amp.gainDb+" dB"+(st.amp.muted?", muted":st.amp.running?"":", off")),
+  kv("WiFi",esc(st.wifi.ssid)+", "+st.wifi.clients+" client(s)"),
+  kv("Home network",!st.wifi.sta.enabled?"not configured":st.wifi.sta.connected?esc(st.wifi.sta.ip)+" ("+st.wifi.sta.rssi+" dBm)":"connecting…",st.wifi.sta.enabled&&!st.wifi.sta.connected?"bad":""),
+  kv("Time",st.time?esc(st.time):"not set"),kv("Free heap",Math.round(st.freeHeap/1024)+" kB"),
+  kv("Firmware",esc(st.version))].join("")+`<div class="kv" style="grid-column:1/-1"><span>Servos (µs, – = released)</span><b>${sv}</b></div>`;
+ const sta=st.wifi.sta;
+ $("#wifistate").innerHTML=!sta.enabled?"Not connected to a home network yet.":sta.connected?
+  `Connected to <b>${esc(sta.ssid)}</b>: <a href="http://${esc(sta.ip)}/">${esc(sta.ip)}</a> or <a href="http://portal-turret.local/">portal-turret.local</a> <button id="wifichange">Change</button>`:
+  `Connecting to <b>${esc(sta.ssid)}</b>… (check the password if this lasts)`;
+ if(sta.connected&&!wifiEdit)$("#wifiform").hidden=true;else $("#wifiform").hidden=false;
+ const ch=$("#wifichange");if(ch)ch.onclick=()=>{wifiEdit=true;$("#wifiform").hidden=false};
+ $("#hl").textContent=st.hall.left;$("#hr").textContent=st.hall.right;
+ $("#axis").textContent=AXES[st.imu.dominantAxis]||"–";
+}
+
+async function loadSettings(){
+ const list=await (await fetch("/api/settings")).json(),groups={};
+ list.forEach(s=>(groups[s.group]=groups[s.group]||[]).push(s));
+ window.S=list;
+ const ax=list.find(s=>s.key=="ImuUpAxis");if(ax)$("#axisset").textContent=AXES[ax.value];
+ $("#settings").innerHTML=Object.entries(groups).map(([g,items])=>`<div class="card" data-g="${esc(g)}"><h2>${esc(g)}</h2>`+
+  items.map(s=>{const t=s.secret?"password":s.type=="string"?"text":"number";
+   const lim=s.min!==undefined?` min="${s.min}" max="${s.max}"`:"";
+   const inp=s.type=="bool"?`<input type="checkbox" data-k="${s.key}" ${s.value?"checked":""}>`:`<input type="${t}" data-k="${s.key}" value="${esc(s.value)}"${lim}${s.secret?' placeholder="unchanged"':""}>`;
+   return `<div class="field"><label>${esc(s.label)}</label><span>${inp} ${s.secret?"":`<button data-def="${s.key}" title="default">↺</button>`}</span><small>${s.key}${s.secret?"":" · default "+esc(s.default)}${s.min!==undefined?" · "+s.min+"…"+s.max:""}${s.reboot?" · applied at the next boot":""}</small></div>`}).join("")+
+  `<div class="row"><button class="primary" data-save>Save</button><button data-reset>Defaults for ${esc(g)}</button></div></div>`).join("");
+ $$("[data-def]").forEach(b=>b.onclick=()=>{const s=S.find(x=>x.key==b.dataset.def),i=$(`[data-k="${s.key}"]`);if(i.type=="checkbox")i.checked=s.default;else i.value=s.default});
+ $$("[data-save]").forEach(b=>b.onclick=()=>saveGroup(b.closest(".card")));
+ $$("[data-reset]").forEach(b=>b.onclick=()=>{const g=b.closest(".card").dataset.g;if(confirm("Reset "+g+" to defaults?"))post("/api/settings/reset",{group:g}).then(()=>setTimeout(loadSettings,500))});
+}
+async function saveGroup(card){
+ const data={};
+ card.querySelectorAll("[data-k]").forEach(i=>{const s=S.find(x=>x.key==i.dataset.k);let v=i.type=="checkbox"?(i.checked?"true":"false"):i.value;
+  if(s.secret){if(v==="")return;if(v.length<8||v.length>63){alert("Password: 8 to 63 characters");throw 0}}
+  if(String(s.value)!==v)data[s.key]=v});
+ if(!Object.keys(data).length)return;
+ if(data.ApSsid||data.ApPassword)alert("WiFi changes apply at the next boot. Reconnect to “"+(data.ApSsid||st.wifi.ssid)+"” with the new password afterwards.");
+ await post("/api/settings",data);setTimeout(loadSettings,500);
+}
+
+$$("[data-cap]").forEach(b=>b.onclick=()=>{if(!st)return;const[side,pos]=b.dataset.cap.split(",");cap[side+pos]=side=="L"?st.hall.left:st.hall.right;
+ $("#caps").textContent=Object.entries(cap).map(([k,v])=>k+" "+v).join(", ")});
+$("#hallsave").onclick=()=>{const d={};for(const s of["L","R"]){const o=cap[s+"open"],c=cap[s+"closed"];if(o===undefined||c===undefined)continue;
+ if(Math.abs(o-c)<200){alert(s+": open and closed values too close");return}
+ d["HallOpen"+s]=Math.round(c+0.75*(o-c));d["HallClose"+s]=Math.round(c+0.25*(o-c))}
+ if(!Object.keys(d).length){alert("Capture open and closed first");return}
+ post("/api/settings",d).then(()=>{alert("Saved: "+JSON.stringify(d));loadSettings()})};
+$("#imucap").onclick=()=>{if(!st||!st.imu.available||!st.imu.dominantAxis){alert("No IMU reading");return}post("/api/settings",{ImuUpAxis:st.imu.dominantAxis}).then(loadSettings)};
+$("#imuoff").onclick=()=>post("/api/settings",{ImuUpAxis:0}).then(loadSettings);
+for(const[id,side]of[["tl","left"],["tr","right"]]){const r=$("#"+id);r.value=0;r.oninput=()=>$("#"+id+"v").textContent=r.value;r.onchange=()=>act(`trim ${side} ${r.value}`)}
+$("#trimsave").onclick=()=>post("/api/settings",{WingTrimL:$("#tl").value,WingTrimR:$("#tr").value}).then(()=>alert("Trims saved"));
+
+$("#scan").onclick=async()=>{const b=$("#scan");b.disabled=true;b.textContent="Scanning…";await post("/api/action",{cmd:"wifi scan"});
+ let r={scanning:true,networks:[]};for(let i=0;i<20;i++){await new Promise(z=>setTimeout(z,1000));r=await (await fetch("/api/wifi/scan")).json();if(!r.scanning&&i>1)break}
+ r.networks.sort((a,b)=>b.rssi-a.rssi);
+ $("#nets").innerHTML=`<option value="">– ${r.networks.length} network(s) –</option>`+r.networks.map(n=>`<option value="${esc(n.ssid)}">${esc(n.ssid)} (${n.rssi} dBm${n.secure?"":", open"})</option>`).join("");
+ b.disabled=false;b.textContent="Scan"};
+$("#nets").onchange=()=>{if($("#nets").value){$("#ssid").value=$("#nets").value;$("#pass").focus()}};
+$("#join").onclick=async()=>{const ssid=$("#ssid").value.trim(),pass=$("#pass").value;
+ if(!ssid||ssid.length>32){alert("Network name: 1 to 32 characters");return}
+ if(pass&&(pass.length<8||pass.length>63)){alert("WiFi password: 8 to 63 characters (empty for an open network)");return}
+ await post("/api/settings",{StaSsid:ssid,StaPassword:pass});await act("wifi join");wifiEdit=false;$("#pass").value=""};
+$$("[data-cmd]").forEach(b=>b.onclick=()=>act(b.dataset.cmd));
+$("#svgo").onclick=()=>act(`servo ${$("#sv").value} ${$("#svv").value}`);
+$("#svoff").onclick=()=>act(`servo ${$("#sv").value} off`);
+$("#cmdgo").onclick=()=>{const c=$("#cmd").value.trim();if(c)act(c)};
+$("#cmd").onkeydown=e=>{if(e.key=="Enter")$("#cmdgo").click()};
+
+async function loadLog(){const p=$("#log");const bottom=p.scrollTop+p.clientHeight>=p.scrollHeight-8;p.textContent=await (await fetch("/api/log")).text();if(bottom)p.scrollTop=p.scrollHeight}
+$("#logref").onclick=loadLog;
+
+$("#reboot").onclick=()=>{if(confirm("Reboot the turret?"))post("/api/reboot",{})};
+$("#factory").onclick=()=>{if(confirm("Reset ALL settings, including the WiFi password?"))post("/api/settings/reset",{}).then(()=>setTimeout(loadSettings,500))};
+$("#fwgo").onclick=()=>{const f=$("#fw").files[0];if(!f)return;const x=new XMLHttpRequest(),fd=new FormData();fd.append("firmware",f);
+ x.upload.onprogress=e=>$("#fwmsg").textContent="Uploading "+Math.round(100*e.loaded/e.total)+" %";
+ x.onload=()=>$("#fwmsg").textContent=x.status+": "+x.responseText;x.onerror=()=>$("#fwmsg").textContent="Upload failed";
+ x.open("POST","/update");x.send(fd)};
+
+show("status");loadStatus();loadSettings();
+setInterval(()=>{if(document.hidden)return;loadStatus();if(tab=="log"&&$("#logauto").checked)loadLog()},1000);
+</script>
+</body>
+</html>

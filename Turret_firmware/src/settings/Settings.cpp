@@ -48,6 +48,8 @@ Settings::Settings()
           {"StaPassword", "Home WiFi password", "WiFi", SettingType::Str, ""},
           // POSIX TZ string, default Europe/Paris with daylight saving time
           {"Timezone", "Time zone (POSIX TZ)", "WiFi", SettingType::Str, "CET-1CEST,M3.5.0,M10.5.0/3"},
+          // L1: green LED toggles at each boot step / servo attachment instead of the heartbeat
+          {"LabMarkers", "Lab markers on the green LED", "Lab", SettingType::Bool, false},
       },
       prefsReady(false) {}
 

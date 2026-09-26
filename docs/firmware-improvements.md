@@ -14,8 +14,10 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 ## État actuel — 26.09.2026
 
 - **Firmware** : lots 1 à 12 du plan faits (commit `7a20d46` sur `main`) ; compile (`turret2`, `turret2_bringup`, `turret2_ota_home`) ; **n'a jamais tourné sur une carte**. Page web testée seulement contre `Turret_firmware/tools/mock_server.py`.
-- **Améliorations** : **lot I1 fait** le 26.09.2026 (A1, A2, D4, D2) sous VS Code ; compile ; vérifications de la page OK ; CI écrite mais pas encore exécutée par GitHub (elle tournera au premier push).
-- **Prochaine action** : lot I2 (A3 journal de crash + coredump, A4 watchdog, D1 tests natifs), ou IL (aides aux mesures) si l'on veut préparer les séances d'oscilloscope.
+- **Améliorations** : **lot I1 fait** le 26.09.2026 (A1, A2, D4, D2) sous VS Code, commit `a54d633` ; compile ; vérifications de la page OK ; **CI GitHub verte** au premier passage.
+- **Lot I2 fait** le 26.09.2026 (A3, A4, D1), non encore poussé ; compile ; `check_web.py` 27/27 ; **tests natifs pas encore exécutés** (pas de compilateur C++ sur le PC Windows : ils tourneront dans la CI au prochain push, ou après installation de MinGW-w64).
+- **Lot IL fait** le 26.09.2026 (L1 à L5), non commité, avec I2.
+- **Prochaine action** : I3 (B1 visée, B3 mode recherche, C1 vue radar).
 - **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
 
@@ -23,11 +25,11 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 
 | Lot | Contenu | Statut | Commit / remarque |
 |---|---|---|---|
-| I1 | A1 radar muet, A2 repos + zone de détection, D4 version git, D2 CI GitHub Actions | fait | 26.09.2026 ; build `turret2` / `turret2_bringup` OK, `tools/check_web.py` 22/22 ; CI pas encore passée sur GitHub |
-| I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | à faire | boîte noire pour la mise en service |
+| I1 | A1 radar muet, A2 repos + zone de détection, D4 version git, D2 CI GitHub Actions | fait | 26.09.2026 ; build `turret2` / `turret2_bringup` OK, `tools/check_web.py` 22/22 ; CI GitHub **réussie** au 1ᵉʳ passage (run 36265316764, commit `a54d633`, 5 min 42 dont 5 min 21 de compilation sans cache) |
+| I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | fait | 26.09.2026 ; build OK, `check_web.py` 27/27 ; tests natifs écrits (12 tests), à exécuter par la CI |
 | I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
-| IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | à faire | petit lot, peut passer avant ou avec I2 ; sert le cahier [experiments.md](experiments.md) |
+| IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026 ; build OK, `check_web.py` 27/27 ; non commité |
 | I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur |
 
 ## Catalogue
@@ -105,6 +107,10 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 | 26.09.2026 | A1 | cibles effacées après 1 s sans trame complète (`Radar::Update`) ; `Idle` n'accepte une cible que si le radar est vivant (même délai) | une cible gardée en mémoire par un radar muet faisait tirer sans fin ; 1 s = une dizaine de trames manquées. Le défaut LED 4 garde son délai de 3 s |
 | 26.09.2026 | A2 | réglages `CooldownMs` (5000, 0..120000), `DetectMaxMm` (3000, 300..6000), `DetectAngle` (45°, 5..60), groupe « Detection » ; cible valable si y > 0, distance ≤ max et \|atan2(x, y)\| ≤ angle ; repos appliqué à **chaque** entrée en `Idle` (après un cycle et après le boot) ; le bouton A / `demo` passent outre | le plus simple et sans état caché ; 60° = champ du LD2450, 6 m = sa portée. Vitesse minimale non retenue (une personne immobile qui entre dans la zone doit déclencher) |
 | 26.09.2026 | D4 | `scripts/git_version.py` (pré-build) → `src/version_gen.h` (ignoré par git, réécrit seulement s'il change) ; `FIRMWARE_VERSION` dans la bannière, `/api/status` (`version`, plus `built` = date de compilation) et la page | un `-D` dans `build_flags` aurait tout recompilé à chaque commit |
+| 26.09.2026 | A3 | journal de crash : 2 Ko de fin de journal en mémoire RTC (`RTC_NOINIT_ATTR`, placée à `0x50000000`, vérifié dans le `.map`), avec nombre magique et bornes ; conservé si le reset n'est pas un POWERON, affiché au boot seulement après un reset de type crash (PANIC, *_WDT, BROWNOUT, UNKNOWN) ; coredump : déjà activé dans le SDK précompilé (flash, ELF, CRC32) → résumé au boot via `esp_core_dump_get_summary` (tâche, PC, backtrace), mis en cache (le contrôle relit toute l'image), téléchargement `GET /api/coredump` par blocs, effacement | pas d'outil à installer pour voir la cause d'un crash ; le décodage complet reste `espcoredump.py` avec le `firmware.elf` du même build |
+| 26.09.2026 | A4 | watchdog de tâche sur `loop()` : `esp_task_wdt_init(8, true)` (l'en-tête IDF 4.4 confirme qu'un 2ᵉ appel met à jour délai et panic) + `enableLoopWDT()`, en fin de `setup()` ; scan I²C interrompu au 1ᵉʳ délai dépassé (code 5 de `endTransmission`) | 8 s plutôt que les 5 s du SDK : marge pour les opérations longues légitimes (effacement du coredump, réglages) ; 112 délais I²C de 50 ms dépasseraient le watchdog |
+| 26.09.2026 | D1 | logique pure extraite dans `src/logic/` (en-têtes sans Arduino) : `RadarLogic.h` (décodage LD2450, zone), `HallLogic.h` (seuils, polarité, rail), `BoardLogic.h` (anti-rebond / appuis, code LED, gain) ; le firmware les utilise (Radar, Wing, Board, Amp) ; env `native` (`platform = native@1.2.1`, Unity), 12 tests dont l'équivalence du décodage avec la formule d'origine sur les 65 536 valeurs ; `pio test -e native` ajouté à la CI | les tests portent sur le code réellement utilisé ; parties trop liées au matériel (servos, I²S, réseau) laissées au simulateur et à la carte |
+| 26.09.2026 | Lot IL | L1 : `LabMarkers` (Bool, groupe Lab, appliqué aussitôt), `Board::Mark(label)` statique (bascule + ligne de journal), repères aux étapes 4 à 10, à chaque attache (`Gantry`) et à la fin du boot ; L2 : balayage servo en triangle, 1 consigne / 20 ms ; balayage de fréquence linéaire dans le générateur de tonalité (`PlayChirp`) ; L3 : `SetBitPattern` (luminosité 255 exacte car `FASTLED_SCALE8_FIXED` = 1, dithering coupé, luminosité restaurée) ; L4 : écart d'attache imposé en RAM (`Gantry::SetStaggerOverride`, 0 → 1 ms « tous ensemble »), ailes en `TestStop` ; L5 : ligne de journal avant le délestage ; balayage et `loadtest` annulés par `Fault` et `resume` | sans annulation, un balayage ou un `loadtest` redemanderait des servos pendant un défaut d'alimentation |
 | 26.09.2026 | D2 | `.github/workflows/firmware.yml` : sur push / PR touchant `Turret_firmware/` ; PlatformIO 6.1.18 figé, cache `~/.platformio` + `libdeps` ; contrôle de la casse des `#include` ; build `turret2` + `turret2_bringup` ; `tools/check_web.py` (simulateur + `node --check`). Tests natifs ajoutés à la CI avec D1 (lot I2) | le runner est sous Linux, sensible à la casse (le fichier `FIringState.cpp` montre que le dépôt a déjà des noms atypiques) |
 
 ## Erreurs, impasses et pièges
@@ -157,3 +163,35 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 **Testé** : `pio run -e turret2 -e turret2_bringup` SUCCESS (`turret2` : flash 1 480 797, 44,3 % ; RAM 75 828, 23,1 %) ; version générée `fd63cb0-dirty` ; `python tools/check_web.py` : 22/22 ; casse des `#include` : 0 écart ; YAML du workflow et script intégré validés (PyYAML + `compile`). **Non testé** : la CI elle-même (au premier push), le radar réel.
 
 **Prochaine étape** : I2 (ou IL).
+
+### 26.09.2026 (4ᵉ entrée) — Lot I2, sous VS Code
+
+**Demande** : « dans l'ordre » (après I1 : lot I2).
+
+**Fait**
+- **A3** : `board/Log` (`CrashLog::Begin`, `PreviousRun`, copie RTC dans `Append`), `board/CoreDump.{h,cpp}` (nouveau), `main.cpp` (`CrashLog::Begin` juste après `board.Begin()`, `PrintCrashReport()` après la bannière), commandes `crashlog` et `coredump [erase]`, routes `GET /api/crashlog`, `GET /api/coredump`, `POST /api/coredump/erase`, statut `crash` ; page : bandeau « The turret crashed » dans Status, carte « Crash report » dans Maintenance.
+- **A4** : watchdog 8 s sur `loop()` ; scan I²C interruptible.
+- **D1** : `src/logic/*.h`, refactorisation de `Radar.cpp`, `Wing.cpp`, `Board.{h,cpp}` (`ButtonEvent` = alias de `logic::PressEvent`), `Amp.cpp` ; `test/test_logic/test_main.cpp` ; env `native` ; étape CI.
+- Simulateur : champ `crash`, routes crash, commande `sim crash on|off` ; `check_web.py` : 5 vérifications de plus.
+- `Turret_firmware/README.md` : diagnostics de crash, tests natifs, commandes, API.
+
+**Testé** : build `turret2` et `turret2_bringup` SUCCESS du premier coup (`turret2` : flash 1 487 157, 44,5 % ; RAM 76 120, 23,2 %) ; `rtcLog` à `0x50000000` dans `.rtc_noinit` (`nm` + `.map`) ; `check_web.py` 27/27. **Non exécuté** : les tests natifs (aucun `gcc` sur ce PC ; WSL absent) — cas vérifiés à la main contre la logique, exécution à la CI. **Non testable sans carte** : crash réel, coredump réel, déclenchement du watchdog.
+
+**Prochaine étape** : IL, puis I3.
+
+### 26.09.2026 (5ᵉ entrée) — Lot IL, sous VS Code
+
+**Demande** : « continue lot II » (compris : lot IL, suivant dans l'ordre). Pas de réponse sur le push du lot I2 : rien n'est commité.
+
+**Fait**
+- **L1** : `board/Board` (`SetLabMarkers`, `Mark`, battement suspendu, état initial synchronisé sur la LED réelle), réglage `LabMarkers`, repères dans `main.cpp` (étapes 4 à 10) et `motion/Gantry` (chaque attache), `Actions::ApplyAllSettings`.
+- **L2** : `sweep servo`, `sweep tone`, `sweep stop` (`control/Actions`) ; `Audio::PlayChirp`.
+- **L3** : `led pattern bit` ; `Light::SetBitPattern`.
+- **L4** : `loadtest <écart>` (phases Attaching → Holding → Returning) ; `Gantry::SetStaggerOverride`.
+- **L5** : `Actions::LoadSnapshot` ; ligne « PWR_FLT event #n » dans `UpdateFaults()`.
+- `Light::IsEnabled`, `Audio::IsPlaying` ; simulateur : réponses pour `sweep`, `loadtest`, `led pattern bit`.
+- Docs : `Turret_firmware/README.md` (aides de labo, réglage `LabMarkers`), [experiments.md](experiments.md) (aides disponibles, X4 avec `loadtest`).
+
+**Testé** : build `turret2` et `turret2_bringup` SUCCESS du premier coup (`turret2` : flash 1 492 605, 44,7 % ; RAM 76 448, 23,3 %) ; `check_web.py` 27/27. Sans carte : rien de mesuré.
+
+**Prochaine étape** : I3.

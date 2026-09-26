@@ -41,10 +41,36 @@ void Light::SetTestColor(uint8_t stripMask, CRGB color) {
   testColor = color;
 }
 
-void Light::ClearTest() { testMode = false; }
+void Light::ClearTest() {
+  testMode = false;
+  SetBitPattern(false);
+}
+
+void Light::SetBitPattern(bool enabled) {
+  if (enabled == bitPattern) {
+    return;
+  }
+  bitPattern = enabled;
+  if (enabled) {
+    savedBrightness = FastLED.getBrightness();
+    FastLED.setBrightness(255); // scale8 is exact at 255 (FASTLED_SCALE8_FIXED)
+    FastLED.setDither(DISABLE_DITHER);
+  } else {
+    FastLED.setBrightness(savedBrightness);
+    FastLED.setDither(BINARY_DITHER);
+  }
+}
 
 void Light::Update(ulong deltaTime) {
   if (!enabled) {
+    return;
+  }
+  if (bitPattern) {
+    fill_solid(centerLeds, 9, CRGB::Black);
+    fill_solid(leftLeds, 2, CRGB::Black);
+    fill_solid(rightLeds, 2, CRGB::Black);
+    centerLeds[0] = CRGB(0x80, 0x00, 0x00);
+    FastLED.show(); // no Show(): the channel swap of LED 8 does not matter here
     return;
   }
   if (testMode) {

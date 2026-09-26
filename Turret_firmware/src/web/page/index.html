@@ -38,6 +38,7 @@ input[type=range]{width:100%}
 <header><h1>Portal Turret</h1><span id="state" class="badge">…</span><span id="faults"></span></header>
 <nav id="tabs"></nav>
 <main>
+<div id="cdwarn" class="warn" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>
 <div id="pwwarn" class="warn" hidden>The WiFi / web password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
 
 <section id="t-status">
@@ -94,6 +95,12 @@ input[type=range]{width:100%}
 <div class="row"><input type="file" id="fw" accept=".bin"><button class="primary" id="fwgo">Upload</button></div>
 <small id="fwmsg">The turret stops before the upload and reboots afterwards.</small>
 </div>
+<div class="card"><h2>Crash report</h2>
+<div class="row" id="crashinfo">–</div>
+<div class="row"><button id="crashlog">Log of the previous run</button><a id="cddl" href="/api/coredump" download="coredump.elf"><button>Download core dump</button></a><button id="cderase">Erase core dump</button></div>
+<pre id="crashtext" hidden></pre>
+<small>Decode with the firmware.elf of the same build: espcoredump.py --chip esp32s3 info_corefile -c coredump.elf firmware.elf</small>
+</div>
 <div class="card"><h2>System</h2>
 <div class="row"><button id="reboot">Reboot</button><button id="factory">Reset all settings</button></div>
 </div>
@@ -121,6 +128,10 @@ async function loadStatus(){
  $("#state").textContent=st.state;
  $("#faults").innerHTML=st.faults.map(n=>`<span class="badge bad">${n} ${FAULTS[n]}</span>`).join(" ");
  $("#pwwarn").hidden=!st.wifi.defaultPassword;
+ const cr=st.crash||{coredump:0,previousLog:false,summary:""};
+ $("#cdwarn").hidden=!cr.coredump;
+ $("#crashinfo").textContent=cr.coredump?`Core dump: ${cr.coredump} bytes, ${cr.summary}`:"No core dump."+(cr.previousLog?" A log of the previous run is available.":"");
+ $("#cddl").hidden=!cr.coredump;$("#cderase").hidden=!cr.coredump;$("#crashlog").hidden=!cr.previousLog;
  const sv=Object.entries(st.servos).map(([k,v])=>`${k} ${v===null?"–":v}`).join(", ");
  $("#status").innerHTML=[
   kv("Uptime",up(st.uptimeMs)),kv("Reset",esc(st.resetReason)),kv("PWR_FLT",st.pwrFlt?"LOW":"ok",st.pwrFlt?"bad":"okc"),
@@ -200,6 +211,8 @@ $("#cmd").onkeydown=e=>{if(e.key=="Enter")$("#cmdgo").click()};
 async function loadLog(){const p=$("#log");const bottom=p.scrollTop+p.clientHeight>=p.scrollHeight-8;p.textContent=await (await fetch("/api/log")).text();if(bottom)p.scrollTop=p.scrollHeight}
 $("#logref").onclick=loadLog;
 
+$("#crashlog").onclick=async()=>{const p=$("#crashtext");p.textContent=await (await fetch("/api/crashlog")).text();p.hidden=false};
+$("#cderase").onclick=()=>{if(confirm("Erase the core dump? Download it first if you want to analyse it."))post("/api/coredump/erase",{})};
 $("#reboot").onclick=()=>{if(confirm("Reboot the turret?"))post("/api/reboot",{})};
 $("#factory").onclick=()=>{if(confirm("Reset ALL settings, including the WiFi password?"))post("/api/settings/reset",{}).then(()=>setTimeout(loadSettings,500))};
 $("#fwgo").onclick=()=>{const f=$("#fw").files[0];if(!f)return;const x=new XMLHttpRequest(),fd=new FormData();fd.append("firmware",f);

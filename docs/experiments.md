@@ -71,7 +71,7 @@ Créé le 26.09.2026. Des expériences pour **comprendre et vérifier** la carte
 ### X4. Démarrage échelonné des servos
 
 - **Montage** : comme X3, voie 1 seule, 50 ms/div ou 100 ms/div.
-- **Action** : `set ServoStagger 50`, `reboot`, capturer ; puis `set ServoStagger 250`, `reboot`, capturer. (Ou la commande « cycle de charge » L4 quand elle existera.)
+- **Action** : `loadtest 50`, capturer ; puis `loadtest 250`, capturer (L4, sans redémarrer). Variante au boot : `set ServoStagger 50`, `reboot`, capturer, puis 250.
 - **Attendu** : à 50 ms, les creux se rapprochent ou se cumulent ; à 250 ms, ils sont séparés et le creux maximal est plus faible.
 - **On apprend** : pourquoi le firmware attache les servos un par un (limite de l'eFuse à 3,86 A).
 - **Mesures** : creux max à 50 ms = ____ mV ; à 250 ms = ____ mV ; valeur retenue pour `ServoStagger` = ____
@@ -177,17 +177,17 @@ Montage commun : PPK2 en **mode source à 5,0 V**, relié à l'entrée de la tou
 
 ---
 
-## Aides firmware à ajouter (catalogue L de [firmware-improvements.md](firmware-improvements.md))
+## Aides firmware (catalogue L de [firmware-improvements.md](firmware-improvements.md)) — disponibles depuis le 26.09.2026
 
 | # | Aide | Sert à |
 |---|---|---|
-| L1 | **Repères de boot** : réglage `LabMarkers` ; la LED verte change d'état à chaque étape du boot et à chaque attachement de servo | aligner une courbe (oscilloscope, PPK2) sur le code — X4, X13 |
-| L2 | **Balayages** : `sweep servo <n> <ms>` (lent, aller-retour), `sweep tone <Hz début> <Hz fin> <ms>` | X6, X11 |
-| L3 | **Motif NeoPixel de test** : `led pattern bit` (un seul bit à 1, trame fixe répétée) | lire les bits à l'oscilloscope — X7 |
-| L4 | **Cycle de charge** : `loadtest <écart ms>` attache et bouge tous les servos avec l'écart donné, puis les détache | X4 sans redémarrer |
-| L5 | **Événements PWR_FLT horodatés** dans le log, avec l'état en cours (servos attachés, LEDs, son) | corréler un défaut avec ce qui tournait |
+| L1 | **Repères** : `set LabMarkers true` ; la LED verte ne clignote plus en battement, elle **change d'état** à chaque étape du boot (à partir de l'étape 4, une fois les réglages lus) et à chaque attachement de servo ; chaque bascule est aussi écrite dans le journal avec son instant (`Mark 1234 ms: rotate Z`) | aligner une courbe (oscilloscope, PPK2) sur le code — X4, X13 |
+| L2 | **Balayages** : `sweep servo <n> <ms>` (0° → 180° → 0°), `sweep tone <Hz début> <Hz fin> <ms>`, `sweep stop` | X6, X11 |
+| L3 | **Motif NeoPixel de test** : `led pattern bit` — 1ʳᵉ LED de l'anneau = rouge 0x80, tout le reste à 0 : seul le **9ᵉ bit sur 24** est à 1 (ordre GRB), luminosité 255 et pas de dithering ; `led off` pour sortir | lire les bits à l'oscilloscope — X7 |
+| L4 | **Cycle de charge** : `loadtest <écart ms>` commande les 6 servos (rotations à 110°, canons sortis, ailes à leur point d'arrêt), attachés à `écart` ms d'intervalle (0 = tous ensemble), maintien 1 s, retour, relâchement ; temps d'attache dans le journal ; refusé en mode banc | X4 sans redémarrer |
+| L5 | **Événements PWR_FLT horodatés** dans le journal : numéro, instant (et heure si NTP), servos attachés, son, ampli, LEDs, état | corréler un défaut avec ce qui tournait |
 
-Jusqu'à ce que ces aides existent, les expériences marchent avec les commandes actuelles (`servo`, `tone`, `led`, `set`, `demo`, `reboot`).
+Un défaut d'alimentation ou `resume` annule un balayage ou un cycle de charge en cours.
 
 ## Résultats — journal des séances
 

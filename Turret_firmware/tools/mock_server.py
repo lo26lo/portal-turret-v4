@@ -76,7 +76,7 @@ settings = parse_settings()
 state = {
     "state": "Idle", "pwrFlt": False, "radar": True, "imu": True, "muted": False, "gain": 9,
     "wingPos": 0.0, "wingTarget": 0.0, "servos": {n: None for n in SERVO_NAMES}, "powerFaults": 0,
-    "wifiOn": True, "joinAt": None, "timeSet": False, "scanUntil": 0,
+    "wifiOn": True, "joinAt": None, "timeSet": False, "scanUntil": 0, "crash": False,
 }
 
 
@@ -167,6 +167,9 @@ def status():
                          "ip": "192.168.1.42" if sta_connected() else "",
                          "rssi": -58}},
         "time": time.strftime("%Y-%m-%d %H:%M:%S") if state["timeSet"] else "",
+        "crash": {"previousLog": state["crash"], "coredump": 24576 if state["crash"] else 0,
+                  "summary": "task loopTask, PC 0x42012345, backtrace 0x42012345 0x42009876 0x4200abcd"
+                  if state["crash"] else ""},
         "freeHeap": 181234,
     }
 
@@ -210,6 +213,9 @@ def execute(line):
                 return "Fault: load shed (servos detached, amp muted, LEDs off)"
             state["state"] = "Idle"
             return "Fault: PWR_FLT high for 2 s, resuming"
+        if args[0] == "crash":
+            state["crash"] = on
+            return "sim crash " + ("on: core dump and previous log available" if on else "off")
         if args[0] in ("radar", "imu"):
             state[args[0]] = on
             return f"sim {args[0]} {'on' if on else 'off'}"
@@ -255,6 +261,9 @@ def execute(line):
     if cmd == "wifi":
         return "access point on, clients: 1; home network: " + (
             "not configured" if not setting("StaSsid")["value"] else setting("StaSsid")["value"])
+    if cmd == "coredump" and arg == "erase":
+        state["crash"] = False
+        return "core dump erased"
     if cmd == "time":
         return time.strftime("%Y-%m-%d %H:%M:%S") if state["timeSet"] else "time not set (no NTP yet)"
     if state["state"] == "Fault" and cmd in ("servo", "led", "wings", "guns", "trim", "demo"):
@@ -281,7 +290,13 @@ def execute(line):
         state["servos"][name] = us
         return f"{name} -> {us} us"
     if cmd == "led":
+        if arg == "pattern bit":
+            return "LED pattern: ring LED 1 = red 0x80, all else 0 (9th bit of 24 set, GRB order)"
         return "LED test off" if "off" in args else f"LED {arg}"
+    if cmd == "sweep":
+        return "sweep stopped" if arg == "stop" else f"sweep {arg} (simulated)"
+    if cmd == "loadtest" and args:
+        return f"load test: 6 servos, {args[0]} ms apart (simulated)"
     if cmd == "trim" and len(args) == 2:
         return f"wing {args[0]} at 1500 {args[1]} us for 2 s (not saved: set WingTrimL/R)"
     return f'unknown command "{cmd}" (help)'
@@ -335,7 +350,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not self.authorized():
             return
-        if self.path == "/api/wifi/scan":
+        if self.path == "/api/crashlog":
+            text = ("I (8123) Wing Movement Timeout\nWiFi: lost \"Livebox-3F2A\", retrying\n"
+                    "Servo rotate X attached (1450 us)\n") if state["crash"] else ""
+            self.reply(200, text, "text/plain; charset=utf-8")
+        elif self.path == "/api/coredump":
+            if state["crash"]:
+                self.reply(200, b"\x7fELF" + bytes(24572), "application/octet-stream")
+            else:
+                self.reply(404, "no core dump", "text/plain")
+        elif self.path == "/api/wifi/scan":
             with lock:
                 scanning = time.time() < state["scanUntil"]
                 self.reply(200, json.dumps({"scanning": scanning, "networks": [] if scanning else FAKE_NETWORKS}))
@@ -379,6 +403,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(400, '{"error":"cmd missing"}')
                 return
             self.queue(data["cmd"])
+            self.reply(202, '{"queued":1}')
+        elif self.path == "/api/coredump/erase":
+            self.queue("coredump erase")
             self.reply(202, '{"queued":1}')
         elif self.path == "/api/reboot":
             self.queue("reboot")

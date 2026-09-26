@@ -1,6 +1,7 @@
 #include "board/Log.h"
 #include "Wing.h"
 #include "Arduino.h"
+#include "logic/HallLogic.h"
 #include "pins.h"
 
 // Continuous rotation servos stop at 1500 us + trim (WingTrimL / WingTrimR).
@@ -10,8 +11,6 @@
 #define SPEED_US 475
 #define MOVE_TIMEOUT_MS 2000
 // Hall sensor diagnostics (plan §7 lot 8).
-#define HALL_RAIL_LOW 15
-#define HALL_RAIL_HIGH 4080
 #define HALL_RAIL_MS 1000   // at a rail for this long = unplugged or shorted
 #define HALL_MIN_SWING 150  // less change than this during a movement = stuck
 
@@ -37,15 +36,10 @@ void Wing::ApplySettings() {
   trimUs = settings->GetInt(left ? SettingId::WingTrimL : SettingId::WingTrimR);
 }
 
-// The magnet can be mounted either way round: if the "open" threshold is
-// below the "closed" one, the comparisons are reversed.
-bool Wing::IsPastOpen(uint16_t value) const {
-  return hallOpen >= hallClosed ? value >= hallOpen : value <= hallOpen;
-}
+// Polarity handled in logic/HallLogic.h (tested natively).
+bool Wing::IsPastOpen(uint16_t value) const { return logic::HallPastOpen(value, hallOpen, hallClosed); }
 
-bool Wing::IsPastClosed(uint16_t value) const {
-  return hallOpen >= hallClosed ? value <= hallClosed : value >= hallClosed;
-}
+bool Wing::IsPastClosed(uint16_t value) const { return logic::HallPastClosed(value, hallOpen, hallClosed); }
 
 uint16_t Wing::ReadHall() {
   lastHall = analogRead(hallSensorPin);
@@ -131,7 +125,7 @@ void Wing::Update(ulong deltaTime) {
   gun.Update(millis());
 
   // Rail check at all times.
-  if (hallValue <= HALL_RAIL_LOW || hallValue >= HALL_RAIL_HIGH) {
+  if (logic::HallAtRail(hallValue)) {
     railTime += deltaTime;
     if (railTime >= HALL_RAIL_MS && !hallFault) {
       hallFault = true;

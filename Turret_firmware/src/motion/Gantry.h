@@ -30,6 +30,8 @@ public:
   bool HasPendingAttach();
   void DetachAll();
   bool HasHallFault() const;
+  // L4 (loadtest): attach gap imposed in RAM; 0 = back to ServoStagger.
+  void SetStaggerOverride(ulong ms) { staggerOverrideMs = ms; }
 
   // Servo outputs, in attach priority order (plan §3.2 step 11).
   static const uint8_t CHANNEL_COUNT = 6;
@@ -44,6 +46,7 @@ private:
   float ANGLE_OFFSET_X = -3.4;
   float ANGLE_OFFSET_Z = 0;
   ulong servoStaggerMs = 250;
+  ulong staggerOverrideMs = 0;
   ulong servoIdleMs = 5000;
   ulong lastAttachAt = 0;
   bool attachedOnce = false;

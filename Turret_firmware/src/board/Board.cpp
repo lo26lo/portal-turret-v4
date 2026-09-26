@@ -46,33 +46,19 @@ bool IsSuspicious(esp_reset_reason_t reason) {
 
 // ---------------------------------------------------------------- Button
 
+Button::Button(uint8_t pin) : pin(pin), debouncer(DEBOUNCE_MS, LONG_PRESS_MS) {}
+
 void Button::Initialize() {
   // External 10k pull-up + 100 nF on the board, active low.
   pinMode(pin, INPUT);
-  rawDown = stableDown = digitalRead(pin) == LOW;
-  rawChangedAt = downSince = millis();
   // A button already held at boot is not an event (A + B is read by Board::Begin).
-  longSent = stableDown;
+  debouncer.Reset(digitalRead(pin) == LOW, millis());
 }
 
 void Button::Update(ulong now) {
-  bool down = digitalRead(pin) == LOW;
-  if (down != rawDown) {
-    rawDown = down;
-    rawChangedAt = now;
-  }
-  if (rawDown != stableDown && now - rawChangedAt >= DEBOUNCE_MS) {
-    stableDown = rawDown;
-    if (stableDown) {
-      downSince = now;
-      longSent = false;
-    } else if (!longSent) {
-      pending = ButtonEvent::ShortPress;
-    }
-  }
-  if (stableDown && !longSent && now - downSince >= LONG_PRESS_MS) {
-    longSent = true;
-    pending = ButtonEvent::LongPress;
+  ButtonEvent event = debouncer.Update(digitalRead(pin) == LOW, now);
+  if (event != ButtonEvent::None) {
+    pending = event;
   }
 }
 
@@ -84,7 +70,33 @@ ButtonEvent Button::TakeEvent() {
 
 // ---------------------------------------------------------------- Board
 
-Board::Board() : buttonA(PIN_BUTTON_A), buttonB(PIN_BUTTON_B) {}
+namespace {
+Board *instance = nullptr; // for the static Mark()
+} // namespace
+
+Board::Board() : buttonA(PIN_BUTTON_A), buttonB(PIN_BUTTON_B) { instance = this; }
+
+void Board::SetLabMarkers(bool enabled) {
+  if (enabled == labMarkers) {
+    return;
+  }
+  labMarkers = enabled;
+  // Start from the real LED state: steady on during boot, off afterwards.
+  markerLevel = !bootDone;
+  digitalWrite(PIN_LED_GREEN, markerLevel ? HIGH : LOW);
+  if (enabled) {
+    Log.println("Lab markers on: the green LED toggles at each boot step and servo attachment");
+  }
+}
+
+void Board::Mark(const char *label) {
+  if (instance == nullptr || !instance->labMarkers) {
+    return;
+  }
+  instance->markerLevel = !instance->markerLevel;
+  digitalWrite(PIN_LED_GREEN, instance->markerLevel ? HIGH : LOW);
+  Log.printf("Mark %lu ms: %s (green %s)\n", millis(), label, instance->markerLevel ? "on" : "off");
+}
 
 void Board::Begin() {
   // 1. Amplifier muted (SD low), then gain pins released: open drain, '1' = high
@@ -176,7 +188,11 @@ void Board::PrintBanner() {
 
 void Board::BootDone() {
   bootDone = true;
-  digitalWrite(PIN_LED_GREEN, LOW);
+  if (labMarkers) {
+    Mark("boot done");
+  } else {
+    digitalWrite(PIN_LED_GREEN, LOW);
+  }
   digitalWrite(PIN_LED_RED, LOW);
   redCode = 0;
   redStep = 0;
@@ -214,6 +230,9 @@ void Board::UpdateBootLoopCounter(ulong now) {
 }
 
 void Board::UpdateGreenLed(ulong now) {
+  if (labMarkers) {
+    return; // the green LED belongs to Mark()
+  }
   digitalWrite(PIN_LED_GREEN, (now % HEARTBEAT_PERIOD_MS) < HEARTBEAT_ON_MS ? HIGH : LOW);
 }
 
@@ -221,13 +240,7 @@ void Board::UpdateGreenLed(ulong now) {
 // A new code is only picked up at the start of a repetition.
 void Board::UpdateRedLed(ulong now) {
   if (redStep == 0) {
-    redCode = 0;
-    for (uint8_t n = 1; n <= 8; n++) {
-      if (faults & (1u << (n - 1))) {
-        redCode = n;
-        break;
-      }
-    }
+    redCode = logic::LowestFault(faults);
     if (redCode == 0) {
       digitalWrite(PIN_LED_RED, LOW);
       return;

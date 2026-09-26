@@ -62,9 +62,15 @@ uint8_t Scan() {
   uint8_t found = 0;
   Log.print("I2C scan:");
   for (uint8_t address = 0x08; address < 0x78; address++) {
-    if (Probe(address)) {
+    Wire.beginTransmission(address);
+    uint8_t result = Wire.endTransmission();
+    if (result == 0) {
       Log.printf(" 0x%02X", address);
       found++;
+    } else if (result == 5) {
+      // Bus timeout: 112 of them would block loop() long enough for the watchdog.
+      Log.print(" bus timeout, scan stopped (stuck bus?)");
+      break;
     }
   }
   Log.println(found ? "" : " no device");

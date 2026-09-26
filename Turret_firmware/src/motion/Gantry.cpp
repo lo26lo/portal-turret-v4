@@ -2,6 +2,7 @@
 #include "motion/Gantry.h"
 
 #include "Arduino.h"
+#include "board/Board.h"
 #include "pins.h"
 
 Gantry::Gantry()
@@ -65,7 +66,8 @@ void Gantry::Update(ulong deltaTime) {
 // At most one servo starts per ServoStagger window: several servos jumping to
 // their target together draw 3 to 4 A, the limit of the eFuse (plan §4).
 void Gantry::RunAttachSchedule(ulong now) {
-  if (attachedOnce && now - lastAttachAt < servoStaggerMs) {
+  ulong gap = staggerOverrideMs ? staggerOverrideMs : servoStaggerMs;
+  if (attachedOnce && now - lastAttachAt < gap) {
     return;
   }
   for (uint8_t i = 0; i < CHANNEL_COUNT; i++) {
@@ -75,6 +77,7 @@ void Gantry::RunAttachSchedule(ulong now) {
       lastAttachAt = now;
       attachedOnce = true;
       Log.printf("Servo %s attached (%d us)\n", channel.GetName(), channel.GetMicroseconds());
+      Board::Mark(channel.GetName()); // L1 lab marker
       return;
     }
   }

@@ -1,5 +1,6 @@
 #include "TurretWebServer.h"
 
+#include "board/CoreDump.h"
 #include "board/Log.h"
 #include "control/Actions.h"
 #include "settings/Settings.h"
@@ -198,6 +199,27 @@ void TurretWebServer::Initialize(Settings& settingsIn, Actions& actionsIn, Stati
       request->redirect("http://192.168.4.1/");
     }).skipServerMiddlewares();
   }
+
+  // A3: log tail of the previous run, and the core dump (ELF, streamed in chunks).
+  webServer.on("/api/crashlog", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain; charset=utf-8", CrashLog::PreviousRun());
+  });
+  webServer.on("/api/coredump", HTTP_GET, [](AsyncWebServerRequest* request) {
+    size_t size = CoreDump::Size();
+    if (size == 0) {
+      request->send(404, "text/plain", "no core dump");
+      return;
+    }
+    AsyncWebServerResponse* response = request->beginResponse(
+        "application/octet-stream", size,
+        [](uint8_t* buffer, size_t maxLen, size_t index) -> size_t { return CoreDump::Read(index, buffer, maxLen); });
+    response->addHeader("Content-Disposition", "attachment; filename=\"coredump.elf\"");
+    request->send(response);
+  });
+  webServer.on("/api/coredump/erase", HTTP_POST, [this](AsyncWebServerRequest* request) {
+    bool ok = actions->Enqueue("coredump erase");
+    request->send(ok ? 202 : 503, "application/json", ok ? "{\"queued\":1}" : "{\"queued\":0}");
+  });
 
   webServer.on("/api/log", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/plain; charset=utf-8", Log.Tail());

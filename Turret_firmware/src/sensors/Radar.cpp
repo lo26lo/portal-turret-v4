@@ -1,5 +1,6 @@
 #include "board/Log.h"
 #include "Radar.h"
+#include "logic/RadarLogic.h"
 #include "pins.h"
 
 void Radar::Initialize() {
@@ -26,12 +27,7 @@ void Radar::Update(ulong deltaTime) {
 }
 
 bool Radar::IsInZone(const RadarTarget &target, int32_t maxDistanceMm, int32_t halfAngleDeg) const {
-  if (!target.available || target.y <= 0) {
-    return false; // y is the distance in front of the radar
-  }
-  float distance = sqrtf((float)target.x * target.x + (float)target.y * target.y);
-  float angle = fabsf(atan2f((float)target.x, (float)target.y)) * 180.0f / PI;
-  return distance <= maxDistanceMm && angle <= halfAngleDeg;
+  return target.available && logic::IsInZone(target.x, target.y, maxDistanceMm, halfAngleDeg);
 }
 
 int8_t Radar::FirstTargetInZone(int32_t maxDistanceMm, int32_t halfAngleDeg) const {
@@ -114,27 +110,12 @@ void Radar::UpdateSerialData() {
             if (combinedBytes != 0x00) {
               // Valid target;
 
-              int16_t x = (int16_t)(messageBuffer[index] |
-                                    (messageBuffer[index + 1] << 8));
-              int16_t y = (int16_t)(messageBuffer[index + 2] |
-                                    (messageBuffer[index + 3] << 8));
-              int16_t speed = (int16_t)(messageBuffer[index + 4] |
-                                        (messageBuffer[index + 5] << 8));
+              // Sign in bit 15 (set = positive): logic/RadarLogic.h, tested natively.
+              int16_t x = logic::DecodeLd2450(messageBuffer[index], messageBuffer[index + 1]);
+              int16_t y = logic::DecodeLd2450(messageBuffer[index + 2], messageBuffer[index + 3]);
+              int16_t speed = logic::DecodeLd2450(messageBuffer[index + 4], messageBuffer[index + 5]);
               uint16_t resolution = (uint16_t)(messageBuffer[index + 6] |
                                                (messageBuffer[index + 7] << 8));
-
-              if (messageBuffer[index + 1] & 0x80)
-                x -= 0x8000;
-              else
-                x = -x;
-              if (messageBuffer[index + 3] & 0x80)
-                y -= 0x8000;
-              else
-                y = -y;
-              if (messageBuffer[index + 5] & 0x80)
-                speed -= 0x8000;
-              else
-                speed = -speed;
 
               radarTarget.previousX = radarTarget.x;
               radarTarget.previousY = radarTarget.y;

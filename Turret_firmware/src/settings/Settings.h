@@ -29,6 +29,7 @@ enum SettingId {
   StaSsid,
   StaPassword,
   Timezone,
+  LabMarkers,
   COUNT
 };
 

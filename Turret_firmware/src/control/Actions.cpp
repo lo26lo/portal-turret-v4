@@ -1,5 +1,6 @@
 #include "Actions.h"
 
+#include "board/CoreDump.h"
 #include "board/I2cBus.h"
 #include "board/Log.h"
 #include "states/StateMachine.h"
@@ -82,6 +83,12 @@ void Actions::Initialize(Turret &turretIn, StateMachine &stateMachineIn, AccessP
 
 void Actions::Update() {
   ReadConsole();
+  // A power fault cancels the lab tests: they would ask for servos again.
+  if (stateMachine->GetCurrentStateId() == StateId::Fault) {
+    CancelLabTests();
+  }
+  UpdateSweep(millis());
+  UpdateLoadTest(millis());
 
   QueuedLine item;
   while (queue != nullptr && xQueueReceive(queue, &item, 0) == pdTRUE) {
@@ -152,6 +159,7 @@ void Actions::ApplyAllSettings() {
   turret->gantry.ApplySettings();
   turret->audio.ApplySettings();
   turret->light.ApplySettings(turret->settings, turret->board.IsReducedMode());
+  turret->board.SetLabMarkers(turret->settings.GetBool(SettingId::LabMarkers));
 }
 
 bool Actions::EnterTestMode(String &error) {
@@ -204,6 +212,18 @@ String Actions::Execute(const String &line) {
     return String(Board::ResetReasonName(turret->board.GetResetReason())) +
            ", suspicious boots in a row: " + String(turret->board.GetBootLoopCount()) +
            ", brownouts: " + String(turret->board.GetBrownoutCount());
+  }
+  if (command == "crashlog") {
+    const String &previous = CrashLog::PreviousRun();
+    return previous.length() ? "---- previous run ----\n" + previous : String("no log from a previous run (power-up)");
+  }
+  if (command == "coredump") {
+    if (args == "erase") {
+      return CoreDump::Erase() ? "core dump erased" : "erase failed";
+    }
+    return CoreDump::Size() ? "core dump: " + String(CoreDump::Size()) + " bytes, " + CoreDump::Summary() +
+                                  "\n(download: GET /api/coredump)"
+                            : String("no core dump");
   }
   if (command == "get") {
     return GetCommand(args);
@@ -284,6 +304,7 @@ String Actions::Execute(const String &line) {
     }
     turret->light.ClearTest();
     turret->audio.StopTone();
+    CancelLabTests();
     // Booting re-homes the mechanics; bench / reduced modes end in Manual again.
     stateMachine->GoToState(StateId::Booting);
     return "resuming (homing, then Idle)";
@@ -311,6 +332,26 @@ String Actions::Execute(const String &line) {
       return error;
     }
     return LedCommand(args);
+  }
+  if (command == "sweep") {
+    if (args == "stop") {
+      sweepChannel = -1;
+      turret->audio.StopTone();
+      return "sweep stopped";
+    }
+    if (!EnterTestMode(error)) {
+      return error;
+    }
+    return SweepCommand(args);
+  }
+  if (command == "loadtest") {
+    if (turret->board.IsBenchMode()) {
+      return "refused: bench mode (one servo at a time)";
+    }
+    if (!EnterTestMode(error)) {
+      return error;
+    }
+    return LoadTestCommand(args);
   }
   if (command == "wings") {
     if (!EnterTestMode(error)) {
@@ -368,12 +409,14 @@ String Actions::Execute(const String &line) {
 
 String Actions::Help() {
   return "Commands:\n"
-         "  status | scan | imu | hall | flt | reset-reason\n"
+         "  status | scan | imu | hall | flt | reset-reason | crashlog | coredump [erase]\n"
          "  get [key] | set <key> <value> | reset-settings [group]\n"
          "  servo <0-5|rotz|rotx|gunl|gunr|wingl|wingr> <angle 0-180|us 500-2400|off>\n"
          "  wings open|close | guns extend|retract | trim left|right <us>\n"
          "  led ring|left|right|all <RRGGBB|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
          "  wifi [on|off|scan|join] | time | demo | resume | reboot\n"
+         "Lab: sweep servo <n> <ms> | sweep tone <Hz start> <Hz end> <ms> | sweep stop\n"
+         "     led pattern bit | loadtest <gap ms> | set LabMarkers true|false\n"
          "Tests stop the state machine (Manual); \"resume\" homes and goes back to Idle.";
 }
 
@@ -413,6 +456,10 @@ String Actions::ServoCommand(const String &args) {
 String Actions::LedCommand(const String &args) {
   String colorText;
   String strip = FirstWord(args, colorText);
+  if (strip == "pattern" && colorText == "bit") {
+    turret->light.SetBitPattern(true);
+    return "LED pattern: ring LED 1 = red 0x80, all else 0 (9th bit of 24 set, GRB order); \"led off\" to leave";
+  }
   uint8_t mask = strip == "ring" ? 1 : strip == "left" ? 2 : strip == "right" ? 4 : strip == "all" ? 7 : 0;
   if (strip == "off" || colorText == "off") {
     turret->light.ClearTest();
@@ -424,6 +471,153 @@ String Actions::LedCommand(const String &args) {
   uint32_t rgb = strtoul(colorText.c_str(), nullptr, 16);
   turret->light.SetTestColor(mask, CRGB(rgb));
   return "LED " + strip + " = #" + colorText;
+}
+
+// ------------------------------------------------------------------ lab aids
+
+String Actions::SweepCommand(const String &args) {
+  String rest;
+  String what = FirstWord(args, rest);
+  if (what == "servo") {
+    String msText;
+    int index = ServoIndex(FirstWord(rest, msText));
+    ulong ms = msText.toInt();
+    if (index < 0 || ms < 500 || ms > 60000) {
+      return "usage: sweep servo <0-5|rotz|rotx|gunl|gunr|wingl|wingr> <500..60000 ms>";
+    }
+    sweepChannel = index;
+    sweepStart = millis();
+    sweepDuration = ms;
+    sweepLastWrite = 0;
+    return String("sweeping ") + turret->gantry.GetChannel(index).GetName() + " 0 -> 180 -> 0 deg in " +
+           String(ms) + " ms";
+  }
+  if (what == "tone") {
+    String a, b;
+    uint32_t start = FirstWord(rest, a).toInt();
+    uint32_t end = FirstWord(a, b).toInt();
+    uint32_t ms = b.toInt();
+    if (start < 20 || end < 20 || start > 20000 || end > 20000 || ms == 0 || ms > 30000) {
+      return "usage: sweep tone <20..20000 Hz> <20..20000 Hz> <ms <= 30000>";
+    }
+    turret->audio.PlayChirp(start, end, ms);
+    return "tone sweep " + String(start) + " -> " + String(end) + " Hz in " + String(ms) + " ms";
+  }
+  return "usage: sweep servo <n> <ms> | sweep tone <Hz> <Hz> <ms> | sweep stop";
+}
+
+void Actions::UpdateSweep(ulong now) {
+  if (sweepChannel < 0) {
+    return;
+  }
+  // One command per servo period is enough.
+  if (sweepLastWrite != 0 && now - sweepLastWrite < 20) {
+    return;
+  }
+  sweepLastWrite = now;
+  ulong elapsed = now - sweepStart;
+  ServoChannel &channel = turret->gantry.GetChannel(sweepChannel);
+  if (elapsed >= sweepDuration) {
+    channel.SetAngle(0);
+    sweepChannel = -1;
+    Log.println("sweep done");
+    return;
+  }
+  // Triangle: 0 -> 180 over the first half, back to 0 over the second.
+  float phase = (float)elapsed / sweepDuration;
+  int angle = (int)(phase < 0.5f ? phase * 2 * 180 : (1 - phase) * 2 * 180);
+  channel.SetAngle(angle);
+}
+
+String Actions::LoadTestCommand(const String &args) {
+  long gap = args.toInt();
+  if (gap < 0 || gap > 2000 || args.length() == 0) {
+    return "usage: loadtest <gap 0..2000 ms> (0 = all together)";
+  }
+  if (loadPhase != LoadPhase::Off) {
+    return "load test already running";
+  }
+  Gantry &gantry = turret->gantry;
+  Settings &settings = turret->settings;
+  // 0 would mean "back to the setting": 1 ms is "all together".
+  loadGapMs = gap == 0 ? 1 : gap;
+  gantry.SetStaggerOverride(loadGapMs);
+  // Every servo gets a command; the attach schedule starts them loadGapMs apart.
+  gantry.GetChannel(0).SetAngle(110); // rotate Z
+  gantry.GetChannel(1).SetAngle(110); // rotate X
+  gantry.GetWingLeft().GetGun().Extend();
+  gantry.GetWingRight().GetGun().Extend();
+  // Wings at their stop point (attached, not turning) for the whole test.
+  gantry.GetWingLeft().TestStop(settings.GetInt(SettingId::WingTrimL), 20000);
+  gantry.GetWingRight().TestStop(settings.GetInt(SettingId::WingTrimR), 20000);
+  loadPhase = LoadPhase::Attaching;
+  loadPhaseAt = millis();
+  return "load test: 6 servos, " + String(gap) + " ms apart (see the log)";
+}
+
+void Actions::UpdateLoadTest(ulong now) {
+  Gantry &gantry = turret->gantry;
+  switch (loadPhase) {
+  case LoadPhase::Off:
+    return;
+  case LoadPhase::Attaching:
+    if (!gantry.HasPendingAttach()) {
+      Log.printf("loadtest: all servos attached after %lu ms\n", now - loadPhaseAt);
+      loadPhase = LoadPhase::Holding;
+      loadPhaseAt = now;
+    }
+    return;
+  case LoadPhase::Holding:
+    if (now - loadPhaseAt >= 1000) {
+      gantry.GetChannel(0).SetAngle(90);
+      gantry.GetChannel(1).SetAngle(90);
+      gantry.GetWingLeft().GetGun().Retract();
+      gantry.GetWingRight().GetGun().Retract();
+      loadPhase = LoadPhase::Returning;
+      loadPhaseAt = now;
+    }
+    return;
+  case LoadPhase::Returning:
+    if (now - loadPhaseAt >= 1000) {
+      gantry.DetachAll();
+      gantry.SetStaggerOverride(0);
+      loadPhase = LoadPhase::Off;
+      Log.println("loadtest: done, all servos released");
+    }
+    return;
+  }
+}
+
+void Actions::CancelLabTests() {
+  if (sweepChannel >= 0 || loadPhase != LoadPhase::Off) {
+    Log.println("lab test cancelled");
+  }
+  sweepChannel = -1;
+  if (loadPhase != LoadPhase::Off) {
+    turret->gantry.SetStaggerOverride(0);
+    loadPhase = LoadPhase::Off;
+  }
+}
+
+String Actions::LoadSnapshot() {
+  Gantry &gantry = turret->gantry;
+  String text = "servos";
+  bool any = false;
+  for (uint8_t i = 0; i < Gantry::CHANNEL_COUNT; i++) {
+    if (gantry.GetChannel(i).IsAttached()) {
+      text += any ? "," : " ";
+      text += SERVO_NAMES[i];
+      any = true;
+    }
+  }
+  if (!any) {
+    text += " none";
+  }
+  text += String("; sound ") + (turret->audio.IsPlaying() ? "playing" : "silent");
+  text += String("; amp ") + (turret->audio.amp.IsRunning() ? "on" : "off");
+  text += String("; LEDs ") + (turret->light.IsEnabled() ? "on" : "off");
+  text += String("; state ") + StateMachine::StateName(stateMachine->GetCurrentStateId());
+  return text;
 }
 
 String Actions::GetCommand(const String &args) {
@@ -561,6 +755,10 @@ String Actions::StatusJson() {
   json += ",\"rssi\":" + String(station->GetRssi()) + "}}";
   json += ",\"time\":";
   AppendJsonString(json, Station::LocalTime().c_str());
+  json += String(",\"crash\":{\"previousLog\":") + Bool(CrashLog::PreviousRun().length() > 0) +
+          ",\"coredump\":" + String(CoreDump::Size()) + ",\"summary\":";
+  AppendJsonString(json, CoreDump::Summary().c_str());
+  json += "}";
   json += ",\"freeHeap\":" + String(ESP.getFreeHeap());
   json += "}";
   return json;

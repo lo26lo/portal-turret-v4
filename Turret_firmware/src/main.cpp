@@ -1,5 +1,6 @@
 #include "Turret.h"
 #include "board/Board.h"
+#include "board/CoreDump.h"
 #include "board/I2cBus.h"
 #include "board/Log.h"
 #include "control/Actions.h"
@@ -11,6 +12,7 @@
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
+#include <esp_task_wdt.h>
 
 ulong prevTime;
 
@@ -31,13 +33,35 @@ Actions actions;
 // No radar frame for this long -> red LED code 4 (plan §3.2 step 7).
 const ulong RADAR_TIMEOUT_MS = 3000;
 
+// A4: loop() must come back within this time, or the task watchdog panics.
+const uint32_t LOOP_WATCHDOG_S = 8;
+
 Turret turret{gantry, motion, radar, audio, light, server, settings, board};
+
+// A3: after a crash, the core dump summary and the last lines logged before the reset.
+void PrintCrashReport() {
+  CoreDump::Begin();
+  esp_reset_reason_t reason = board.GetResetReason();
+  bool crash = reason == ESP_RST_PANIC || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT ||
+               reason == ESP_RST_WDT || reason == ESP_RST_BROWNOUT || reason == ESP_RST_UNKNOWN;
+  const String &previous = CrashLog::PreviousRun();
+  if (crash && previous.length() > 0) {
+    Log.println("---- last lines before the reset ----");
+    Log.print(previous);
+    if (!previous.endsWith("\n")) {
+      Log.println();
+    }
+    Log.println("---- end (console: crashlog) ----");
+  }
+}
 
 // Boot order: docs/firmware-plan.md §3.2. Steps 1 to 10 here, 11 to 13 in BootState.
 void setup() {
   // 1. Safe state (< 5 ms): amp muted, gain pins released, LEDs on, inputs,
   //    SW1, buttons and reset reason read.
   board.Begin();
+  // A3: keep the log tail of the previous run (RTC memory) before any message.
+  CrashLog::Begin(board.GetResetReason());
 
   // 2. NeoPixels: black frame and power cap before anything else draws current.
   light.Initialize();
@@ -51,6 +75,7 @@ void setup() {
 #endif
   Log.println("This is a triumph");
   board.PrintBanner();
+  PrintCrashReport();
 
   // 4. Settings (NVS), then LittleFS: mount only, never format automatically,
   //    a failed mount must stay visible instead of silently erasing fire.mp3.
@@ -61,26 +86,34 @@ void setup() {
     settings.ResetToDefaults();
   }
   light.ApplySettings(settings, board.IsReducedMode());
+  // L1: from here on, each step can toggle the green LED (lab markers).
+  board.SetLabMarkers(settings.GetBool(SettingId::LabMarkers));
   if (!LittleFS.begin(false)) {
     Log.println("LittleFS: mount failed (filesystem image not uploaded?)");
     board.SetFault(Fault::LittleFs, true);
   }
+  Board::Mark("step 4 settings + LittleFS");
 
   // 5. I2C on IO35 / IO36 (explicit), bus recovery, scan.
   I2cBus::Begin();
+  Board::Mark("step 5 I2C");
 
   // 6. IMU.
   motion.Initialize(settings);
   board.SetFault(Fault::Imu, !motion.IsAvailable());
+  Board::Mark("step 6 IMU");
 
   // 7. Radar: non blocking, it has been running since power-up.
   radar.Initialize();
+  Board::Mark("step 7 radar");
 
   // 8. Hall sensors: initial wing state. No servo attached yet.
   gantry.Initialize(settings);
+  Board::Mark("step 8 Hall");
 
   // 9. Audio: I2S clocks running, gain set with SD low, 10 ms, then SD high (no pop).
   audio.Initialize(settings, board.IsReducedMode());
+  Board::Mark("step 9 audio");
 
   // 10. WiFi + web server + OTA, before the servos: RF calibration draws a
   //     current peak that must not add up with theirs.
@@ -89,10 +122,16 @@ void setup() {
   station.Start(settings); // home network + NTP, if StaSsid is set
   server.Initialize(settings, actions, station);
   ota.Initialize(server.webServer, actions, TurretWebServer::USERNAME, server.GetPassword());
+  Board::Mark("step 10 WiFi + web");
 
   // 11 to 13: BootState (servos one by one, homing, then Idle).
   stateMachine.Initialize(turret);
   stateMachine.GoToState(StateId::Booting);
+
+  // A4: task watchdog on loop(). A loop blocked for 8 s (I2C, radar, audio...)
+  // panics: the turret restarts, the core dump and the crash log tell why.
+  esp_task_wdt_init(LOOP_WATCHDOG_S, true);
+  enableLoopWDT();
 
   Log.println("Console ready: type help");
   prevTime = millis();
@@ -127,7 +166,14 @@ void UpdateFaults() {
   board.SetFault(Fault::Hall, gantry.HasHallFault());
 
   // Plan §4: PWR_FLT low, even briefly (interrupt) -> shed the load at once.
-  bool powerFault = board.TakePowerFaultEvent() || board.IsPowerFault();
+  bool powerFaultEvent = board.TakePowerFaultEvent();
+  if (powerFaultEvent) {
+    // L5: timestamped, with what was running, before the load is shed.
+    String when = Station::HasTime() ? " (" + Station::LocalTime() + ")" : String("");
+    Log.printf("PWR_FLT event #%u at %lu ms%s: %s\n", (unsigned)board.GetPowerFaultCount(), millis(),
+               when.c_str(), actions.LoadSnapshot().c_str());
+  }
+  bool powerFault = powerFaultEvent || board.IsPowerFault();
   if (powerFault && stateMachine.GetCurrentStateId() != StateId::Fault) {
     stateMachine.GoToState(StateId::Fault);
   }

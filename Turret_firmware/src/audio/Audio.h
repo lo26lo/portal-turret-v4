@@ -24,7 +24,11 @@ public:
   void End();
   // Test tone (console / web page): sine at `hz` for `ms`, at the current volume.
   void PlayTone(uint32_t hz, uint32_t ms);
+  // L2 (lab aid): frequency sweeping linearly from startHz to endHz over ms.
+  void PlayChirp(uint32_t startHz, uint32_t endHz, uint32_t ms);
   void StopTone() { toneSamplesLeft = 0; }
+  // Gunshot or test tone in progress.
+  bool IsPlaying() { return ShootAudio.IsPlaying() || toneSamplesLeft > 0; }
 
   AudioLoop ShootAudio;
   Amp amp;
@@ -40,6 +44,7 @@ private:
   uint32_t toneSamplesLeft = 0;
   float tonePhase = 0;
   float tonePhaseStep = 0;
+  float tonePhaseStepDelta = 0; // per sample, for PlayChirp
   int sampleReadIndex = 0;
   int loopCounter = 0;
   bool isLooping = false;

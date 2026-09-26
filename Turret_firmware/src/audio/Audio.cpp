@@ -58,7 +58,16 @@ void Audio::End() {
 void Audio::PlayTone(uint32_t hz, uint32_t ms) {
   tonePhase = 0;
   tonePhaseStep = 2.0f * PI * hz / SAMPLE_RATE;
+  tonePhaseStepDelta = 0;
   toneSamplesLeft = (uint64_t)SAMPLE_RATE * ms / 1000;
+}
+
+void Audio::PlayChirp(uint32_t startHz, uint32_t endHz, uint32_t ms) {
+  PlayTone(startHz, ms);
+  if (toneSamplesLeft > 0) {
+    float endStep = 2.0f * PI * endHz / SAMPLE_RATE;
+    tonePhaseStepDelta = (endStep - tonePhaseStep) / toneSamplesLeft;
+  }
 }
 
 void Audio::FillTone(uint8_t *buffer, int len) {
@@ -68,6 +77,7 @@ void Audio::FillTone(uint8_t *buffer, int len) {
     if (toneSamplesLeft > 0) {
       sample = (int16_t)(amplitude * sinf(tonePhase));
       tonePhase += tonePhaseStep;
+      tonePhaseStep += tonePhaseStepDelta;
       if (tonePhase > 2.0f * PI) {
         tonePhase -= 2.0f * PI;
       }

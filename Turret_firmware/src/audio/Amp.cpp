@@ -1,5 +1,6 @@
 #include "Amp.h"
 
+#include "logic/BoardLogic.h"
 #include "pins.h"
 
 namespace {
@@ -23,7 +24,7 @@ void Amp::Initialize() {
 }
 
 void Amp::SetGain(int32_t db) {
-  int32_t rounded = db <= 10 ? 9 : (db <= 13 ? 12 : 15);
+  int32_t rounded = logic::RoundAmpGain(db);
   if (rounded == gainDb) {
     return;
   }

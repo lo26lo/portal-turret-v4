@@ -67,5 +67,8 @@ jobs:
       - name: Build turret2 and turret2_bringup
         run: pio run -e turret2 -e turret2_bringup
 
+      - name: Native tests of the pure logic (src/logic)
+        run: pio test -e native
+
       - name: Web page check (simulated turret)
         run: python tools/check_web.py

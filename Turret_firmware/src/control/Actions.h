@@ -35,6 +35,9 @@ public:
   // Web server task, OTA upload start: asks loop() to shut down and waits for it
   // (plan §10.5: stop before accepting the data). False on timeout.
   bool RequestOtaShutdown(uint32_t timeoutMs);
+  // L5: what draws current right now (servos attached, sound, amplifier, LEDs),
+  // logged with each PWR_FLT event.
+  String LoadSnapshot();
 
 private:
   String Help();
@@ -47,6 +50,23 @@ private:
   // Tests need the state machine stopped (Manual). False (and a message) if not possible.
   bool EnterTestMode(String &error);
   void ReadConsole();
+  String SweepCommand(const String &args);
+  String LoadTestCommand(const String &args);
+  void UpdateSweep(ulong now);
+  void UpdateLoadTest(ulong now);
+  void CancelLabTests();
+
+  // L2: servo sweep 0 -> 180 -> 0 degrees
+  int8_t sweepChannel = -1;
+  ulong sweepStart = 0;
+  ulong sweepDuration = 0;
+  ulong sweepLastWrite = 0;
+
+  // L4: load test phases
+  enum class LoadPhase { Off, Attaching, Holding, Returning };
+  LoadPhase loadPhase = LoadPhase::Off;
+  ulong loadPhaseAt = 0;
+  ulong loadGapMs = 0;
 
   Turret *turret = nullptr;
   StateMachine *stateMachine = nullptr;

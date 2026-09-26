@@ -92,13 +92,24 @@ def main():
         check("action queued", code == 202, code)
         code, body, _ = request(base, "/api/status")
         status = json.loads(body)
-        for field in ("version", "state", "faults", "radar", "imu", "hall", "servos", "amp", "wifi", "time"):
+        for field in ("version", "state", "faults", "radar", "imu", "hall", "servos", "amp", "wifi", "time", "crash"):
             check(f"status has {field}", field in status)
 
         code, _, headers = request(base, "/generate_204", auth=False)
         check("captive portal redirect", code == 302 and "Location" in headers, code)
         code, body, _ = request(base, "/api/wifi/scan")
         check("wifi scan answers", code == 200 and "networks" in json.loads(body), code)
+
+        code, _, _ = request(base, "/api/coredump")
+        check("no core dump -> 404", code == 404, code)
+        request(base, "/api/action", {"cmd": "sim crash on"})
+        code, body, _ = request(base, "/api/coredump")
+        check("core dump download", code == 200 and body.startswith("\x7fELF"), code)
+        code, body, _ = request(base, "/api/crashlog")
+        check("previous run log", code == 200 and len(body) > 0, code)
+        request(base, "/api/coredump/erase", {})
+        code, _, _ = request(base, "/api/coredump")
+        check("core dump erased", code == 404, code)
     finally:
         server.terminate()
         server.wait(timeout=5)

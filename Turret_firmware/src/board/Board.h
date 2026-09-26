@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <Preferences.h>
 
+#include "logic/BoardLogic.h"
+
 // Turret2 board services (docs/firmware-plan.md §3.2 step 1, §4, D1, D3, D4, D5):
 // safe state of the outputs, reset reason, reboot-loop detection, status LEDs,
 // buttons, SW1 (bench mode) and the eFuse fault line.
@@ -17,28 +19,22 @@ enum class Fault : uint8_t {
   LittleFs = 6,     // filesystem not mounted
 };
 
-enum class ButtonEvent : uint8_t {
-  None,
-  ShortPress, // released before the long press delay
-  LongPress,  // held for the long press delay (sent once, nothing on release)
-};
+// None, ShortPress (released before the long press delay), LongPress (held
+// for the long press delay, sent once). Logic in logic/BoardLogic.h, tested natively.
+using ButtonEvent = logic::PressEvent;
 
 class Button {
 public:
-  explicit Button(uint8_t pin) : pin(pin) {}
+  explicit Button(uint8_t pin);
   void Initialize();
   void Update(ulong now);
-  bool IsDown() const { return stableDown; }
+  bool IsDown() const { return debouncer.IsDown(); }
   // Returns the pending event and clears it.
   ButtonEvent TakeEvent();
 
 private:
   uint8_t pin;
-  bool rawDown = false;
-  bool stableDown = false;
-  bool longSent = false;
-  ulong rawChangedAt = 0;
-  ulong downSince = 0;
+  logic::Debouncer debouncer;
   ButtonEvent pending = ButtonEvent::None;
 };
 
@@ -75,6 +71,13 @@ public:
   void SetFault(Fault fault, bool active);
   bool HasFault(Fault fault) const;
 
+  // L1 (lab aid): with LabMarkers on, the green LED no longer shows the
+  // heartbeat; it toggles at each boot step and each servo attachment, to line
+  // up an oscilloscope or PPK2 trace with the code. The label goes to the log.
+  void SetLabMarkers(bool enabled);
+  bool HasLabMarkers() const { return labMarkers; }
+  static void Mark(const char *label);
+
   Button buttonA;
   Button buttonB;
 
@@ -96,6 +99,9 @@ private:
   uint32_t brownoutCount = 0;
   uint32_t powerFaultCount = 0;
   bool powerFaultEvent = false;
+
+  bool labMarkers = false;
+  bool markerLevel = false;
 
   uint8_t faults = 0; // bit n-1 = Fault n
   uint8_t redCode = 0;

@@ -51,6 +51,7 @@ scripts/embed_page.py       pre-build: gzips src/web/page/index.html into src/we
 scripts/git_version.py      pre-build: firmware version from git into src/version_gen.h
 tools/mock_server.py        web page test bench (simulated turret, no board needed)
 tools/check_web.py          automatic check of the page and API against the simulator
+test/test_logic/            native unit tests of src/logic (pio test -e native)
 ../.github/workflows/       CI: build + checks on every push
 data/fire.mp3               LittleFS image (pio run -t uploadfs)
 src/
@@ -59,7 +60,9 @@ src/
   Turret.h                  references shared by the states
   board/Board.*             safe state, reset reason, reboot-loop detection, status LEDs, buttons, SW1, PWR_FLT
   board/I2cBus.*            I2C start on IO35/IO36, bus recovery, scan
-  board/Log.*               console output: Serial + 4 kB RAM buffer (GET /api/log)
+  board/Log.*               console output: Serial + 4 kB RAM buffer (GET /api/log) + 2 kB crash log in RTC memory
+  board/CoreDump.*          core dump in flash: summary, download, erase
+  logic/*.h                 pure logic without Arduino (radar decoding and zone, Hall, buttons, LED code, gain), tested natively
   audio/Amp.*               MAX98357A: shutdown, gain, mute
   audio/Audio.*             I2S, gunshot sample with loop, test tone, volume
   audio/AudioLoop.*         plays a sample with a loop section
@@ -109,7 +112,7 @@ Size today: about 44 % of the 3.2 MB application partition, 23 % of the RAM.
 
 **Version**: `scripts/git_version.py` writes `src/version_gen.h` before each build with `git describe --tags --dirty --always` (for example `fd63cb0-dirty`). It appears in the boot banner, in `/api/status` and on the web page. Tag a release (`git tag v0.1`) to get readable versions.
 
-**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2` and `turret2_bringup`, checks that every `#include` matches the file name exactly (Linux is case sensitive) and runs `tools/check_web.py` on every push that touches `Turret_firmware/`.
+**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2` and `turret2_bringup`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`) and `tools/check_web.py` on every push that touches `Turret_firmware/`.
 
 ## 4. Boot sequence
 
@@ -211,6 +214,12 @@ Table of typed entries (int, float, bool, string) with default, min and max, sto
 
 All messages go through `Log.print*`: to the USB console and to a 4 kB RAM ring buffer read by the web page.
 
+### Crash diagnostics (`board/Log.*`, `board/CoreDump.*`)
+
+- **Crash log**: the last 2 kB of the log are also written to RTC memory that is not cleared at reset. It survives a software restart, a panic and the watchdogs (not a power-up). After a crash (panic, watchdog, brownout), the boot prints these lines between `---- last lines before the reset ----` and `---- end ----`; they stay available with `crashlog` and `GET /api/crashlog`.
+- **Core dump**: on a panic or a watchdog, ESP-IDF writes a core dump (ELF) to the `coredump` partition. At boot the firmware prints its summary (crashed task, program counter, backtrace), the web page shows a warning and offers the download. Decode it on the computer with the `firmware.elf` of the **same build**: `espcoredump.py --chip esp32s3 info_corefile -c coredump.elf .pio/build/turret2/firmware.elf`, or a single address with `xtensa-esp32s3-elf-addr2line -pfiaC -e .pio/build/turret2/firmware.elf 0x…`. Erase it once read (`coredump erase`).
+- **Loop watchdog**: `loop()` must come back within **8 s**, otherwise the task watchdog panics and the turret restarts (core dump + crash log tell where it was stuck). The I2C scan stops at the first bus timeout so that a stuck bus cannot trigger it.
+
 ### Commands (`control/Actions.*`)
 
 One interpreter for the console, the buttons and the web page. The web server runs in another task: it only queues command lines (24 × 128 bytes), and `loop()` executes them. Hardware is never touched from the web task.
@@ -260,6 +269,7 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ServoIdleMs` | Power | 5000 | 0..60000 | rotations released after this idle time (0 = never) |
 | `LedBright` | Lights | 255 | 0..255 | LED brightness |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
+| `LabMarkers` | Lab | false | true / false | green LED toggles at each boot step / servo attachment instead of the heartbeat (lab aid) |
 | `ApSsid` | WiFi | Portal Turret | 1..32 chars | name of the turret's network |
 | `ApPassword` | WiFi | stillalive | 8..63 chars | turret network **and** web page password |
 | `StaSsid` | WiFi | (empty) | 0..32 chars | home network; empty = not used |
@@ -294,6 +304,9 @@ Tabs: **Status** (home WiFi card, values refreshed every second, active faults, 
 | `POST /api/action` | field `cmd`: any console command |
 | `GET /api/wifi/scan` | `{"scanning":bool,"networks":[{ssid,rssi,secure}]}` after `wifi scan` |
 | `GET /api/log` | last 4 kB of the log |
+| `GET /api/crashlog` | log tail of the previous run |
+| `GET /api/coredump` | the core dump (`coredump.elf`), 404 if none |
+| `POST /api/coredump/erase` | erase the core dump |
 | `POST /api/reboot` | reboot with the shutdown sequence |
 | `POST /update` | firmware upload (section 12) |
 
@@ -310,6 +323,8 @@ USB, 115200 baud. Type `help`.
 | `imu` | gravity, dominant axis, upright, gyro, temperature |
 | `hall` | raw Hall values and positions |
 | `flt` / `reset-reason` | PWR_FLT and fault count / reset reason and counters |
+| `crashlog` | log tail of the previous run (after a crash or a restart) |
+| `coredump [erase]` | core dump summary / erase it |
 | `get [key]` / `set <key> <value>` | read / change a setting (saved in NVS, applied at once except WiFi) |
 | `reset-settings [group]` | defaults |
 | `servo <0-5\|rotz\|rotx\|gunl\|gunr\|wingl\|wingr> <angle 0-180 \| µs 500-2400 \| off>` | drive one servo |
@@ -323,6 +338,20 @@ USB, 115200 baud. Type `help`.
 | `reboot` | restart with the shutdown sequence |
 
 Hardware tests stop the state machine (`Manual`); they are refused during `Booting` and `Fault`. In bench mode, driving a servo releases the others.
+
+**Lab aids** (for the measurements of [../docs/experiments.md](../docs/experiments.md)):
+
+| Command / setting | Does |
+|---|---|
+| `set LabMarkers true` | the green LED stops the heartbeat and **toggles** at each boot step (from step 4, once the settings are read) and at each servo attachment; each toggle is also logged with its time (`Mark 1234 ms: rotate Z`). Line an oscilloscope or PPK2 trace up with the code |
+| `sweep servo <n> <ms>` | one servo from 0° to 180° and back to 0° in `ms` (500 to 60 000) |
+| `sweep tone <Hz start> <Hz end> <ms>` | frequency sweep (20 Hz to 20 kHz, up to 30 s) |
+| `sweep stop` | stops both |
+| `led pattern bit` | fixed NeoPixel frame with a single bit set: first LED of the ring = red 0x80, all else 0, i.e. the **9th of 24 bits** (GRB order); brightness 255 and no dithering so the bytes are sent as is; `led off` to leave |
+| `loadtest <gap ms>` | commands all six servos (rotations to 110°, guns out, wings at their stop point), attached `gap` ms apart (0 = together), holds 1 s, returns, releases everything; attachment times in the log. Refused in bench mode |
+| PWR_FLT events | each one is logged with its number, time (and clock time with NTP) and what was running: attached servos, sound, amplifier, LEDs, state |
+
+A power fault or `resume` cancels a running sweep or load test.
 
 ## 12. Firmware update over WiFi
 
@@ -371,7 +400,9 @@ Plan §8 gives the full bring-up order (one peripheral at a time). Use `turret2_
 python tools/mock_server.py          # then http://localhost:8080, turret / stillalive
 ```
 
-Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`, `sim imu on|off`.
+Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`, `sim imu on|off`, `sim crash on|off` (fake core dump and previous-run log).
+
+**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; detection zone; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
 
 `tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan) and the JavaScript syntax with Node.js. The CI runs it too.
 

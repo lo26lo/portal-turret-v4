@@ -110,6 +110,8 @@ The order of the firmware plan §3.2: outputs to a safe state within a few milli
 
 - **IMU**: LSM6DSOX at 0x6A through the Adafruit LSM6DS library. Note that `getEvent()` takes three pointers there (accelerometer, gyro, temperature). The wings refuse to open when the turret is not upright, once the up axis has been calibrated.
 - **Power**: a fault on PWR_FLT (IO38, even a short one) sheds the load at once: servos detached, amplifier in shutdown, LEDs off. The turret resumes 2 s after PWR_FLT goes high again. Three suspicious resets in a row (brownout, crash, power-up) within a minute start a **reduced mode**: no servo, LEDs at 10 %, 9 dB.
+- **Detection**: only a target inside the detection zone (distance and angle settings) of a radar that is still sending frames triggers a cycle, with a rest time after each cycle.
+- **Diagnostics**: watchdog on the main loop; after a crash the boot shows the last log lines of the previous run, and the core dump can be downloaded from the web page.
 - **Servos at rest**: wings are released as soon as they stop, guns 0.5 s after moving, rotations after `ServoIdleMs` with the wings closed; they are re-attached on their last position, one at a time.
 
 ### Buttons, switch and LEDs
@@ -157,7 +159,10 @@ Turret2_portable/          KiCad project (schematic, PCB, custom DRC rules)
 Turret2_portable/library   project-specific symbols, footprints and 3D models
 docs/design-plan.md        full design rationale, section by section
 docs/status-and-history.md current status, decisions and pitfalls, session by session
-Turret_firmware/           Turret2 firmware (PlatformIO project), work in progress — see docs/firmware-plan.md
+Turret_firmware/           Turret2 firmware (PlatformIO project) — see Turret_firmware/README.md
+docs/firmware-plan.md      firmware design; docs/firmware-improvements.md: improvement plan and log
+docs/experiments.md        measurement notebook (oscilloscope, PPK2), no hardware change
+.github/workflows/         CI: firmware build, native tests, web page check on every push
 Fork/                      upstream firmware, kept unchanged for reference
 Pictures/                  photos and renders
 ```

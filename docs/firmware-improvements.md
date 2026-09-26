@@ -15,8 +15,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 
 - **Firmware** : lots 1 à 12 du plan faits (commit `7a20d46` sur `main`) ; compile (`turret2`, `turret2_bringup`, `turret2_ota_home`) ; **n'a jamais tourné sur une carte**. Page web testée seulement contre `Turret_firmware/tools/mock_server.py`.
 - **Améliorations** : **lot I1 fait** le 26.09.2026 (A1, A2, D4, D2) sous VS Code, commit `a54d633` ; compile ; vérifications de la page OK ; **CI GitHub verte** au premier passage.
-- **Lot I2 fait** le 26.09.2026 (A3, A4, D1), non encore poussé ; compile ; `check_web.py` 27/27 ; **tests natifs pas encore exécutés** (pas de compilateur C++ sur le PC Windows : ils tourneront dans la CI au prochain push, ou après installation de MinGW-w64).
-- **Lot IL fait** le 26.09.2026 (L1 à L5), non commité, avec I2.
+- **Lots I2 et IL faits** le 26.09.2026 (A3, A4, D1 ; L1 à L5), commit `cf57922` poussé ; **CI verte** (run 36267773678) : compilation, **tests natifs** (exécutés pour la première fois, dans la CI : pas de compilateur C++ sur le PC Windows) et vérification de la page.
 - **Prochaine action** : I3 (B1 visée, B3 mode recherche, C1 vue radar).
 - **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
@@ -26,10 +25,10 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | Lot | Contenu | Statut | Commit / remarque |
 |---|---|---|---|
 | I1 | A1 radar muet, A2 repos + zone de détection, D4 version git, D2 CI GitHub Actions | fait | 26.09.2026 ; build `turret2` / `turret2_bringup` OK, `tools/check_web.py` 22/22 ; CI GitHub **réussie** au 1ᵉʳ passage (run 36265316764, commit `a54d633`, 5 min 42 dont 5 min 21 de compilation sans cache) |
-| I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | fait | 26.09.2026 ; build OK, `check_web.py` 27/27 ; tests natifs écrits (12 tests), à exécuter par la CI |
+| I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27 ; 12 tests natifs **réussis dans la CI** |
 | I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
-| IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026 ; build OK, `check_web.py` 27/27 ; non commité |
+| IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27, CI verte |
 | I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur |
 
 ## Catalogue
@@ -193,5 +192,15 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 - Docs : `Turret_firmware/README.md` (aides de labo, réglage `LabMarkers`), [experiments.md](experiments.md) (aides disponibles, X4 avec `loadtest`).
 
 **Testé** : build `turret2` et `turret2_bringup` SUCCESS du premier coup (`turret2` : flash 1 492 605, 44,7 % ; RAM 76 448, 23,3 %) ; `check_web.py` 27/27. Sans carte : rien de mesuré.
+
+**Prochaine étape** : I3.
+
+### 26.09.2026 (6ᵉ entrée) — Push, CI, documentation
+
+**Demande** : « commit », « go » (push), puis « est-ce que toutes les docs sont à jour ».
+
+**Fait**
+- Commit `cf57922` (I2 + IL, un seul commit : mêmes fichiers) poussé ; CI run 36267773678 **verte** en 5 min 42 : casse des includes, compilation (5 min 15 : le cache ne garde que les paquets, pas `.pio/build`), **tests natifs 6 s**, vérification de la page.
+- Relecture des docs : ce fichier (statuts « non commité » / « tests non exécutés » périmés, corrigés) ; [firmware-plan.md](firmware-plan.md) (encadré « État au 26.09.2026 » avec renvoi au README du firmware et liste des écarts : page protégée, redémarrage après toute OTA, Wi-Fi maison / NTP / portail captif ; §10.2 annoté) ; `README.md` racine (détection, diagnostics, arborescence avec `docs/` et `.github/`). À jour sans changement : `Turret_firmware/README.md`, [experiments.md](experiments.md). Non concernés : `design-plan.md`, `status-and-history.md` (matériel).
 
 **Prochaine étape** : I3.

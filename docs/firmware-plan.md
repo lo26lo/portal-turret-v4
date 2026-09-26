@@ -2,6 +2,12 @@
 
 Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décisions D1 à D7 tranchées (§9), **plus de compatibilité Wemos / V4** (Turret2 uniquement), page web de configuration ajoutée (§10, lot 12). Le suivi de l'exécution (ce qui est fait, en cours, les erreurs) est dans le journal de bord `docs/firmware-journal.md`, **local (non versionné)** : le lire avant de reprendre le travail.
 
+> **État au 26.09.2026** : les lots 1 à 12 de ce plan sont faits (commit `7a20d46`), puis les améliorations de [firmware-improvements.md](firmware-improvements.md) (lots I1, I2, IL). Ce plan reste le document de **conception** ; ce que le firmware fait réellement est décrit dans [../Turret_firmware/README.md](../Turret_firmware/README.md). Écarts décidés en cours de route :
+> - §10.2 : l'authentification HTTP Basic couvre **aussi la page** (sinon elle s'afficherait puis chacune de ses requêtes échouerait) ; seules les URL de détection du portail captif en sont exemptées ;
+> - §10.5 : après toute tentative d'OTA, réussie ou non, la tourelle **redémarre** (elle s'est arrêtée avant de recevoir les données) ;
+> - ajouts hors plan : Wi-Fi de la maison en plus du point d'accès, heure NTP, `portal-turret.local`, portail captif et première configuration depuis la page ; mots de passe Wi-Fi jusqu'à 63 caractères (`SETTING_STRING_MAX` = 64) ;
+> - le suivi pas à pas des lots 1 à 12 est dans le journal local ; celui des améliorations est versionné dans [firmware-improvements.md](firmware-improvements.md).
+
 > Dates au format JJ.MM.AAAA. Les références `fichier:ligne` pointent sur le code tel qu'il était au commit `020a839` (fichiers identiques, déplacés dans `Fork/` par le commit `8248fcd`, puis copiés dans `Turret_firmware/` : les numéros de ligne valent pour les deux tant que la copie n'a pas été modifiée) (firmware upstream de joranderaaff, avant toute modification).
 
 ---
@@ -291,7 +297,7 @@ Il n'y a **pas** de page de configuration : `Turret_firmware/src/web/TurretWebSe
 - **Tout est dans le firmware** : une seule page `index.html` (HTML + CSS + JS sans framework), compressée en gzip et embarquée en PROGMEM par un script de pré-compilation PlatformIO (`extra_scripts`). Elle ne dépend donc ni de LittleFS ni d'Internet (l'AP n'a pas d'accès Internet : **aucune ressource externe, aucun CDN**), et elle est toujours à la version du firmware après une OTA. Budget : < 30 Ko gzip.
 - **Générée à partir des réglages** : la page construit ses formulaires depuis `GET /api/settings` (clé, libellé, groupe, type, valeur, défaut, min, max, unité, application immédiate ou au reboot). Ajouter un réglage dans `Settings.cpp` suffit à le faire apparaître dans la page.
 - **Rien de lourd dans les callbacks web** : ESPAsyncWebServer exécute ses callbacks dans la tâche `async_tcp`, sur l'autre cœur. Toucher aux servos, à l'I²S, aux LEDs ou à NVS depuis là crée des accès concurrents avec `loop()`. Les callbacks **déposent une commande dans une file** (FreeRTOS queue) ; `loop()` l'exécute et la réponse est lue par la page à la requête suivante (ou via `/api/status`).
-- **Authentification** HTTP Basic sur tout sauf la page elle-même (identifiant `turret`, mot de passe `ApPassword`).
+- **Authentification** HTTP Basic sur tout sauf la page elle-même (identifiant `turret`, mot de passe `ApPassword`). *Réalisé autrement (25.09.2026) : la page est protégée aussi ; seules les URL de détection du portail captif sont exemptées.*
 - **Téléphone d'abord** : mise en page utilisable à 360 px de large.
 
 ### 10.3 API

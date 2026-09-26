@@ -11,3 +11,4 @@ docs/firmware-journal.md
 
 # Generated at build time by Turret_firmware/scripts/embed_page.py
 Turret_firmware/src/web/page_gz.h
+Turret_firmware/src/version_gen.h

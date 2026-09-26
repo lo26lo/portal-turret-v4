@@ -48,7 +48,10 @@ platformio.ini              environments, pinned platform and libraries
 boards/turret2.json         board: 8 MB QIO flash, no PSRAM, partitions default_8MB.csv
 variants/turret2/           Arduino variant: I2C on IO35/IO36, LED_BUILTIN = IO33, no RGB_BUILTIN
 scripts/embed_page.py       pre-build: gzips src/web/page/index.html into src/web/page_gz.h
+scripts/git_version.py      pre-build: firmware version from git into src/version_gen.h
 tools/mock_server.py        web page test bench (simulated turret, no board needed)
+tools/check_web.py          automatic check of the page and API against the simulator
+../.github/workflows/       CI: build + checks on every push
 data/fire.mp3               LittleFS image (pio run -t uploadfs)
 src/
   main.cpp                  setup() = boot steps 1-10, loop()
@@ -104,6 +107,10 @@ Pinned versions (`platformio.ini`): platform `espressif32@7.1.3` (arduino-esp32 
 
 Size today: about 44 % of the 3.2 MB application partition, 23 % of the RAM.
 
+**Version**: `scripts/git_version.py` writes `src/version_gen.h` before each build with `git describe --tags --dirty --always` (for example `fd63cb0-dirty`). It appears in the boot banner, in `/api/status` and on the web page. Tag a release (`git tag v0.1`) to get readable versions.
+
+**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2` and `turret2_bringup`, checks that every `#include` matches the file name exactly (Linux is case sensitive) and runs `tools/check_web.py` on every push that touches `Turret_firmware/`.
+
 ## 4. Boot sequence
 
 The order comes from the firmware plan §3.2. Steps 1 to 10 run in `setup()`, steps 11 to 13 in the `Booting` state.
@@ -131,7 +138,7 @@ PWR_FLT low at any point stops the sequence and enters `Fault`.
 | State | Does | Leaves to |
 |---|---|---|
 | `Booting` | steps 11-13 | `Idle`, `Manual` (bench / reduced mode), `Fault` |
-| `Idle` | waits for a radar target; refuses if the turret is not upright | `Activate` |
+| `Idle` | rests `CooldownMs` after entering, then waits for a target **inside the detection zone** of a radar that is still sending frames; refuses if the turret is not upright | `Activate` |
 | `Activate` | opens the wings, waits until both are open (Hall), extends the guns, 0.5 s | `Firing` |
 | `Firing` | gunshot sound with its loop for 3 s, then lets it end | `Disengage` |
 | `Disengage` | retracts the guns, 0.5 s, closes the wings, waits, 0.5 s | `Idle` |
@@ -175,7 +182,10 @@ LSM6DSOX at 0x6A on the shared I2C bus (also the Qwiic port J11), 104 Hz, ±4 g,
 
 ### Radar (`sensors/Radar.*`)
 
-HLK-LD2450 on UART1 (RX IO17, TX IO18, 256000 baud), three targets per frame (position, speed, resolution). Unchanged parser from upstream, plus a "radar alive" flag.
+HLK-LD2450 on UART1 (RX IO17, TX IO18, 256000 baud), three targets per frame (position x / y in mm, y = distance ahead, speed, resolution). Parser from upstream, plus:
+
+- a "radar alive" flag; after 1 s without a frame the targets in memory are cleared (an unplugged or hung radar used to keep its last target and make the turret fire in a loop);
+- a **detection zone**: a target only counts if it is in front, closer than `DetectMaxMm` and within ±`DetectAngle` of the radar axis.
 
 ### Audio (`audio/*`)
 
@@ -240,6 +250,9 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ImuUpAxis` | Motion | 0 | 0..6 | axis pointing up: 0 off, 1 +X, 2 -X, 3 +Y, 4 -Y, 5 +Z, 6 -Z |
 | `AmpGain` | Audio | 9 | 9..15 | amplifier gain, rounded to 9, 12 or 15 dB |
 | `Volume` | Audio | 80 | 0..100 | software volume (%) |
+| `CooldownMs` | Detection | 5000 | 0..120000 | rest after each cycle (and after boot) before a new target is taken |
+| `DetectMaxMm` | Detection | 3000 | 300..6000 | detection distance (mm) |
+| `DetectAngle` | Detection | 45 | 5..60 | detection half angle (degrees each side of the radar axis) |
 | `HallOpenL` / `HallOpenR` | Wings | 2500 | 0..4095 | ADC value beyond which the wing is open |
 | `HallCloseL` / `HallCloseR` | Wings | 1500 | 0..4095 | ADC value beyond which the wing is closed |
 | `WingTrimL` / `WingTrimR` | Wings | 0 | -200..200 | stop point of the wing servo, µs around 1500 |
@@ -359,6 +372,8 @@ python tools/mock_server.py          # then http://localhost:8080, turret / stil
 ```
 
 Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`, `sim imu on|off`.
+
+`tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan) and the JavaScript syntax with Node.js. The CI runs it too.
 
 ## 16. Known limits
 

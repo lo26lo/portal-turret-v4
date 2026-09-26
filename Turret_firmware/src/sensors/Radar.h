@@ -25,6 +25,11 @@ public:
   // True if a complete frame arrived less than maxAgeMs ago (boot step 7).
   bool IsAlive(ulong maxAgeMs) const;
   bool HasSeenFrame() const { return frameSeen; }
+  // Detection zone (A2): in front of the radar, closer than maxDistanceMm and
+  // within +-halfAngleDeg of its axis. x / y in mm, y = distance ahead.
+  bool IsInZone(const RadarTarget &target, int32_t maxDistanceMm, int32_t halfAngleDeg) const;
+  // Index of the first live target in the zone, -1 if none or if the radar is silent.
+  int8_t FirstTargetInZone(int32_t maxDistanceMm, int32_t halfAngleDeg) const;
 
 private:
   void UpdateSerialData();

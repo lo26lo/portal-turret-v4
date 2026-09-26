@@ -6,6 +6,7 @@
 void IdleState::OnActivate() {
   Log.println("IdleState");
   BaseState::OnActivate();
+  enteredAt = millis();
 }
 
 void IdleState::Update(ulong deltaTime) {
@@ -13,12 +14,18 @@ void IdleState::Update(ulong deltaTime) {
   if (!turret->motion.CanDeploy()) {
     return;
   }
-  for (uint8_t i = 0; i < TRACK_COUNT; i++) {
-    RadarTarget target = turret->radar.GetTarget(i);
-
-    if (turret->radar.GetTargetCount() > 0 && target.available) {
-      stateMachine->GoToState(StateId::Activate);
-      break;
-    }
+  // A2: rest after every cycle (and after boot), so that someone standing
+  // still in front of the turret does not make it fire in a loop.
+  Settings &settings = turret->settings;
+  if (millis() - enteredAt < (ulong)settings.GetInt(SettingId::CooldownMs)) {
+    return;
+  }
+  // A1 + A2: only a live radar, only a target inside the detection zone.
+  int8_t target = turret->radar.FirstTargetInZone(settings.GetInt(SettingId::DetectMaxMm),
+                                                  settings.GetInt(SettingId::DetectAngle));
+  if (target >= 0) {
+    const RadarTarget &t = turret->radar.GetTarget(target);
+    Log.printf("Target %d at x %d mm, y %d mm\n", target, t.x, t.y);
+    stateMachine->GoToState(StateId::Activate);
   }
 }

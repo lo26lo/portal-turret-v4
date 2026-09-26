@@ -1,0 +1,71 @@
+# Improvement D2: build the Turret2 firmware and check the web page on every
+# push and pull request that touches the firmware. No board needed.
+name: Firmware
+
+on:
+  push:
+    paths:
+      - "Turret_firmware/**"
+      - ".github/workflows/firmware.yml"
+  pull_request:
+    paths:
+      - "Turret_firmware/**"
+      - ".github/workflows/firmware.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Turret_firmware
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git describe needs the history and the tags (scripts/git_version.py)
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            Turret_firmware/.pio/libdeps
+          key: pio-${{ runner.os }}-${{ hashFiles('Turret_firmware/platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio==6.1.18
+
+      - name: Include paths match file names (Linux is case sensitive)
+        run: |
+          python - <<'EOF'
+          import os, re, sys
+          files = {}
+          for root in ("src", "include", "variants/turret2"):
+              for d, _, names in os.walk(root):
+                  for n in names:
+                      p = os.path.normpath(os.path.join(d, n))
+                      files[p.lower()] = p
+          bad = 0
+          for d, _, names in os.walk("src"):
+              for n in names:
+                  if n.endswith((".h", ".cpp")):
+                      text = open(os.path.join(d, n), encoding="utf-8", errors="replace").read()
+                      for inc in re.findall(r'#include\s+"([^"]+)"', text):
+                          for base in (d, "src", "include", "variants/turret2"):
+                              c = os.path.normpath(os.path.join(base, inc))
+                              if c.lower() in files:
+                                  if files[c.lower()] != c:
+                                      print("case mismatch:", os.path.join(d, n), inc); bad += 1
+                                  break
+          sys.exit(1 if bad else 0)
+          EOF
+
+      - name: Build turret2 and turret2_bringup
+        run: pio run -e turret2 -e turret2_bringup
+
+      - name: Web page check (simulated turret)
+        run: python tools/check_web.py

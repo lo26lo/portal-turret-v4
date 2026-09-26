@@ -22,6 +22,10 @@ Settings::Settings()
           // MAX98357A gain: 9, 12 or 15 dB (other values rounded to the nearest)
           {"AmpGain", "Amplifier gain (dB: 9, 12, 15)", "Audio", SettingType::Int, (int32_t)9, (int32_t)9, (int32_t)15},
           {"Volume", "Volume (%)", "Audio", SettingType::Int, (int32_t)80, (int32_t)0, (int32_t)100},
+          // A2: rest after each cycle, and detection zone of the LD2450 (range 6 m, +-60 deg)
+          {"CooldownMs", "Rest after a cycle (ms)", "Detection", SettingType::Int, (int32_t)5000, (int32_t)0, (int32_t)120000},
+          {"DetectMaxMm", "Detection distance (mm)", "Detection", SettingType::Int, (int32_t)3000, (int32_t)300, (int32_t)6000},
+          {"DetectAngle", "Detection half angle (deg)", "Detection", SettingType::Int, (int32_t)45, (int32_t)5, (int32_t)60},
           // Hall thresholds (raw ADC 0..4095). V4 values; Turret2 sensors run at
           // 3.3 V and must be calibrated. Open below closed = reversed magnet.
           {"HallOpenL", "Hall left: open threshold", "Wings", SettingType::Int, (int32_t)2500, (int32_t)0, (int32_t)4095},

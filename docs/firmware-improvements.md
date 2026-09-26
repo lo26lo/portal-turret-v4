@@ -14,8 +14,8 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 ## État actuel — 26.09.2026
 
 - **Firmware** : lots 1 à 12 du plan faits (commit `7a20d46` sur `main`) ; compile (`turret2`, `turret2_bringup`, `turret2_ota_home`) ; **n'a jamais tourné sur une carte**. Page web testée seulement contre `Turret_firmware/tools/mock_server.py`.
-- **Améliorations** : catalogue ci-dessous proposé le 26.09.2026 ; l'utilisateur a validé le démarrage (« Go »). **Aucune amélioration codée à ce jour.**
-- **Prochaine action** : lot I1 (A1 + A2 + D4 + D2).
+- **Améliorations** : **lot I1 fait** le 26.09.2026 (A1, A2, D4, D2) sous VS Code ; compile ; vérifications de la page OK ; CI écrite mais pas encore exécutée par GitHub (elle tournera au premier push).
+- **Prochaine action** : lot I2 (A3 journal de crash + coredump, A4 watchdog, D1 tests natifs), ou IL (aides aux mesures) si l'on veut préparer les séances d'oscilloscope.
 - **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
 
@@ -23,7 +23,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 
 | Lot | Contenu | Statut | Commit / remarque |
 |---|---|---|---|
-| I1 | A1 radar muet, A2 repos + zone de détection, D4 version git, D2 CI GitHub Actions | à faire | corrige un vrai bug avant le premier allumage |
+| I1 | A1 radar muet, A2 repos + zone de détection, D4 version git, D2 CI GitHub Actions | fait | 26.09.2026 ; build `turret2` / `turret2_bringup` OK, `tools/check_web.py` 22/22 ; CI pas encore passée sur GitHub |
 | I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | à faire | boîte noire pour la mise en service |
 | I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
@@ -102,12 +102,17 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 | 26.09.2026 | eFuse | TPS259573 = auto-retry | recherche web (pages produit TI) ; datasheet à confirmer |
 | 26.09.2026 | Matériel | **figé** : pas de modification de carte ni de câblage ; ouvert seulement pour un « méga plus », aucun identifié ; INA, Qwiic et idées v0.2 retirés | projet de loisir ; la carte a déjà l'essentiel (eFuse avec FLT, étoile 5 V, buck-boost, AHCT, points de test) |
 | 26.09.2026 | Apprentissage | cahier d'expériences [experiments.md](experiments.md) + lot IL d'aides firmware | l'utilisateur veut tester et mesurer pour apprendre (oscilloscope, PPK2 à venir) |
+| 26.09.2026 | A1 | cibles effacées après 1 s sans trame complète (`Radar::Update`) ; `Idle` n'accepte une cible que si le radar est vivant (même délai) | une cible gardée en mémoire par un radar muet faisait tirer sans fin ; 1 s = une dizaine de trames manquées. Le défaut LED 4 garde son délai de 3 s |
+| 26.09.2026 | A2 | réglages `CooldownMs` (5000, 0..120000), `DetectMaxMm` (3000, 300..6000), `DetectAngle` (45°, 5..60), groupe « Detection » ; cible valable si y > 0, distance ≤ max et \|atan2(x, y)\| ≤ angle ; repos appliqué à **chaque** entrée en `Idle` (après un cycle et après le boot) ; le bouton A / `demo` passent outre | le plus simple et sans état caché ; 60° = champ du LD2450, 6 m = sa portée. Vitesse minimale non retenue (une personne immobile qui entre dans la zone doit déclencher) |
+| 26.09.2026 | D4 | `scripts/git_version.py` (pré-build) → `src/version_gen.h` (ignoré par git, réécrit seulement s'il change) ; `FIRMWARE_VERSION` dans la bannière, `/api/status` (`version`, plus `built` = date de compilation) et la page | un `-D` dans `build_flags` aurait tout recompilé à chaque commit |
+| 26.09.2026 | D2 | `.github/workflows/firmware.yml` : sur push / PR touchant `Turret_firmware/` ; PlatformIO 6.1.18 figé, cache `~/.platformio` + `libdeps` ; contrôle de la casse des `#include` ; build `turret2` + `turret2_bringup` ; `tools/check_web.py` (simulateur + `node --check`). Tests natifs ajoutés à la CI avec D1 (lot I2) | le runner est sous Linux, sensible à la casse (le fichier `FIringState.cpp` montre que le dépôt a déjà des noms atypiques) |
 
 ## Erreurs, impasses et pièges
 
 | Date | Quoi | Conséquence / solution |
 |---|---|---|
 | 26.09.2026 | `www.ti.com` et `www.digchip.com` bloqués par le proxy du conteneur cloud (curl et WebFetch) | variante de l'eFuse obtenue par les extraits d'une recherche web seulement ; confirmer dans la datasheet depuis un poste normal |
+| 26.09.2026 | Sous VS Code (Windows), l'outil Bash retire les `\` du texte des commandes, même dans un heredoc `<<'EOF'` : un script Python passé en ligne a échoué (`SyntaxError`) | écrire tout script ou code contenant des `\` dans un fichier (outil d'écriture), puis l'exécuter ; déjà vu aux lots 4 et 10 (journal local) |
 | 26.09.2026 | Dans le conteneur cloud, la branche locale était restée au commit `dae8587` alors que `main` avait avancé (lots 2 à 12 faits sous VS Code) | toujours `git fetch` + se placer sur `origin/main` en début de session ; le journal local n'étant plus versionné, l'état se lit dans ce fichier, `Turret_firmware/README.md` et les messages de commit |
 
 ## Sessions
@@ -137,3 +142,18 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 
 **Prochaine étape** : lot I1 (ou IL, petit, si l'on veut commencer par les aides aux mesures).
 
+
+### 26.09.2026 (3ᵉ entrée) — Lot I1, sous VS Code
+
+**Demande** : « fais un synch », puis « go » (lot I1).
+
+**Fait**
+- **A1** : `sensors/Radar` — `Update()` efface les cibles après 1 s sans trame ; `IsInZone`, `FirstTargetInZone` (renvoie -1 si le radar est muet).
+- **A2** : `states/IdleState` — repos `CooldownMs` à l'entrée, puis première cible vivante dans la zone ; la cible retenue est journalisée (x, y). Réglages `CooldownMs`, `DetectMaxMm`, `DetectAngle`.
+- **D4** : `scripts/git_version.py`, `platformio.ini` (`extra_scripts` en liste), `.gitignore` (`src/version_gen.h`), bannière (`Firmware: <version> (built …)`), statut JSON (`version`, `built`).
+- **D2** : `.github/workflows/firmware.yml` ; `tools/check_web.py` (22 vérifications : identifiants, page, réglages listés = lignes de `Settings.cpp`, mots de passe jamais renvoyés, clés NVS ≤ 15 caractères, bornage, refus du mot de passe court, champs du statut, portail captif, scan Wi-Fi, syntaxe JS).
+- `Turret_firmware/README.md` : `Idle`, radar, réglages de détection, version, CI, `check_web.py`.
+
+**Testé** : `pio run -e turret2 -e turret2_bringup` SUCCESS (`turret2` : flash 1 480 797, 44,3 % ; RAM 75 828, 23,1 %) ; version générée `fd63cb0-dirty` ; `python tools/check_web.py` : 22/22 ; casse des `#include` : 0 écart ; YAML du workflow et script intégré validés (PyYAML + `compile`). **Non testé** : la CI elle-même (au premier push), le radar réel.
+
+**Prochaine étape** : I2 (ou IL).

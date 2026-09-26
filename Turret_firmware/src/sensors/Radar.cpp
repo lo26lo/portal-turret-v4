@@ -6,8 +6,44 @@ void Radar::Initialize() {
   Serial1.begin(256000, SERIAL_8N1, PIN_RADAR_RX, PIN_RADAR_TX);
 }
 
+namespace {
+// No complete frame for this long: the targets in memory are stale (radar
+// unplugged or hung). The LD2450 sends about 10 frames per second.
+const ulong STALE_MS = 1000;
+} // namespace
+
 void Radar::Update(ulong deltaTime) {
   UpdateSerialData();
+
+  // A1: a silent radar must not keep its last target alive forever.
+  if (frameSeen && radarTargetCount > 0 && millis() - lastSensorUpdateTime > STALE_MS) {
+    for (uint8_t i = 0; i < TRACK_COUNT; i++) {
+      radarTargets[i].available = false;
+    }
+    radarTargetCount = 0;
+    Log.println("Radar: no frame for 1 s, targets cleared");
+  }
+}
+
+bool Radar::IsInZone(const RadarTarget &target, int32_t maxDistanceMm, int32_t halfAngleDeg) const {
+  if (!target.available || target.y <= 0) {
+    return false; // y is the distance in front of the radar
+  }
+  float distance = sqrtf((float)target.x * target.x + (float)target.y * target.y);
+  float angle = fabsf(atan2f((float)target.x, (float)target.y)) * 180.0f / PI;
+  return distance <= maxDistanceMm && angle <= halfAngleDeg;
+}
+
+int8_t Radar::FirstTargetInZone(int32_t maxDistanceMm, int32_t halfAngleDeg) const {
+  if (!IsAlive(STALE_MS)) {
+    return -1;
+  }
+  for (uint8_t i = 0; i < TRACK_COUNT; i++) {
+    if (IsInZone(radarTargets[i], maxDistanceMm, halfAngleDeg)) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 const RadarTarget &Radar::GetTarget(uint8_t index) const {

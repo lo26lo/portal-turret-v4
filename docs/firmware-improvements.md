@@ -16,6 +16,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 - **Firmware** : lots 1 à 12 du plan faits (commit `7a20d46` sur `main`) ; compile (`turret2`, `turret2_bringup`, `turret2_ota_home`) ; **n'a jamais tourné sur une carte**. Page web testée seulement contre `Turret_firmware/tools/mock_server.py`.
 - **Améliorations** : catalogue ci-dessous proposé le 26.09.2026 ; l'utilisateur a validé le démarrage (« Go »). **Aucune amélioration codée à ce jour.**
 - **Prochaine action** : lot I1 (A1 + A2 + D4 + D2).
+- **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
 
 ## Avancement
@@ -26,7 +27,8 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | à faire | boîte noire pour la mise en service |
 | I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
-| I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3, E | à faire | à trier avec l'utilisateur |
+| IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | à faire | petit lot, peut passer avant ou avec I2 ; sert le cahier [experiments.md](experiments.md) |
+| I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur |
 
 ## Catalogue
 
@@ -75,10 +77,21 @@ Effort : S = quelques heures, M = une journée, L = plusieurs jours.
 | D3 | **Analyse statique** (`pio check`, cppcheck) et formatage automatique | S |
 | D4 | **Version tirée de git** (`git describe --tags --dirty`) par script de pré-compilation, affichée dans la bannière, la page et `/api/status` | S |
 
-### E. Matériel
+### E. Mesures sans modification matérielle
 
-- **Sans nouvelle carte, via le Qwiic (J11)** : INA219 / INA226 pour mesurer courant et 5 V (valide la gestion d'énergie) ; petit écran OLED d'état ; capteur de luminosité pour régler automatiquement `LedBright`. Adresse 0x6A déjà prise par l'IMU.
-- **Carte v0.2** : pull-down sur IO14–16 (LEDs aléatoires à la mise sous tension), pont diviseur pour mesurer le +5 V sur un ADC.
+La carte et le câblage sont figés (décision du 26.09.2026). Les mesures passent par les points de test (VBUS, 5V, 3V3) et les connecteurs, avec l'oscilloscope, le PPK2 (mode banc uniquement, < 1 A) et un éventuel testeur USB-C en ligne. Programme complet, montages et zones de résultats : **[experiments.md](experiments.md)** (X1 à X15).
+
+Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec le shunt d'origine de 0,1 Ω, ajoute 0,3 V de chute à 3 A), modules Qwiic, modifications pour une carte v0.2 (pull-down sur IO14–16, mesure du 5 V par ADC) — gain trop faible pour un projet de loisir.
+
+### L. Aides firmware pour les expériences
+
+| # | Quoi | Effort |
+|---|---|---|
+| L1 | **Repères de boot** : réglage `LabMarkers` ; la LED verte (IO33) change d'état à chaque étape du boot et à chaque attachement de servo, pour aligner une courbe d'oscilloscope ou de PPK2 sur le code | S |
+| L2 | **Balayages** : `sweep servo <n> <ms>`, `sweep tone <Hz début> <Hz fin> <ms>` | S |
+| L3 | **Motif NeoPixel de test** : `led pattern bit`, une trame fixe avec un seul bit à 1, facile à lire à l'oscilloscope | S |
+| L4 | **Cycle de charge** : `loadtest <écart ms>` attache et bouge tous les servos avec l'écart donné, puis les détache (expérience X4 sans redémarrer) | S |
+| L5 | **Événements PWR_FLT horodatés** dans le log avec l'état en cours (servos attachés, LEDs, son) | S |
 
 ## Décisions
 
@@ -87,6 +100,8 @@ Effort : S = quelques heures, M = une journée, L = plusieurs jours.
 | 26.09.2026 | Suivi des améliorations | ce fichier versionné, plan + journal réunis | le journal principal et `CLAUDE.md` sont locaux (commit `210b05d`) ; une reprise sur un autre poste ou dans le cloud doit trouver l'état dans git |
 | 26.09.2026 | Ordre | I1 → I2 → I3 → I4 → I5 | I1 corrige un bug réel et sécurise `main` (CI) avant la mise en service |
 | 26.09.2026 | eFuse | TPS259573 = auto-retry | recherche web (pages produit TI) ; datasheet à confirmer |
+| 26.09.2026 | Matériel | **figé** : pas de modification de carte ni de câblage ; ouvert seulement pour un « méga plus », aucun identifié ; INA, Qwiic et idées v0.2 retirés | projet de loisir ; la carte a déjà l'essentiel (eFuse avec FLT, étoile 5 V, buck-boost, AHCT, points de test) |
+| 26.09.2026 | Apprentissage | cahier d'expériences [experiments.md](experiments.md) + lot IL d'aides firmware | l'utilisateur veut tester et mesurer pour apprendre (oscilloscope, PPK2 à venir) |
 
 ## Erreurs, impasses et pièges
 
@@ -110,3 +125,15 @@ Effort : S = quelques heures, M = une journée, L = plusieurs jours.
 **Non fait** : aucune ligne de code ; aucune compilation dans cette session.
 
 **Prochaine étape** : lot I1.
+
+### 26.09.2026 (2ᵉ entrée) — Matériel figé, cahier d'expériences
+
+**Demande** : discussion sur un INA219 puis un Power Profiler Kit II ; l'utilisateur a déjà un oscilloscope ; matériel figé sauf « méga plus » ; envie de tester, mesurer et apprendre ; « oui go ».
+
+**Fait**
+- Création de [experiments.md](experiments.md) : règles de sécurité (sortie BTL, masses, PPK2 < 1 A, pas de court-circuit), points de mesure, 15 expériences (alimentation, signaux, audio, PPK2) avec montage, réglages, attendu, ce qu'on apprend et zone « Mesures », journal des séances.
+- Vérifié que les commandes citées existent dans `Turret_firmware/src/control/Actions.cpp` (`servo rotx`, `tone`, `led`, `set`, `demo`, `reboot`).
+- Ce fichier : décision « matériel figé », partie E remplacée, nouveau catalogue L et lot IL.
+
+**Prochaine étape** : lot I1 (ou IL, petit, si l'on veut commencer par les aides aux mesures).
+

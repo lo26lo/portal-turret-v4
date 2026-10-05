@@ -55,6 +55,11 @@ Settings::Settings()
           // The controller cannot be detected; the I2C address (0x3C / 0x3D) is. Applied at the next boot.
           {"OledType", "OLED (0 = SSD1306 0.96in, 1 = SSD1309 1.54in, 2 = SH1106 1.3in)", "Display", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2},
           {"OledAnim", "Wing animation on the screen", "Display", SettingType::Bool, true},
+          {"OledFlip", "Screen rotated by 180 degrees", "Display", SettingType::Bool, false},
+          {"OledContrast", "Screen contrast (0..255)", "Display", SettingType::Int, (int32_t)255, (int32_t)0, (int32_t)255},
+          // OLEDs burn in: the screen goes off after this time without a key press or activity
+          {"OledSleepS", "Screen off after (s, 0 = never)", "Display", SettingType::Int, (int32_t)300, (int32_t)0, (int32_t)3600},
+          {"OledFace", "Eye and subtitles in normal mode", "Display", SettingType::Bool, true},
       },
       prefsReady(false) {}
 

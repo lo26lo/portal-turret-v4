@@ -2,6 +2,7 @@
 
 #include "audio/Audio.h"
 #include "board/Board.h"
+#include "control/Stats.h"
 #include "light/Light.h"
 #include "motion/Gantry.h"
 #include "sensors/Motion.h"
@@ -18,4 +19,5 @@ struct Turret {
   TurretWebServer &server;
   Settings &settings;
   Board &board;
+  Stats &stats;
 };

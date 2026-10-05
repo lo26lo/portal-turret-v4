@@ -4,6 +4,8 @@
 #include "board/I2cBus.h"
 #include "board/Log.h"
 #include "control/Actions.h"
+#include "control/SelfTest.h"
+#include "control/Stats.h"
 #include "pins.h"
 #include "states/StateMachine.h"
 #include "ui/DebugUi.h"
@@ -31,6 +33,8 @@ AccessPoint accessPoint;
 Station station;
 Actions actions;
 DebugUi debugUi;
+Stats stats;
+SelfTest selfTest;
 
 // No radar frame for this long -> red LED code 4 (plan §3.2 step 7).
 const ulong RADAR_TIMEOUT_MS = 3000;
@@ -38,7 +42,7 @@ const ulong RADAR_TIMEOUT_MS = 3000;
 // A4: loop() must come back within this time, or the task watchdog panics.
 const uint32_t LOOP_WATCHDOG_S = 8;
 
-Turret turret{gantry, motion, radar, audio, light, server, settings, board};
+Turret turret{gantry, motion, radar, audio, light, server, settings, board, stats};
 
 // A3: after a crash, the core dump summary and the last lines logged before the reset.
 void PrintCrashReport() {
@@ -83,6 +87,7 @@ void setup() {
   //    a failed mount must stay visible instead of silently erasing fire.mp3.
   //    Upload it with: pio run -t uploadfs
   settings.Initialize();
+  stats.Begin();
   if (board.IsFactoryResetRequested()) {
     Log.println("Settings: factory reset (A + B held at boot)");
     settings.ResetToDefaults();
@@ -122,8 +127,12 @@ void setup() {
   actions.Initialize(turret, stateMachine, accessPoint, station);
   // Lot IM: OLED on J11. Debug mode (SW1) = menu, buttons A / B navigate when
   // a screen is there; normal mode = status page only.
-  debugUi.Initialize(turret, stateMachine, actions, accessPoint, station);
-  actions.SetDebugUi([](logic::MenuKey key) { debugUi.Key(key); }, []() { return debugUi.ScreenText(); });
+  selfTest.Initialize(turret, stateMachine, actions);
+  actions.SetSelfTest(&selfTest);
+  debugUi.Initialize(turret, stateMachine, actions, accessPoint, station, selfTest);
+  actions.SetDebugUi([](logic::MenuKey key) { debugUi.Key(key); }, []() { return debugUi.ScreenText(); },
+                     []() { return debugUi.HasDisplay(); });
+  actions.SetSettingsListener([]() { debugUi.ApplySettings(); });
   server.SetScreenProvider([]() { return debugUi.ScreenJson(); });
   board.SetNavigationButtons(debugUi.IsMenuActive() && debugUi.HasDisplay());
   accessPoint.Start(settings);
@@ -180,6 +189,14 @@ void HandleButtons() {
 }
 
 void UpdateFaults() {
+  // Statistics: a target that appears on the radar.
+  static uint8_t lastTargetCount = 0;
+  uint8_t targetCount = radar.GetTargetCount();
+  if (targetCount > lastTargetCount) {
+    stats.CountTarget();
+  }
+  lastTargetCount = targetCount;
+
   bool radarDown = millis() > RADAR_TIMEOUT_MS && !radar.IsAlive(RADAR_TIMEOUT_MS);
   board.SetFault(Fault::Radar, radarDown);
   board.SetFault(Fault::Hall, gantry.HasHallFault());
@@ -218,6 +235,7 @@ void loop() {
   actions.Update(); // console, web commands, OTA shutdown, reboot
   station.Update();
   accessPoint.Update(); // captive portal DNS
+  selfTest.Update(currentTime);
   debugUi.Update(currentTime);
 
   gantry.Update(deltaTime);

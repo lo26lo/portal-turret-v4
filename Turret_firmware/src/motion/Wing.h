@@ -36,6 +36,8 @@ public:
   uint8_t GetOpenPercent() const;
   // Hall sensor stuck at a rail, or no change during a whole movement.
   bool HasHallFault() const { return hallFault; }
+  // The last movement ended on the 2 s timeout instead of the Hall threshold.
+  bool LastMoveTimedOut() const { return lastTimedOut; }
   Gun& GetGun();
   ServoChannel &GetChannel() { return channel; }
 
@@ -61,6 +63,7 @@ private:
   int32_t trimUs = 0;
 
   bool hallFault = false;
+  bool lastTimedOut = false;
   uint16_t moveMin = 4095;
   uint16_t moveMax = 0;
   ulong railTime = 0;

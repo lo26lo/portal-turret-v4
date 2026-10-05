@@ -22,6 +22,7 @@ void FiringState::Initialize(StateMachine *stateMachine, Turret &turret) {
 
 void FiringState::OnActivate() {
   BaseState::OnActivate();
+  turret->stats.CountCycle();
   firingRoutine.reset();
 }
 

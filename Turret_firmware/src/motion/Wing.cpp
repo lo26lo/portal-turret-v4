@@ -163,6 +163,7 @@ void Wing::Update(ulong deltaTime) {
 
   if (isOpening && IsPastOpen(hallValue)) {
     Log.println("Wing Is Open");
+    lastTimedOut = false;
     isOpening = false;
     isOpen = true;
     hallFault = false;
@@ -172,6 +173,7 @@ void Wing::Update(ulong deltaTime) {
 
   if (isClosing && IsPastClosed(hallValue)) {
     Log.println("Wing Is Closed");
+    lastTimedOut = false;
     isClosing = false;
     hallFault = false;
     Stop();
@@ -180,6 +182,7 @@ void Wing::Update(ulong deltaTime) {
 
   if (timeMoving >= MOVE_TIMEOUT_MS) {
     Log.println("Wing Movement Timeout");
+    lastTimedOut = true;
     if (moveMax - moveMin < HALL_MIN_SWING) {
       hallFault = true;
       Log.printf("Wing %s: Hall sensor did not change during the movement (%u..%u)\n",

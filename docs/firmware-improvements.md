@@ -17,7 +17,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 - **Améliorations** : **lot I1 fait** le 26.09.2026 (A1, A2, D4, D2) sous VS Code, commit `a54d633` ; compile ; vérifications de la page OK ; **CI GitHub verte** au premier passage.
 - **Lots I2 et IL faits** le 26.09.2026 (A3, A4, D1 ; L1 à L5), commit `cf57922` poussé ; **CI verte** (run 36267773678) : compilation, **tests natifs** (exécutés pour la première fois, dans la CI : pas de compilateur C++ sur le PC Windows) et vérification de la page.
 - **Prochaine action** : I3 (B1 visée, B3 mode recherche, C1 vue radar).
-- **05.10.2026** : nouvelle famille **M** (mode debug avec écran OLED sur J11, boutons A / B pour naviguer), lot **IM fait** le jour même, avant I3 (choix de l'utilisateur) ; non commité ; compile ; jamais essayé sur un écran réel. Réponses de l'utilisateur : écrans 0,96" (SSD1306) et un 1,54" « M154_4P » (SSD1309 très probable, non confirmé) à gérer tous les deux ; un servo à la fois par défaut, levable ; menus en français et en anglais.
+- **05.10.2026** : nouvelle famille **M** (mode debug avec écran OLED sur J11, boutons A / B pour naviguer), lot **IM fait** le jour même, avant I3 (choix de l'utilisateur) ; commit `83544a4` poussé, CI verte ; jamais essayé sur un écran réel. Idées d'écran proposées ensuite, en attente du choix de l'utilisateur : retournement 180° et contraste, extinction automatique, auto-test, assistant de calibration, courbe Hall, journal / crash à l'écran, QR code Wi-Fi, vue radar, œil et sous-titres, statistiques. Réponses de l'utilisateur : écrans 0,96" (SSD1306) et un 1,54" « M154_4P » (SSD1309 très probable, non confirmé) à gérer tous les deux ; un servo à la fois par défaut, levable ; menus en français et en anglais.
 - **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
 
@@ -30,7 +30,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
 | IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27, CI verte |
-| IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait (non commité) | 05.10.2026 ; passé avant I3 à la demande de l'utilisateur ; build OK, `check_web.py` 39/39 ; tests natifs du menu écrits, à exécuter par la CI ; **jamais vu sur un vrai écran** |
+| IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commit `83544a4` ; passé avant I3 à la demande de l'utilisateur ; build OK, `check_web.py` 39/39 ; **CI verte** (run 37297330123) avec les 22 tests natifs, dont ceux du menu et de l'animation ; **jamais vu sur un vrai écran** |
 | I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur |
 
 ## Catalogue
@@ -168,6 +168,8 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 | 05.10.2026 | Lot IM : comportement | SW1 = **mode debug** (ancien mode banc) ; les boutons naviguent seulement si un OLED est présent (sinon fonctions normales, et menu par la page web ou `key`) ; appui long 0,6 s dans ce cas ; en mode debug un cycle de démo finit en `Manual` (jamais de déclenchement par le radar) ; **un servo à la fois par défaut** (`Board::IsServoLimited`), levé par `power full` : alors « les deux ailes », `demo`, `loadtest` sont permis et `resume` attache et fait le homing ; SW1 ouvert + écran = page d'état seule ; `Language` (défaut 1 = français) | réponses de l'utilisateur (« 2 ok », « les deux », « IM tout de suite ») ; un port USB de PC ne supporte pas plusieurs servos |
 | 05.10.2026 | Lot IM : Wi-Fi sur l'écran | menu **WiFi** à la racine : pages réseau tourelle (nom, **mot de passe affiché**, 192.168.4.1, clients), réseau maison, réseaux trouvés (4 plus forts), date et heure ; actions scanner, reconnecter, oublier (`wifi forget`), marche / arrêt, mot de passe d'usine ; **pas de saisie du mot de passe de la box avec deux boutons** (reste sur la page web) | demande de l'utilisateur ; le mot de passe du point d'accès à l'écran sert à connecter un téléphone, il n'est visible que par qui est devant la tourelle interrupteur debug fermé (et par `/api/screen`, lui-même protégé par ce mot de passe) |
 | 05.10.2026 | Lot IM : animation des ailes | `MenuScreen.wingAnimation` + pourcentages ; `logic::HallPercent` (0 % au seuil fermé, 100 % au seuil ouvert, polarité indifférente) ; `logic::RenderWings` (version texte) et `Display::DrawWings` (corps ovale, œil, deux panneaux qui s'écartent de 24 px, canons dans l'ouverture) ; affichée tant qu'une aile bouge + 0,8 s, dans les deux modes ; réglage `OledAnim` (défaut oui) ; cadence inchangée (5 images / s au plus) | « ça pourrait être sympa » ; pilotée par les capteurs réels plutôt que par le temps. **Risque** : chaque image occupe `loop()` ~25 ms, donc l'arrêt d'une aile sur son seuil Hall peut être détecté jusqu'à 25 ms plus tard — à mesurer sur la carte, d'où le réglage pour la couper |
+| 05.10.2026 | Lot IM : envoi de l'image hors de `loop()` | tâche FreeRTOS `oled` (priorité 1, cœur 0, pile 4 Ko) qui dessine et envoie ; `Display::Show` ne fait que copier les six lignes sous mutex et notifier la tâche ; si plusieurs images arrivent pendant un envoi, seule la dernière est dessinée ; animation portée à 10 images / s. **Remplace** le risque noté plus haut (arrêt d'une aile retardé de 25 ms) | question de l'utilisateur : « on ne peut rien faire pour améliorer ? ». Vérifié dans les sources : `Wire` prend un verrou par transaction (`CONFIG_DISABLE_HAL_LOCKS` absent du SDK), y compris pour la lecture en deux temps de l'IMU ; U8g2 (`u8x8_cad_ssd13xx_fast_i2c`) découpe l'image en transactions de 24 octets (~0,7 ms), donc une lecture IMU depuis `loop()` attend ~1 ms au plus. Écartés : envoi par bandes dans `loop()` (~3 ms par bande, plus simple mais bloque encore) ; I²C à 1 MHz (hors spécification de l'écran et de l'IMU sur un bus partagé) |
+| 05.10.2026 | Lot IM : dix idées d'écran (toutes demandées) | modèle d'écran généralisé : `logic::Graphic` (None, Wings, Radar, Graph, Qr, Eye) + `value[8]` + `data[216]`, toujours avec une version texte dans les six lignes ; accroche `infoGraphic` pour qu'une page d'information ajoute un dessin ; nouveau type d'entrée `Wizard` (les enfants sont les étapes, libellé = consigne sur 3 lignes, `logic::WrapText`) ; **QR code par le générateur du SDK** (`esp_qrcode_generate`, déjà lié : aucune dépendance ; la lib `ricmoo/QRCode` aurait un `qrcode.h` en conflit avec celui de l'IDF) ; auto-test dans `control/SelfTest` (séquence non bloquante, passe par les commandes de `Actions`) ; compteurs dans `control/Stats` (NVS `stats`) ; veille, retournement et contraste appliqués par la tâche d'affichage ; œil en mode normal (`OledFace`) | « j'aimerais tout » ; le texte reste la base commune de l'OLED, de la page web, du simulateur et des tests |
 | 26.09.2026 | Lot IL | L1 : `LabMarkers` (Bool, groupe Lab, appliqué aussitôt), `Board::Mark(label)` statique (bascule + ligne de journal), repères aux étapes 4 à 10, à chaque attache (`Gantry`) et à la fin du boot ; L2 : balayage servo en triangle, 1 consigne / 20 ms ; balayage de fréquence linéaire dans le générateur de tonalité (`PlayChirp`) ; L3 : `SetBitPattern` (luminosité 255 exacte car `FASTLED_SCALE8_FIXED` = 1, dithering coupé, luminosité restaurée) ; L4 : écart d'attache imposé en RAM (`Gantry::SetStaggerOverride`, 0 → 1 ms « tous ensemble »), ailes en `TestStop` ; L5 : ligne de journal avant le délestage ; balayage et `loadtest` annulés par `Fault` et `resume` | sans annulation, un balayage ou un `loadtest` redemanderait des servos pendant un défaut d'alimentation |
 | 26.09.2026 | D2 | `.github/workflows/firmware.yml` : sur push / PR touchant `Turret_firmware/` ; PlatformIO 6.1.18 figé, cache `~/.platformio` + `libdeps` ; contrôle de la casse des `#include` ; build `turret2` + `turret2_bringup` ; `tools/check_web.py` (simulateur + `node --check`). Tests natifs ajoutés à la CI avec D1 (lot I2) | le runner est sous Linux, sensible à la casse (le fichier `FIringState.cpp` montre que le dépôt a déjà des noms atypiques) |
 
@@ -316,3 +318,41 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 **Idée notée, non faite** : un QR code Wi-Fi à l'écran (`WIFI:T:WPA;S:…;P:…;;`, version 3 = 29 × 29 modules, 58 px à 2 px par module : il tient sur 64 px de haut) pour connecter le téléphone sans rien taper ; demande une petite bibliothèque de QR code.
 
 **Prochaine étape** : essai sur le simulateur par l'utilisateur, commit / push, puis I3.
+
+### 05.10.2026 (4ᵉ entrée) — Push du lot IM ; l'écran ne bloque plus la boucle
+
+**Demande** : « génial vas-y et as-tu d'autres idées » ; puis, sur le risque des 25 ms par image : « on ne peut rien faire pour améliorer ? ».
+
+**Fait**
+- Commit `83544a4` (lot IM) poussé ; CI verte (run 37297330123), 22 tests natifs réussis. Raté : un premier `git commit -m` avec des guillemets dans le message a échoué en silence sous PowerShell (rien n'était commité ni poussé) → message passé par fichier (`git commit -F`) ; un `tools/__pycache__/*.pyc` s'était glissé dans l'index → retiré, `__pycache__/` ajouté au `.gitignore`.
+- Idées d'écran proposées (voir « État actuel »), en attente de choix.
+- `ui/Display` : tâche d'affichage (voir « Décisions ») ; `ui/DebugUi` : 10 images / s pendant l'animation.
+- Docs : `Turret_firmware/README.md` (paragraphe « The screen never holds up the main loop »).
+
+**Testé** : build `turret2` et `turret2_bringup` SUCCESS (`turret2` : flash 1 526 113, 45,7 % ; RAM 79 216, 24,2 %). **Non testable sans matériel** : le partage réel du bus entre la tâche d'affichage et l'IMU (raisonnement sur les sources seulement) — à vérifier à la mise en service : pas d'erreur I²C dans le journal, pas de lecture IMU aberrante pendant une animation.
+
+**Prochaine étape** : choix des idées d'écran, puis I3.
+
+### 05.10.2026 (5ᵉ entrée) — Lot IM : les dix idées d'écran
+
+**Demande** : « passe aux idées, j'aimerais tout ».
+
+**Fait**
+1. **Retournement et contraste** : réglages `OledFlip`, `OledContrast` ; `Display::Configure`, appliqués aussitôt (`Actions::SetSettingsListener` → `DebugUi::ApplySettings`).
+2. **Veille** : `OledSleepS` (300 s, 0 = jamais) ; réveil sur touche (la première ne fait que réveiller), mouvement d'aile, changement d'état, défaut d'alimentation ; `Display::SetPower`.
+3. **Auto-test** : `control/SelfTest.{h,cpp}`, 19 contrôles (11 passifs, 8 actifs), résultats OK / FAIL / SKIP / CHECK ; commandes `selftest [quick|report|stop]` ; `GET /api/selftest` ; carte « Self-test » dans l'onglet Tests de la page ; page « Rapport auto-test » du menu. `Wing::LastMoveTimedOut`.
+4. **Assistant de calibration** : entrée « Assistant » (7 étapes : Hall G ouvert / fermé, Hall D ouvert / fermé, enregistrer, IMU debout, rappel des trims).
+5. **Courbes Hall** : 100 échantillons par aile (un toutes les 50 ms, 5 s), seuils en pointillés.
+6. **Journal** (4 dernières lignes) et **dernier crash** (résumé du coredump ou dernières lignes avant le reset).
+7. **QR codes** : rejoindre le réseau de la tourelle (`WIFI:T:WPA;S:…;P:…;;`, champs échappés), adresse de la page web (IP maison si connectée).
+8. **Vue radar** : zone de détection (arc + deux droites), cibles en points pleins (dans la zone) ou cercles, pleine échelle 6 m.
+9. **Œil** en mode normal : endormi / éveillé (pupille vers la première cible) / en colère ; sous-titres aux changements d'état ; défauts actifs ; heure. `OledFace` pour revenir à la page d'état.
+10. **Statistiques** : `control/Stats.{h,cpp}` (démarrages et cycles en NVS, cibles et dernier cycle depuis le boot) ; commande `stats`, page du menu, `/api/status`, ligne « Cycles » de la page web.
+- Simulateur (`mock_menu.py` : entrées sur plusieurs lignes, assistant ; `mock_server.py` : nouvelles pages, `selftest`, `stats`), `check_web.py` (40 vérifications ; les « 39/39 » des entrées précédentes étaient un décompte erroné, il y en avait 35), tests natifs (`test_wrap_text`, `test_menu_wizard`, arbre réel avec étapes : 24 tests).
+- Docs : `Turret_firmware/README.md`.
+
+**Testé** : build `turret2` et `turret2_bringup` SUCCESS du premier coup (`turret2` : flash 1 553 921, 46,5 % ; RAM 82 592, 25,2 %) ; page 20 348 → 7 602 octets gzip ; `check_web.py` : tout passe ; 115 entrées de menu, 21 pages, 7 étapes ; assistant parcouru sur le simulateur. **Non exécuté** : tests natifs (CI au prochain push). **Jamais vu sur un écran** : aucun des cinq dessins (ailes, radar, courbe, QR, œil) — positions calculées, à ajuster sur le matériel ; lisibilité du QR code par un téléphone à vérifier (surtout sur le 0,96").
+
+**Rappel** : la tâche d'affichage (entrée précédente) et ces dix idées ne sont pas encore commitées.
+
+**Prochaine étape** : commit / push (CI), puis I3 (la vue radar de l'écran en couvre déjà une partie ; reste la visée, le mode recherche et la vue radar de la page web).

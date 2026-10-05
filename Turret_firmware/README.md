@@ -81,6 +81,8 @@ src/
   settings/Settings.*       setting table, NVS storage
   states/*                  state machine: Booting, Idle, Activate, Firing, Disengage, Manual, Fault
   control/Actions.*         command interpreter shared by console, buttons and web page; status JSON
+  control/SelfTest.*        self-test: passive checks, then LEDs, sound, servos and wings, with a report
+  control/Stats.*           usage counters (boots and cycles in NVS, targets and last cycle since boot)
   web/AccessPoint.*         turret access point (WPA2) + captive portal DNS
   web/Station.*             home WiFi, NTP, mDNS, network scan
   web/TurretWebServer.*     web page and JSON API, HTTP Basic authentication
@@ -242,7 +244,7 @@ One interpreter for the console, the buttons and the web page. The web server ru
 
 Plug a 128×64 I²C OLED into the Qwiic port **J11** (3.3 V, shared bus with the IMU; nothing to modify on the board). It is looked for at boot at 0x3C, then 0x3D. The controller cannot be detected: choose it with the `OledType` setting (0 = SSD1306, the 0.96" modules; 1 = SSD1309, the 1.54" modules; 2 = SH1106, the 1.3" modules), then reboot. Menus in French or English (`Language`).
 
-- **SW1 open (normal mode)**: the screen shows one status page (state, faults, home network address, time). Buttons keep their normal functions.
+- **SW1 open (normal mode)**: the screen shows **the eye of the turret** (`OledFace`): asleep while idle with nobody in sight, awake with the pupil following the first radar target, angry while it deploys and fires; underneath, subtitles at each change of state ("Target acquired", "Target lost", "Are you still there?"…), the active faults, and the time. With `OledFace` off: one status page (state, faults, home network address, time). Buttons keep their normal functions.
 - **SW1 closed at power-up (debug mode)**: the screen shows the menu and the buttons navigate. Without a screen the buttons keep their normal functions, and the same menu is available on the web page (Tests → *Debug screen*) and with the `key` command.
 
 | Button | In a menu | Information page | Adjusting a value | Confirmation |
@@ -252,18 +254,32 @@ Plug a 128×64 I²C OLED into the Qwiic port **J11** (3.3 V, shared bus with the
 | B short | enter / run | back | value + step | confirm |
 | B long (0.6 s) | back to the parent menu | back | save and leave | cancel |
 
+In the guided setup: B does the step, A skips it, A long goes back one step, B long leaves.
+
 A + B held at power-up is still the factory reset.
 
 | Menu | Content |
 |---|---|
-| Information | live pages: state and faults, power (PWR_FLT, counters, reset reason), radar (targets, in the zone or not), IMU, Hall sensors (values with a bar), servos (pulse of each output), audio, network and time |
-| Tests | wings (left / right / both: open, close), guns (left / right: out, in), each servo by steps, LEDs (colours, one strip, one-bit pattern), sound (tone, gunshot, volume, gain, mute), demo cycle, load test, I²C scan, release all servos |
-| Calibration | Hall sensors (capture open / closed for each wing, then save: thresholds at 25 % and 75 %), IMU (the turret stands upright), wing trims (5 µs steps, the wing runs at its stop point for 2 s, hold B to save) |
-| Settings | volume, LED brightness, rest time, detection distance and angle, lab markers, wing animation, language |
-| WiFi | pages: turret network (name, **password**, 192.168.4.1, clients), home network (name, state, address and signal, `portal-turret.local`), networks found by the last scan (four strongest), date and time; actions: scan, reconnect to the home network, forget it, WiFi on / off, factory password for the turret network (next boot). The home network password is typed on the web page, not with two buttons |
+| Information | live pages: state and faults, power (PWR_FLT, counters, reset reason), radar (targets, in the zone or not), IMU, Hall sensors (values with a bar), servos (pulse of each output), audio, network and time; **radar view** (top view: the detection zone as an arc and two lines, full scale 6 m, targets as dots, filled when in the zone); **Hall curves** (left and right: the last 5 s, with the two thresholds as dotted lines); statistics (boots, cycles, targets seen, last cycle); **log** (last four lines); **last crash** (core dump summary, or the last lines before the reset) |
+| Tests | **self-test** quick or full, and its report (below); wings (left / right / both: open, close), guns (left / right: out, in), each servo by steps, LEDs (colours, one strip, one-bit pattern), sound (tone, gunshot, volume, gain, mute), demo cycle, load test, I²C scan, release all servos |
+| Calibration | **guided setup**: seven steps, one instruction per screen (open the left wing by hand, press B…) for the Hall sensors and the IMU; or entry by entry: Hall sensors (capture open / closed for each wing, then save: thresholds at 25 % and 75 %), IMU (the turret stands upright), wing trims (5 µs steps, the wing runs at its stop point for 2 s, hold B to save) |
+| Settings | volume, LED brightness, rest time, detection distance and angle, lab markers, wing animation, eye or status page, screen flipped, contrast, screen-off delay, language |
+| WiFi | pages: turret network (name, **password**, 192.168.4.1, clients), home network (name, state, address and signal, `portal-turret.local`), networks found by the last scan (four strongest), date and time, **QR code to join the turret network** (point the phone camera at it), **QR code of the web page**; actions: scan, reconnect to the home network, forget it, WiFi on / off, factory password for the turret network (next boot). The home network password is typed on the web page, not with two buttons |
 | System | resume (homing), reboot, reset settings, erase core dump |
 
-**Wing animation**: while a wing moves, and 0.8 s after, the screen shows the turret from the front with its two side panels sliding apart or together, following the real Hall sensor values (0 % at the closed threshold, 100 % at the open one); the gun barrels appear in the gap. In both modes. `OledAnim` turns it off. The web page shows a text version (`[]==(O)==[]`). Refreshing the OLED keeps `loop()` busy about 25 ms per frame, at most 5 times per second: if the wings stop less precisely with the screen plugged in, turn the animation off.
+**Self-test** (`selftest`, also on the web page, Tests tab): one command that checks the board and gives a report, for the first power-up and whenever something looks wrong.
+
+- *Quick* (`selftest quick`): passive checks, immediate, nothing moves: flash 8 MB without PSRAM, PWR_FLT high, IMU answers, gravity close to 9.8 m/s², radar frames, both Hall sensors away from the rails, LittleFS mounted, OLED, access point, amplifier.
+- *Full* (`selftest`): then the LEDs in red, green and blue, a 1 kHz tone, each positional servo attached and moved a little while PWR_FLT is watched, and each wing opened and closed, which must end on its Hall threshold and not on the timeout. It never blocks the main loop; a power fault aborts it.
+- Results: `OK`, `FAIL`, `SKIP` (could not be tested: turret not upright, part missing, amplifier muted), `CHECK` (the firmware cannot see or hear: look at the LEDs, listen to the tone). `selftest report`, `GET /api/selftest`, and the page *Self-test report* of the menu.
+
+**Screen settings**: `OledFlip` turns the picture by 180° (screen mounted upside down), `OledContrast` sets the brightness, both at once. `OledSleepS` turns the screen off after that time without a key press, a wing movement, a change of state or a power fault (OLEDs burn in; 0 = never); the first key press only wakes it up.
+
+**QR codes**: made by the generator of the ESP32 SDK. Up to 53 characters (version 3) the code is drawn with 2 pixels per module; the factory name and password take 41. A longer name or password gives a bigger code at 1 pixel per module, harder to scan on a 0.96" screen.
+
+**Wing animation**: while a wing moves, and 0.8 s after, the screen shows the turret from the front with its two side panels sliding apart or together, following the real Hall sensor values (0 % at the closed threshold, 100 % at the open one); the gun barrels appear in the gap. In both modes. `OledAnim` turns it off. The web page shows a text version (`[]==(O)==[]`).
+
+**The screen never holds up the main loop.** Sending a frame keeps the I²C bus busy about 25 ms, so it is done by a task of its own (`oled`, on the other core): `loop()` only hands over the six lines to draw. The bus is shared safely with the IMU: `Wire` takes a lock per transaction and U8g2 sends a frame as 24-byte transactions (about 0.7 ms each), so an IMU read waits about 1 ms at most. Frames are sent only when the content changes, 5 times per second at most, 10 during the wing animation.
 
 Every entry runs a command of the console, so the behaviour and the protections are the same. **One servo at a time**: debug mode assumes a weak supply (a computer USB port). With a 3 A supply connected, *Tests → 3 A supply: all* (`power full`) lifts the limit: both wings, demo cycle and load test become possible, and *Resume* attaches and homes the servos. In debug mode a demo cycle ends stopped; the radar never triggers one.
 
@@ -305,6 +321,10 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `Language` | Display | 1 | 0..1 | language of the debug screen: 0 English, 1 French |
 | `OledType` | Display | 0 | 0..2 | OLED controller: 0 SSD1306 (0.96"), 1 SSD1309 (1.54"), 2 SH1106 (1.3"); applied at the next boot |
 | `OledAnim` | Display | true | true / false | wing animation on the screen while the wings move |
+| `OledFace` | Display | true | true / false | normal mode: the eye and its subtitles (true) or a status page (false) |
+| `OledFlip` | Display | false | true / false | picture turned by 180° |
+| `OledContrast` | Display | 255 | 0..255 | screen contrast |
+| `OledSleepS` | Display | 300 | 0..3600 | screen off after this many seconds without activity (0 = never) |
 | `LabMarkers` | Lab | false | true / false | green LED toggles at each boot step / servo attachment instead of the heartbeat (lab aid) |
 | `ApSsid` | WiFi | Portal Turret | 1..32 chars | name of the turret's network |
 | `ApPassword` | WiFi | stillalive | 8..63 chars | turret network **and** web page password |
@@ -339,7 +359,8 @@ Tabs: **Status** (home WiFi card, values refreshed every second, active faults, 
 | `POST /api/settings/reset` | optional field `group`; all settings otherwise |
 | `POST /api/action` | field `cmd`: any console command |
 | `GET /api/wifi/scan` | `{"scanning":bool,"networks":[{ssid,rssi,secure}]}` after `wifi scan` |
-| `GET /api/screen` | the debug screen: `{"present":bool,"menu":bool,"highlight":n,"lines":[6 strings]}` |
+| `GET /api/screen` | the debug screen: `{"present":bool,"menu":bool,"on":bool,"graphic":n,"highlight":n,"lines":[6 strings]}` (`graphic` ≠ 0: the OLED shows a drawing, the lines are its text version) |
+| `GET /api/selftest` | self-test summary and one line per check |
 | `GET /api/log` | last 4 kB of the log |
 | `GET /api/crashlog` | log tail of the previous run |
 | `GET /api/coredump` | the core dump (`coredump.elf`), 404 if none |
@@ -372,6 +393,8 @@ USB, 115200 baud. Type `help`.
 | `power [full\|limited]` | debug mode: all servos allowed (3 A supply) / one at a time (default) |
 | `cal hall left\|right open\|closed`, `cal hall save`, `cal imu` | calibration without the web page |
 | `key a\|al\|b\|bl`, `screen` | debug menu: press A, A long, B, B long / print the screen |
+| `selftest [quick\|report\|stop]` | self-test: full, passive checks only, last report, stop |
+| `stats` | boots, cycles (total and since boot), targets seen, last cycle |
 | `trim left\|right <µs>` | runs a wing at its stop point with this trim for 2 s (not saved) |
 | `led ring\|left\|right\|all <RRGGBB\|off>` | test colours |
 | `tone <Hz> [ms]`, `gain 9\|12\|15`, `mute [on\|off]` | audio tests (gain not saved) |

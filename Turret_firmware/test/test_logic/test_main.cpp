@@ -313,7 +313,7 @@ void test_hall_percent() {
 void test_wing_animation_screen() {
   logic::MenuScreen screen;
   logic::RenderWings(screen, logic::Lang::French, 0, 0, true);
-  TEST_ASSERT_TRUE(screen.wingAnimation);
+  TEST_ASSERT_TRUE(screen.graphic == logic::Graphic::Wings);
   TEST_ASSERT_EQUAL_STRING("Ailes", screen.line[0]);
   TEST_ASSERT_EQUAL_STRING("       [](O)[]", screen.line[2]); // closed: panels against the body
   TEST_ASSERT_EQUAL_STRING("en mouvement...", screen.line[5]);
@@ -329,10 +329,80 @@ void test_wing_animation_screen() {
   TEST_ASSERT_EQUAL_UINT8(100, screen.rightPercent);
   TEST_ASSERT_EQUAL_STRING("     []==(O)=====[]", screen.line[2]);
 
-  // A menu screen never carries the animation flag.
+  // A menu screen never carries a drawing.
   logic::MenuNav nav = MakeNav();
   nav.Render(screen, logic::Lang::English, 0);
-  TEST_ASSERT_FALSE(screen.wingAnimation);
+  TEST_ASSERT_TRUE(screen.graphic == logic::Graphic::None);
+}
+
+void test_wrap_text() {
+  char lines[4][logic::SCREEN_LINE_BYTES];
+  // 21 columns: cut between words.
+  TEST_ASSERT_EQUAL_UINT8(3, logic::WrapText("Open the LEFT wing fully by hand, then press B", lines, 4, 21));
+  TEST_ASSERT_EQUAL_STRING("Open the LEFT wing", lines[0]);
+  TEST_ASSERT_EQUAL_STRING("fully by hand, then", lines[1]);
+  TEST_ASSERT_EQUAL_STRING("press B", lines[2]);
+  // A short text is one line; an empty one is none.
+  TEST_ASSERT_EQUAL_UINT8(1, logic::WrapText("Done", lines, 4, 21));
+  TEST_ASSERT_EQUAL_STRING("Done", lines[0]);
+  TEST_ASSERT_EQUAL_UINT8(0, logic::WrapText("", lines, 4, 21));
+  // Accented letters are two bytes but one column: 21 characters fit on one line.
+  TEST_ASSERT_EQUAL_UINT8(1, logic::WrapText("éééééééééé ééééééééé", lines, 4, 21));
+  // A word longer than the line is cut.
+  TEST_ASSERT_EQUAL_UINT8(2, logic::WrapText("abcdefghijklmnopqrstuvwxyz", lines, 4, 21));
+  TEST_ASSERT_EQUAL_STRING("abcdefghijklmnopqrstu", lines[0]);
+  TEST_ASSERT_EQUAL_STRING("vwxyz", lines[1]);
+  // Never more lines than asked.
+  TEST_ASSERT_EQUAL_UINT8(2, logic::WrapText("one two three four five six seven eight nine ten", lines, 2, 10));
+}
+
+static const logic::MenuItem WIZARD_TREE[] = {
+    T_ITEM("Root", "Racine", Menu, -1, nullptr, nullptr, nullptr, 0, 0, 0, 0),
+    T_ITEM("Setup", "Assistant", Wizard, 0, nullptr, nullptr, nullptr, 0, 0, 0, 0),
+    T_ITEM("Do the first thing, then press B", "Fais la première chose, puis B", Command, 1, "one", nullptr, nullptr, 0, 0, 0, 0),
+    T_ITEM("Second", "Deuxième", Command, 1, "two", nullptr, nullptr, 0, 0, 0, 0),
+    T_ITEM("Read this", "Lis ceci", Command, 1, nullptr, nullptr, nullptr, 0, 0, 0, 0),
+};
+
+void test_menu_wizard() {
+  lastCommand[0] = '\0';
+  commandCount = 0;
+  logic::MenuHooks hooks = {nullptr, FakeExecute, FakeValue, FakeInfo, nullptr};
+  logic::MenuNav nav(WIZARD_TREE, 5, hooks);
+  logic::MenuScreen screen;
+
+  Press(nav, logic::MenuKey::B); // enter the wizard
+  TEST_ASSERT_TRUE(nav.GetMode() == logic::MenuNav::Mode::Wizard);
+  nav.Render(screen, logic::Lang::English, 0);
+  TEST_ASSERT_EQUAL_STRING("Setup 1/3", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("Do the first thing,", screen.line[1]);
+  TEST_ASSERT_EQUAL_STRING("then press B", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("B:ok  A:skip", screen.line[5]);
+
+  Press(nav, logic::MenuKey::B); // do step 1
+  TEST_ASSERT_EQUAL_STRING("one", lastCommand);
+  TEST_ASSERT_EQUAL_INT16(1, nav.GetWizardStep());
+  nav.Render(screen, logic::Lang::French, 1500);
+  TEST_ASSERT_EQUAL_STRING("Assistant 2/3", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("ok one", screen.line[4]); // answer of the step just done
+
+  Press(nav, logic::MenuKey::A); // skip step 2: nothing runs
+  TEST_ASSERT_EQUAL_INT(1, commandCount);
+  Press(nav, logic::MenuKey::ALong); // back to step 2
+  TEST_ASSERT_EQUAL_INT16(1, nav.GetWizardStep());
+  Press(nav, logic::MenuKey::B);
+  TEST_ASSERT_EQUAL_STRING("two", lastCommand);
+  Press(nav, logic::MenuKey::B); // step 3 has no command
+  TEST_ASSERT_EQUAL_INT(2, commandCount);
+
+  nav.Render(screen, logic::Lang::English, 9000);
+  TEST_ASSERT_EQUAL_STRING("Done", screen.line[2]);
+  Press(nav, logic::MenuKey::B); // any key leaves
+  TEST_ASSERT_TRUE(nav.GetMode() == logic::MenuNav::Mode::Browse);
+
+  Press(nav, logic::MenuKey::B); // in again
+  Press(nav, logic::MenuKey::BLong); // leave in the middle
+  TEST_ASSERT_TRUE(nav.GetMode() == logic::MenuNav::Mode::Browse);
 }
 
 // Number of characters of a UTF-8 string (accented letters count once).
@@ -350,7 +420,16 @@ void test_real_menu_tree() {
   for (int16_t i = 1; i < ui::MENU_TREE_COUNT; i++) {
     const logic::MenuItem &item = ui::MENU_TREE[i];
     TEST_ASSERT_TRUE_MESSAGE(item.parent >= 0 && item.parent < ui::MENU_TREE_COUNT, item.en);
-    TEST_ASSERT_TRUE_MESSAGE(ui::MENU_TREE[item.parent].kind == logic::ItemKind::Menu, item.en);
+    // A wizard step is the child of a wizard; everything else of a menu.
+    bool step = ui::MENU_TREE[item.parent].kind == logic::ItemKind::Wizard;
+    TEST_ASSERT_TRUE_MESSAGE(step || ui::MENU_TREE[item.parent].kind == logic::ItemKind::Menu, item.en);
+    if (step) {
+      // An instruction: wrapped on three lines of 21 columns at most.
+      char lines[4][logic::SCREEN_LINE_BYTES];
+      TEST_ASSERT_TRUE_MESSAGE(logic::WrapText(item.en, lines, 4, logic::SCREEN_COLUMNS) <= 3, item.en);
+      TEST_ASSERT_TRUE_MESSAGE(logic::WrapText(item.fr, lines, 4, logic::SCREEN_COLUMNS) <= 3, item.fr);
+      continue;
+    }
     // 19 characters: a submenu adds " >" and the line has 21 columns.
     TEST_ASSERT_TRUE_MESSAGE(Characters(item.en) <= 19, item.en);
     TEST_ASSERT_TRUE_MESSAGE(Characters(item.fr) <= 19, item.fr);
@@ -379,6 +458,8 @@ int main() {
   RUN_TEST(test_real_menu_tree);
   RUN_TEST(test_hall_percent);
   RUN_TEST(test_wing_animation_screen);
+  RUN_TEST(test_wrap_text);
+  RUN_TEST(test_menu_wizard);
   RUN_TEST(test_decode_examples);
   RUN_TEST(test_decode_matches_upstream_parser);
   RUN_TEST(test_zone);

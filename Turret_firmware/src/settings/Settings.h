@@ -33,6 +33,10 @@ enum SettingId {
   Language,
   OledType,
   OledAnim,
+  OledFlip,
+  OledContrast,
+  OledSleepS,
+  OledFace,
   COUNT
 };
 

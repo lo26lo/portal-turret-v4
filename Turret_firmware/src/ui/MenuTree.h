@@ -24,6 +24,17 @@ enum InfoPage : int16_t {
   PageWifiHome, // home network: name, state, address, signal
   PageWifiScan, // strongest networks of the last scan
   PageTime,     // date, time, time zone
+  // Pages with a drawing (DebugUi::InfoGraphic)
+  PageRadarView,      // top view: detection zone and targets
+  PageHallGraphLeft,  // curve of the Hall value over the last seconds
+  PageHallGraphRight,
+  PageQrWifi,         // QR code to join the turret network
+  PageQrWeb,          // QR code of the web page address
+  // Text pages
+  PageLog,      // last lines of the log
+  PageCrash,    // core dump summary, last lines before the reset
+  PageStats,    // boots, cycles, targets, last activity
+  PageSelfTest, // self-test summary and failures
 };
 
 // Positions of the menus in MENU_TREE (parents of the entries below).
@@ -40,6 +51,7 @@ enum MenuIndex : int16_t {
   MenuServos,
   MenuLeds,
   MenuSound,
+  MenuWizard, // guided calibration: its children are the steps
 };
 
 #define M_MENU(en, fr, parent) \
@@ -52,6 +64,12 @@ enum MenuIndex : int16_t {
   { en, fr, logic::ItemKind::Info, parent, nullptr, nullptr, nullptr, page, 0, 0, 0 }
 #define M_ADJ(en, fr, parent, format, save, key, min, max, step) \
   { en, fr, logic::ItemKind::Adjust, parent, format, save, key, 0, min, max, step }
+#define M_WIZ(en, fr, parent) \
+  { en, fr, logic::ItemKind::Wizard, parent, nullptr, nullptr, nullptr, 0, 0, 0, 0 }
+// Wizard step: the label is the instruction (up to 63 characters, wrapped on
+// three lines); the command runs when B is pressed (nullptr = nothing to run).
+#define M_STEP(en, fr, parent, command) \
+  { en, fr, logic::ItemKind::Command, parent, command, nullptr, nullptr, 0, 0, 0, 0 }
 
 static const logic::MenuItem MENU_TREE[] = {
     // Menus first, in the order of MenuIndex.
@@ -67,6 +85,22 @@ static const logic::MenuItem MENU_TREE[] = {
     M_MENU("Servos", "Servos", MenuTests),
     M_MENU("LEDs", "LEDs", MenuTests),
     M_MENU("Sound", "Son", MenuTests),
+    M_WIZ("Guided setup", "Assistant", MenuCalibration),
+
+    // Guided calibration, step by step. The servos are released in debug
+    // mode, so the wings can be moved by hand.
+    M_STEP("Open the LEFT wing fully by hand, then press B", "Ouvre l'aile GAUCHE à fond à la main, puis B",
+           MenuWizard, "cal hall left open"),
+    M_STEP("Close the LEFT wing fully, then press B", "Ferme l'aile GAUCHE à fond, puis B", MenuWizard,
+           "cal hall left closed"),
+    M_STEP("Open the RIGHT wing fully by hand, then press B", "Ouvre l'aile DROITE à fond à la main, puis B",
+           MenuWizard, "cal hall right open"),
+    M_STEP("Close the RIGHT wing fully, then press B", "Ferme l'aile DROITE à fond, puis B", MenuWizard,
+           "cal hall right closed"),
+    M_STEP("Save the Hall thresholds: press B", "Enregistrer les seuils Hall : B", MenuWizard, "cal hall save"),
+    M_STEP("Stand the turret upright, then press B", "Pose la tourelle debout, puis B", MenuWizard, "cal imu"),
+    M_STEP("Wing trims: Calibration menu, Trim wing L and R", "Trims : menu Calibration, Trim aile G et D",
+           MenuWizard, nullptr),
 
     // Information
     M_INFO("State", "État", MenuInfo, PageState),
@@ -77,8 +111,17 @@ static const logic::MenuItem MENU_TREE[] = {
     M_INFO("Servos", "Servos", MenuInfo, PageServos),
     M_INFO("Audio", "Audio", MenuInfo, PageAudio),
     M_INFO("Network", "Réseau", MenuInfo, PageNetwork),
+    M_INFO("Radar view", "Vue radar", MenuInfo, PageRadarView),
+    M_INFO("Hall L curve", "Courbe Hall G", MenuInfo, PageHallGraphLeft),
+    M_INFO("Hall R curve", "Courbe Hall D", MenuInfo, PageHallGraphRight),
+    M_INFO("Statistics", "Statistiques", MenuInfo, PageStats),
+    M_INFO("Log", "Journal", MenuInfo, PageLog),
+    M_INFO("Last crash", "Dernier crash", MenuInfo, PageCrash),
 
     // Tests (after the submenus Wings, Guns, Servos, LEDs, Sound)
+    M_CMD("Self-test: quick", "Auto-test rapide", MenuTests, "selftest quick"),
+    M_ASK("Self-test: full", "Auto-test complet", MenuTests, "selftest"),
+    M_INFO("Self-test report", "Rapport auto-test", MenuTests, PageSelfTest),
     M_CMD("Demo cycle", "Cycle de démo", MenuTests, "demo"),
     M_ASK("Load test 250 ms", "Test charge 250 ms", MenuTests, "loadtest 250"),
     M_CMD("I2C scan", "Scan I2C", MenuTests, "scan"),
@@ -143,6 +186,12 @@ static const logic::MenuItem MENU_TREE[] = {
     M_CMD("Lab markers off", "Repères labo non", MenuSettings, "set LabMarkers false"),
     M_CMD("Wing animation on", "Animation ailes oui", MenuSettings, "set OledAnim true"),
     M_CMD("Wing animation off", "Animation ailes non", MenuSettings, "set OledAnim false"),
+    M_CMD("Eye on (normal)", "Œil oui (normal)", MenuSettings, "set OledFace true"),
+    M_CMD("Eye off (status)", "Œil non (état)", MenuSettings, "set OledFace false"),
+    M_CMD("Screen: normal", "Écran : normal", MenuSettings, "set OledFlip false"),
+    M_CMD("Screen: flipped", "Écran : retourné", MenuSettings, "set OledFlip true"),
+    M_ADJ("Contrast", "Contraste", MenuSettings, "set OledContrast %d", nullptr, "OledContrast", 0, 255, 15),
+    M_ADJ("Screen off after s", "Veille écran s", MenuSettings, "set OledSleepS %d", nullptr, "OledSleepS", 0, 3600, 60),
     M_CMD("Language: English", "Langue : English", MenuSettings, "set Language 0"),
     M_CMD("Language: French", "Langue : français", MenuSettings, "set Language 1"),
 
@@ -152,6 +201,8 @@ static const logic::MenuItem MENU_TREE[] = {
     M_INFO("Home network", "Réseau maison", MenuWifi, PageWifiHome),
     M_INFO("Networks found", "Réseaux trouvés", MenuWifi, PageWifiScan),
     M_INFO("Date and time", "Date et heure", MenuWifi, PageTime),
+    M_INFO("QR: join turret", "QR : rejoindre", MenuWifi, PageQrWifi),
+    M_INFO("QR: web page", "QR : page web", MenuWifi, PageQrWeb),
     M_CMD("Scan networks", "Scanner", MenuWifi, "wifi scan"),
     M_CMD("Reconnect home", "Reconnecter maison", MenuWifi, "wifi join"),
     M_ASK("Forget home", "Oublier maison", MenuWifi, "wifi forget"),
@@ -173,5 +224,7 @@ static const int16_t MENU_TREE_COUNT = sizeof(MENU_TREE) / sizeof(MENU_TREE[0]);
 #undef M_ASK
 #undef M_INFO
 #undef M_ADJ
+#undef M_WIZ
+#undef M_STEP
 
 } // namespace ui

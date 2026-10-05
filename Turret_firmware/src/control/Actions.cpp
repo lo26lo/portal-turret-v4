@@ -1,6 +1,7 @@
 #include "Actions.h"
 
 #include "board/CoreDump.h"
+#include "control/SelfTest.h"
 #include "board/I2cBus.h"
 #include "board/Log.h"
 #include "states/StateMachine.h"
@@ -164,6 +165,9 @@ void Actions::ApplyAllSettings() {
   turret->audio.ApplySettings();
   turret->light.ApplySettings(turret->settings, turret->board.IsReducedMode());
   turret->board.SetLabMarkers(turret->settings.GetBool(SettingId::LabMarkers));
+  if (settingsListener) {
+    settingsListener();
+  }
 }
 
 bool Actions::EnterTestMode(String &error) {
@@ -387,6 +391,27 @@ String Actions::Execute(const String &line) {
     }
     return "usage: key a|al|b|bl (debug menu: A, A long, B, B long)";
   }
+  if (command == "selftest") {
+    if (selfTest == nullptr) {
+      return "self-test not available";
+    }
+    if (args == "report") {
+      return selfTest->HasRun() ? selfTest->Summary(false) + "\n" + selfTest->Report(false)
+                                : String("no self-test run yet (selftest | selftest quick)");
+    }
+    if (args == "stop") {
+      selfTest->Stop();
+      return "self-test stopped";
+    }
+    return selfTest->Start(args == "quick", hasDisplay ? hasDisplay() : false);
+  }
+  if (command == "stats") {
+    Stats &stats = turret->stats;
+    String last = stats.GetLastCycleAt() ? String((millis() - stats.GetLastCycleAt()) / 1000) + " s ago" : String("none");
+    return "boots " + String(stats.GetBoots()) + ", cycles total " + String(stats.GetTotalCycles()) +
+           ", since boot: cycles " + String(stats.GetSessionCycles()) + ", targets " +
+           String(stats.GetSessionTargets()) + ", last cycle " + last;
+  }
   if (command == "screen") {
     return screenText ? screenText() : String("no debug screen");
   }
@@ -504,7 +529,7 @@ String Actions::Help() {
          "  wings open|close | guns extend|retract | trim left|right <us>\n"
          "  wing left|right open|close | gun left|right extend|retract | servos off | shot\n"
          "  power [full|limited] | cal hall left|right open|closed | cal hall save | cal imu\n"
-         "  key a|al|b|bl (debug menu) | screen\n"
+         "  key a|al|b|bl (debug menu) | screen | selftest [quick|report|stop] | stats\n"
          "  led ring|left|right|all <RRGGBB|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
          "  wifi [on|off|scan|join|forget] | time | demo | resume | reboot\n"
          "Lab: sweep servo <n> <ms> | sweep tone <Hz start> <Hz end> <ms> | sweep stop\n"
@@ -740,6 +765,15 @@ void Actions::UpdateLoadTest(ulong now) {
   }
 }
 
+String Actions::SelfTestReport() const {
+  if (selfTest == nullptr || !selfTest->HasRun()) {
+    return "No self-test run yet.\n";
+  }
+  return selfTest->Summary(false) + (selfTest->IsRunning() ? "  (running)\n" : "\n") + selfTest->Report(false);
+}
+
+bool Actions::IsFrench() const { return turret->settings.GetInt(SettingId::Language) != 0; }
+
 void Actions::CancelLabTests() {
   if (sweepChannel >= 0 || loadPhase != LoadPhase::Off) {
     Log.println("lab test cancelled");
@@ -910,6 +944,15 @@ String Actions::StatusJson() {
   json += String(",\"crash\":{\"previousLog\":") + Bool(CrashLog::PreviousRun().length() > 0) +
           ",\"coredump\":" + String(CoreDump::Size()) + ",\"summary\":";
   AppendJsonString(json, CoreDump::Summary().c_str());
+  json += "}";
+  Stats &stats = turret->stats;
+  json += ",\"stats\":{\"boots\":" + String(stats.GetBoots()) + ",\"cycles\":" + String(stats.GetTotalCycles()) +
+          ",\"sessionCycles\":" + String(stats.GetSessionCycles()) + ",\"sessionTargets\":" +
+          String(stats.GetSessionTargets()) + ",\"lastCycleAgoS\":" +
+          (stats.GetLastCycleAt() ? String((millis() - stats.GetLastCycleAt()) / 1000) : String("null")) + "}";
+  json += ",\"selfTest\":{\"run\":" + String(Bool(selfTest != nullptr && selfTest->HasRun())) +
+          ",\"running\":" + Bool(selfTest != nullptr && selfTest->IsRunning()) + ",\"summary\":";
+  AppendJsonString(json, selfTest != nullptr && selfTest->HasRun() ? selfTest->Summary(false).c_str() : "");
   json += "}";
   json += ",\"freeHeap\":" + String(ESP.getFreeHeap());
   json += "}";

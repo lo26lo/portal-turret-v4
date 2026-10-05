@@ -82,6 +82,11 @@ input[type=range]{width:100%}
 <div class="row"><button data-key="a">A</button><button data-key="al">A long</button><button data-key="b">B</button><button data-key="bl">B long</button><span id="scrinfo" style="color:var(--muted)"></span></div>
 <small>A: next / previous (long). B: enter / back (long). Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
 </div>
+<div class="card"><h2>Self-test</h2>
+<div class="row"><button data-cmd="selftest quick">Quick (nothing moves)</button><button id="stfull">Full (LEDs, sound, servos, wings)</button><button id="stref">Report</button></div>
+<pre id="strep">–</pre>
+<small>OK / FAIL / SKIP (could not be tested) / CHECK (look at the LEDs, listen to the tone).</small>
+</div>
 <div class="card"><h2>Tests</h2><small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
 <div class="row"><button data-cmd="wings open">Wings open</button><button data-cmd="wings close">Wings close</button><button data-cmd="guns extend">Guns out</button><button data-cmd="guns retract">Guns in</button></div>
 <div class="row"><button data-cmd="tone 1000 500">Tone 1 kHz</button><button data-cmd="mute">Mute / unmute</button><button data-cmd="gain 9">9 dB</button><button data-cmd="gain 12">12 dB</button><button data-cmd="gain 15">15 dB</button></div>
@@ -151,6 +156,7 @@ async function loadStatus(){
   kv("WiFi",esc(st.wifi.ssid)+", "+st.wifi.clients+" client(s)"),
   kv("Home network",!st.wifi.sta.enabled?"not configured":st.wifi.sta.connected?esc(st.wifi.sta.ip)+" ("+st.wifi.sta.rssi+" dBm)":"connecting…",st.wifi.sta.enabled&&!st.wifi.sta.connected?"bad":""),
   kv("Time",st.time?esc(st.time):"not set"),kv("Free heap",Math.round(st.freeHeap/1024)+" kB"),
+  kv("Cycles",st.stats?st.stats.cycles+" (+"+st.stats.sessionCycles+"), "+st.stats.boots+" boots":"–"),
   kv("Firmware",esc(st.version))].join("")+`<div class="kv" style="grid-column:1/-1"><span>Servos (µs, – = released)</span><b>${sv}</b></div>`;
  const sta=st.wifi.sta;
  $("#wifistate").innerHTML=!sta.enabled?"Not connected to a home network yet.":sta.connected?
@@ -211,8 +217,11 @@ $("#join").onclick=async()=>{const ssid=$("#ssid").value.trim(),pass=$("#pass").
  await post("/api/settings",{StaSsid:ssid,StaPassword:pass});await act("wifi join");wifiEdit=false;$("#pass").value=""};
 async function loadScreen(){let s;try{s=await (await fetch("/api/screen")).json()}catch(e){return}
  $("#scr").innerHTML=(s.lines||[]).map((l,i)=>(i==0||i==s.highlight)?`<b>${esc(l)||" "}</b>`:esc(l)).join("\n");
- $("#scrinfo").textContent=(s.present?"OLED connected":"no OLED")+(s.menu?"":" · normal mode (status page)")}
+ $("#scrinfo").textContent=(s.present?"OLED connected":"no OLED")+(s.menu?"":" · normal mode")+(s.on===false?" · asleep":"")+(s.graphic?" · drawing on the OLED, text version here":"")}
 $$("[data-key]").forEach(b=>b.onclick=()=>post("/api/action",{cmd:"key "+b.dataset.key}).then(()=>setTimeout(loadScreen,150)));
+async function loadSelfTest(){$("#strep").textContent=await (await fetch("/api/selftest")).text()}
+$("#stref").onclick=loadSelfTest;
+$("#stfull").onclick=()=>{if(confirm("Full self-test: the servos and the wings will move. Go?"))act("selftest")};
 $$("[data-cmd]").forEach(b=>b.onclick=()=>act(b.dataset.cmd));
 $("#svgo").onclick=()=>act(`servo ${$("#sv").value} ${$("#svv").value}`);
 $("#svoff").onclick=()=>act(`servo ${$("#sv").value} off`);
@@ -232,7 +241,7 @@ $("#fwgo").onclick=()=>{const f=$("#fw").files[0];if(!f)return;const x=new XMLHt
  x.open("POST","/update");x.send(fd)};
 
 show("status");loadStatus();loadSettings();
-setInterval(()=>{if(document.hidden)return;loadStatus();if(tab=="log"&&$("#logauto").checked)loadLog();if(tab=="tests")loadScreen()},1000);
+setInterval(()=>{if(document.hidden)return;loadStatus();if(tab=="log"&&$("#logauto").checked)loadLog();if(tab=="tests"){loadScreen();if(st&&st.selfTest&&(st.selfTest.running||st.selfTest.run&&$("#strep").textContent=="–"))loadSelfTest()}},1000);
 </script>
 </body>
 </html>

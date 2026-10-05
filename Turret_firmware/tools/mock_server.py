@@ -85,7 +85,7 @@ state = {
     "state": "Idle", "pwrFlt": False, "radar": True, "imu": True, "muted": False, "gain": 9,
     "wingPos": 0.0, "wingTarget": 0.0, "servos": {n: None for n in SERVO_NAMES}, "powerFaults": 0,
     "wifiOn": True, "joinAt": None, "timeSet": False, "scanUntil": 0, "crash": False,
-    "debug": True, "fullPower": False, "oled": True,
+    "debug": True, "fullPower": False, "oled": True, "selftest": "", "cycles": 0,
 }
 
 
@@ -150,6 +150,26 @@ def menu_info(page, line, french):
                         "192.168.1.42 -58" if sta_connected() else ("Maison: non réglé" if french else "Home: not set"),
                         time.strftime("%m-%d %H:%M:%S")],
     }
+    pages["PageRadarView"] = pages["PageRadar"]
+    for side, key in (("L", "PageHallGraphLeft"), ("R", "PageHallGraphRight")):
+        pages[key] = [str(hall(side)), "[" + "#" * (hall(side) * 15 // 4095) + "]",
+                      ("ouvert: " if french else "open: ") + str(setting("HallOpen" + side)["value"]),
+                      ("fermé: " if french else "closed: ") + str(setting("HallClose" + side)["value"])]
+    pages["PageQrWifi"] = ["(QR code)", setting("ApSsid")["value"][:10], "A:page", ""]
+    pages["PageQrWeb"] = ["(QR code)", "192.168.1.42" if sta_connected() else "192.168.4.1", "A:page", ""]
+    pages["PageLog"] = ([l[:40] for l in log_lines[-4:]] + [""] * 4)[:4]
+    pages["PageCrash"] = (["Coredump: 24576 " + ("o" if french else "B"), "task loopTask, PC 0x4", "2012345, backtrace 0x", "42012345 0x42009876"]
+                          if state["crash"] else
+                          ["Pas de coredump" if french else "No core dump",
+                           ("Journal précédent: non" if french else "Previous log: no"), "", ""])
+    pages["PageStats"] = [("Démarrages: 12" if french else "Boots: 12"), "Cycles: 345 (+%d)" % state["cycles"],
+                          ("Cibles vues: 7" if french else "Targets seen: 7"),
+                          ("Dernier tir: aucun" if french else "Last cycle: none")]
+    if not state["selftest"]:
+        pages["PageSelfTest"] = ["Pas encore lancé" if french else "Not run yet", "", "", ""]
+    else:
+        pages["PageSelfTest"] = ["10 OK 1 %s 2 %s" % (("ECH", "voir") if french else ("FAIL", "CHK")),
+                                 "trames radar" if french else "radar frames", "", ""]
     return pages.get(page, [""] * 4)[line]
 
 
@@ -227,6 +247,10 @@ def status():
         "crash": {"previousLog": state["crash"], "coredump": 24576 if state["crash"] else 0,
                   "summary": "task loopTask, PC 0x42012345, backtrace 0x42012345 0x42009876 0x4200abcd"
                   if state["crash"] else ""},
+        "stats": {"boots": 12, "cycles": 345 + state["cycles"], "sessionCycles": state["cycles"],
+                  "sessionTargets": 7, "lastCycleAgoS": None},
+        "selfTest": {"run": bool(state["selftest"]), "running": False,
+                     "summary": state["selftest"].split("\n")[0] if state["selftest"] else ""},
         "freeHeap": 181234,
     }
 
@@ -326,6 +350,23 @@ def execute(line):
     if cmd == "wifi":
         return "access point on, clients: 1; home network: " + (
             "not configured" if not setting("StaSsid")["value"] else setting("StaSsid")["value"])
+    if cmd == "selftest":
+        if arg in ("", "quick"):
+            active = "SKIP" if arg == "quick" else "OK"
+            state["selftest"] = "\n".join([
+                "10 OK 1 FAIL 2 CHECK 6 SKIP" if arg == "quick" else "16 OK 1 FAIL 2 CHECK 0 SKIP",
+                "OK    flash 8 MB, no PSRAM", "OK    PWR_FLT high", "OK    IMU answers", "OK    gravity ~9.8",
+                "FAIL  radar frames" if not state["radar"] else "OK    radar frames", "OK    Hall left", "OK    Hall right",
+                "OK    LittleFS", "OK    OLED" if state["oled"] else "SKIP  OLED", "OK    WiFi access point", "OK    amplifier",
+                ("SKIP" if arg == "quick" else "CHECK") + "  LEDs (look)", ("SKIP" if arg == "quick" else "CHECK") + "  sound (listen)",
+            ] + [f"{active:<6}{n}" for n in ("servo rotate Z", "servo rotate X", "servo gun left", "servo gun right",
+                                             "wing left", "wing right")])
+            return state["selftest"].split("\n")[0]
+        if arg == "report":
+            return state["selftest"] or "no self-test run yet (selftest | selftest quick)"
+        return "self-test stopped"
+    if cmd == "stats":
+        return "boots 12, cycles total 345, since boot: cycles %d, targets 7, last cycle none" % state["cycles"]
     if cmd == "key" and arg in ("a", "al", "b", "bl"):
         if state["debug"]:
             menu.key(arg)
@@ -475,7 +516,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not self.authorized():
             return
-        if self.path == "/api/screen":
+        if self.path == "/api/selftest":
+            self.reply(200, (state["selftest"] or "No self-test run yet.") + "\n", "text/plain; charset=utf-8")
+        elif self.path == "/api/screen":
             with lock:
                 self.reply(200, json.dumps(screen()))
         elif self.path == "/api/crashlog":

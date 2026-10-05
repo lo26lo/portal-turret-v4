@@ -92,7 +92,8 @@ def main():
         check("action queued", code == 202, code)
         code, body, _ = request(base, "/api/status")
         status = json.loads(body)
-        for field in ("version", "state", "faults", "radar", "imu", "hall", "servos", "amp", "wifi", "time", "crash"):
+        for field in ("version", "state", "faults", "radar", "imu", "hall", "servos", "amp", "wifi", "time", "crash", "stats",
+                      "selfTest"):
             check(f"status has {field}", field in status)
 
         code, _, headers = request(base, "/generate_204", auth=False)
@@ -104,8 +105,13 @@ def main():
         import mock_menu
         tree = mock_menu.parse_tree()
         check("menu tree parsed", len(tree) > 40 and tree[0]["parent"] == -1, len(tree))
-        long_labels = [i[lang] for i in tree for lang in ("en", "fr") if len(i[lang]) > 19]
-        check("menu labels fit the screen (19 characters)", not long_labels, long_labels)
+        # A wizard step is an instruction wrapped on three lines (63 characters); the rest is one line.
+        is_step = lambda i: i["kind"] == "STEP"
+        long_labels = [i[lang] for i in tree for lang in ("en", "fr") if len(i[lang]) > (63 if is_step(i) else 19)]
+        check("menu labels fit the screen (19 characters, steps 63)", not long_labels, long_labels)
+        unwrappable = [i[lang] for i in tree if is_step(i) for lang in ("en", "fr")
+                       if mock_menu.wrap(i[lang], max_lines=9)[3] != ""]
+        check("wizard steps wrap on three lines", not unwrappable, unwrappable)
         actions_cpp = open(os.path.join(ROOT, "src", "control", "Actions.cpp"), encoding="utf-8").read()
         known = set(re.findall(r'command == "([\w-]+)"', actions_cpp))
         unknown = sorted({i["command"].split()[0] for i in tree if i.get("command")} - known)
@@ -113,8 +119,15 @@ def main():
         setting_keys = set(keys)
         bad_keys = sorted({i["key"] for i in tree if i["kind"] == "ADJ" and not i["key"].startswith("@")} - setting_keys)
         check("every adjustable value is a setting", not bad_keys, bad_keys)
-        orphans = [i["en"] for i in tree if i["parent"] >= 0 and tree[i["parent"]]["kind"] != "MENU"]
-        check("every menu entry has a menu as parent", not orphans, orphans)
+        orphans = [i["en"] for i in tree if i["parent"] >= 0
+                   and tree[i["parent"]]["kind"] != ("WIZ" if is_step(i) else "MENU")]
+        check("every entry has a menu as parent (a wizard for a step)", not orphans, orphans)
+
+        code, body, _ = request(base, "/api/selftest")
+        check("self-test report before any run", code == 200 and "No self-test" in body, code)
+        request(base, "/api/action", {"cmd": "selftest quick"})
+        code, body, _ = request(base, "/api/selftest")
+        check("self-test report after a quick run", code == 200 and "OK" in body and "SKIP" in body, code)
 
         code, body, _ = request(base, "/api/screen")
         scr = json.loads(body)

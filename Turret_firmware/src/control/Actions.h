@@ -13,6 +13,7 @@
 #include "web/Station.h"
 
 class StateMachine;
+class SelfTest;
 
 // Commands shared by the serial console (lot 10) and the web page (lot 12).
 // Everything that touches hardware runs in loop(): the web server task only
@@ -42,10 +43,19 @@ public:
   // logged with each PWR_FLT event.
   String LoadSnapshot();
   // Debug menu (ui/DebugUi): where the "key" and "screen" commands go.
-  void SetDebugUi(std::function<void(logic::MenuKey)> keys, std::function<String()> screen) {
+  void SetDebugUi(std::function<void(logic::MenuKey)> keys, std::function<String()> screen,
+                  std::function<bool()> displayPresent) {
     keyHandler = keys;
     screenText = screen;
+    hasDisplay = displayPresent;
   }
+  // Self-test (control/SelfTest): the "selftest" command.
+  void SetSelfTest(SelfTest *test) { selfTest = test; }
+  // Called at the end of ApplyAllSettings (the debug screen reloads its own settings).
+  void SetSettingsListener(std::function<void()> listener) { settingsListener = listener; }
+  bool IsFrench() const;
+  // GET /api/selftest: summary and one line per check (read-only, any task).
+  String SelfTestReport() const;
 
 private:
   String Help();
@@ -70,6 +80,9 @@ private:
   std::function<void(logic::MenuKey)> keyHandler;
   // Debug menu: text of the screen for the "screen" command.
   std::function<String()> screenText;
+  std::function<bool()> hasDisplay;
+  std::function<void()> settingsListener;
+  SelfTest *selfTest = nullptr;
 
   bool shotPending = false;
   ulong shotStopAt = 0;

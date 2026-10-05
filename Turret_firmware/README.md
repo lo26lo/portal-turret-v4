@@ -50,6 +50,7 @@ variants/turret2/           Arduino variant: I2C on IO35/IO36, LED_BUILTIN = IO3
 scripts/embed_page.py       pre-build: gzips src/web/page/index.html into src/web/page_gz.h
 scripts/git_version.py      pre-build: firmware version from git into src/version_gen.h
 tools/mock_server.py        web page test bench (simulated turret, no board needed)
+tools/mock_menu.py          debug menu for the simulator (reads src/ui/MenuTree.h)
 tools/check_web.py          automatic check of the page and API against the simulator
 test/test_logic/            native unit tests of src/logic (pio test -e native)
 ../.github/workflows/       CI: build + checks on every push
@@ -62,7 +63,10 @@ src/
   board/I2cBus.*            I2C start on IO35/IO36, bus recovery, scan
   board/Log.*               console output: Serial + 4 kB RAM buffer (GET /api/log) + 2 kB crash log in RTC memory
   board/CoreDump.*          core dump in flash: summary, download, erase
-  logic/*.h                 pure logic without Arduino (radar decoding and zone, Hall, buttons, LED code, gain), tested natively
+  logic/*.h                 pure logic without Arduino (radar decoding and zone, Hall, buttons, LED code, gain, debug menu navigation), tested natively
+  ui/MenuTree.h             debug menu tree, English and French (pure data)
+  ui/Display.*              OLED 128x64 on J11 (U8g2: SSD1306, SSD1309, SH1106)
+  ui/DebugUi.*              debug menu and status page: information pages, hooks to the commands
   audio/Amp.*               MAX98357A: shutdown, gain, mute
   audio/Audio.*             I2S, gunshot sample with loop, test tone, volume
   audio/AudioLoop.*         plays a sample with a loop section
@@ -106,7 +110,7 @@ If the native USB does not show up: hold **BOOT** (SW2), press **RESET** (SW3), 
 
 First flash of a new board: `esptool.py flash_id` must report **8 MB** (module N8). The boot banner also warns when the flash is not 8 MB or when PSRAM is found.
 
-Pinned versions (`platformio.ini`): platform `espressif32@7.1.3` (arduino-esp32 2.0.17), FastLED 3.10.5, ESP32Servo 1.2.1, ESPAsyncWebServer 3.12.1, AsyncTCP 3.5.0, AceRoutine 1.5.1, Adafruit LSM6DS 4.7.4, arduino-audio-tools and arduino-libhelix pinned to a commit. Keep the path of the project short on Windows: FastLED has very deep paths and GCC fails beyond 260 characters.
+Pinned versions (`platformio.ini`): platform `espressif32@7.1.3` (arduino-esp32 2.0.17), FastLED 3.10.5, ESP32Servo 1.2.1, ESPAsyncWebServer 3.12.1, AsyncTCP 3.5.0, AceRoutine 1.5.1, Adafruit LSM6DS 4.7.4, U8g2 2.36.18, arduino-audio-tools and arduino-libhelix pinned to a commit. Keep the path of the project short on Windows: FastLED has very deep paths and GCC fails beyond 260 characters.
 
 Size today: about 44 % of the 3.2 MB application partition, 23 % of the RAM.
 
@@ -132,7 +136,7 @@ The order comes from the firmware plan §3.2. Steps 1 to 10 run in `setup()`, st
 | 10 | **WiFi** access point, home WiFi, web server, OTA | the RF calibration current peak happens before the servos |
 | 11 | **Servos one at a time**, `ServoStagger` apart (250 ms): rotate Z, rotate X (centred), gun left, gun right (retracted) | several servos jumping together draw 3 to 4 A, the eFuse limit |
 | 12 | **Homing**: guns retracted, wings closed unless the Hall sensors say they are | known mechanical state |
-| 13 | End: green LED heartbeat, red LED fault code, state `Idle` (or `Manual` in bench / reduced mode) | |
+| 13 | End: green LED heartbeat, red LED fault code, state `Idle` (or `Manual` in debug / reduced mode) | |
 
 PWR_FLT low at any point stops the sequence and enters `Fault`.
 
@@ -140,12 +144,12 @@ PWR_FLT low at any point stops the sequence and enters `Fault`.
 
 | State | Does | Leaves to |
 |---|---|---|
-| `Booting` | steps 11-13 | `Idle`, `Manual` (bench / reduced mode), `Fault` |
+| `Booting` | steps 11-13 | `Idle`, `Manual` (debug / reduced mode), `Fault` |
 | `Idle` | rests `CooldownMs` after entering, then waits for a target **inside the detection zone** of a radar that is still sending frames; refuses if the turret is not upright | `Activate` |
 | `Activate` | opens the wings, waits until both are open (Hall), extends the guns, 0.5 s | `Firing` |
 | `Firing` | gunshot sound with its loop for 3 s, then lets it end | `Disengage` |
 | `Disengage` | retracts the guns, 0.5 s, closes the wings, waits, 0.5 s | `Idle` |
-| `Manual` | nothing: the state machine is stopped. Used by bench mode, reduced mode and every hardware test | `Booting` with the `resume` command |
+| `Manual` | nothing: the state machine is stopped. Used by debug mode, reduced mode and every hardware test; in debug mode a demo cycle also ends here | `Booting` with the `resume` command |
 | `Fault` | power fault: servos detached, sound stopped, amplifier in shutdown, LEDs off | `Booting` after PWR_FLT has been high for 2 s |
 
 The turret does not aim at the target yet: the rotations stay centred, as in the upstream firmware.
@@ -232,7 +236,36 @@ One interpreter for the console, the buttons and the web page. The web server ru
 | Button B (IO34) short | mute / unmute |
 | Button B held 3 s | WiFi on / off (access point and home network) |
 | A + B held 1 s at power-up | all settings back to defaults, WiFi passwords included |
-| SW1 (IO3) closed at power-up | **bench mode**: no servo attached automatically, state machine stopped (`Manual`), one servo at a time from the console / page |
+| SW1 (IO3) closed at power-up | **debug mode** (formerly "bench mode"): the turret never starts a cycle by itself (`Manual`), no servo attached automatically, one servo at a time; with an OLED on J11, buttons A and B drive the **debug menu** (next section) |
+
+### Debug mode and OLED screen
+
+Plug a 128×64 I²C OLED into the Qwiic port **J11** (3.3 V, shared bus with the IMU; nothing to modify on the board). It is looked for at boot at 0x3C, then 0x3D. The controller cannot be detected: choose it with the `OledType` setting (0 = SSD1306, the 0.96" modules; 1 = SSD1309, the 1.54" modules; 2 = SH1106, the 1.3" modules), then reboot. Menus in French or English (`Language`).
+
+- **SW1 open (normal mode)**: the screen shows one status page (state, faults, home network address, time). Buttons keep their normal functions.
+- **SW1 closed at power-up (debug mode)**: the screen shows the menu and the buttons navigate. Without a screen the buttons keep their normal functions, and the same menu is available on the web page (Tests → *Debug screen*) and with the `key` command.
+
+| Button | In a menu | Information page | Adjusting a value | Confirmation |
+|---|---|---|---|---|
+| A short | next entry | next page | value − step | cancel |
+| A long (0.6 s) | previous entry | previous page | leave without saving | cancel |
+| B short | enter / run | back | value + step | confirm |
+| B long (0.6 s) | back to the parent menu | back | save and leave | cancel |
+
+A + B held at power-up is still the factory reset.
+
+| Menu | Content |
+|---|---|
+| Information | live pages: state and faults, power (PWR_FLT, counters, reset reason), radar (targets, in the zone or not), IMU, Hall sensors (values with a bar), servos (pulse of each output), audio, network and time |
+| Tests | wings (left / right / both: open, close), guns (left / right: out, in), each servo by steps, LEDs (colours, one strip, one-bit pattern), sound (tone, gunshot, volume, gain, mute), demo cycle, load test, I²C scan, release all servos |
+| Calibration | Hall sensors (capture open / closed for each wing, then save: thresholds at 25 % and 75 %), IMU (the turret stands upright), wing trims (5 µs steps, the wing runs at its stop point for 2 s, hold B to save) |
+| Settings | volume, LED brightness, rest time, detection distance and angle, lab markers, wing animation, language |
+| WiFi | pages: turret network (name, **password**, 192.168.4.1, clients), home network (name, state, address and signal, `portal-turret.local`), networks found by the last scan (four strongest), date and time; actions: scan, reconnect to the home network, forget it, WiFi on / off, factory password for the turret network (next boot). The home network password is typed on the web page, not with two buttons |
+| System | resume (homing), reboot, reset settings, erase core dump |
+
+**Wing animation**: while a wing moves, and 0.8 s after, the screen shows the turret from the front with its two side panels sliding apart or together, following the real Hall sensor values (0 % at the closed threshold, 100 % at the open one); the gun barrels appear in the gap. In both modes. `OledAnim` turns it off. The web page shows a text version (`[]==(O)==[]`). Refreshing the OLED keeps `loop()` busy about 25 ms per frame, at most 5 times per second: if the wings stop less precisely with the screen plugged in, turn the animation off.
+
+Every entry runs a command of the console, so the behaviour and the protections are the same. **One servo at a time**: debug mode assumes a weak supply (a computer USB port). With a 3 A supply connected, *Tests → 3 A supply: all* (`power full`) lifts the limit: both wings, demo cycle and load test become possible, and *Resume* attaches and homes the servos. In debug mode a demo cycle ends stopped; the radar never triggers one.
 
 | LED | Meaning |
 |---|---|
@@ -269,6 +302,9 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ServoIdleMs` | Power | 5000 | 0..60000 | rotations released after this idle time (0 = never) |
 | `LedBright` | Lights | 255 | 0..255 | LED brightness |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
+| `Language` | Display | 1 | 0..1 | language of the debug screen: 0 English, 1 French |
+| `OledType` | Display | 0 | 0..2 | OLED controller: 0 SSD1306 (0.96"), 1 SSD1309 (1.54"), 2 SH1106 (1.3"); applied at the next boot |
+| `OledAnim` | Display | true | true / false | wing animation on the screen while the wings move |
 | `LabMarkers` | Lab | false | true / false | green LED toggles at each boot step / servo attachment instead of the heartbeat (lab aid) |
 | `ApSsid` | WiFi | Portal Turret | 1..32 chars | name of the turret's network |
 | `ApPassword` | WiFi | stillalive | 8..63 chars | turret network **and** web page password |
@@ -303,6 +339,7 @@ Tabs: **Status** (home WiFi card, values refreshed every second, active faults, 
 | `POST /api/settings/reset` | optional field `group`; all settings otherwise |
 | `POST /api/action` | field `cmd`: any console command |
 | `GET /api/wifi/scan` | `{"scanning":bool,"networks":[{ssid,rssi,secure}]}` after `wifi scan` |
+| `GET /api/screen` | the debug screen: `{"present":bool,"menu":bool,"highlight":n,"lines":[6 strings]}` |
 | `GET /api/log` | last 4 kB of the log |
 | `GET /api/crashlog` | log tail of the previous run |
 | `GET /api/coredump` | the core dump (`coredump.elf`), 404 if none |
@@ -328,16 +365,22 @@ USB, 115200 baud. Type `help`.
 | `get [key]` / `set <key> <value>` | read / change a setting (saved in NVS, applied at once except WiFi) |
 | `reset-settings [group]` | defaults |
 | `servo <0-5\|rotz\|rotx\|gunl\|gunr\|wingl\|wingr> <angle 0-180 \| µs 500-2400 \| off>` | drive one servo |
-| `wings open\|close`, `guns extend\|retract` | move the mechanics |
+| `wings open\|close`, `guns extend\|retract` | move the mechanics (both sides; refused while limited to one servo) |
+| `wing left\|right open\|close`, `gun left\|right extend\|retract` | one side only |
+| `servos off` | release every servo |
+| `shot` | gunshot sound for 1 s |
+| `power [full\|limited]` | debug mode: all servos allowed (3 A supply) / one at a time (default) |
+| `cal hall left\|right open\|closed`, `cal hall save`, `cal imu` | calibration without the web page |
+| `key a\|al\|b\|bl`, `screen` | debug menu: press A, A long, B, B long / print the screen |
 | `trim left\|right <µs>` | runs a wing at its stop point with this trim for 2 s (not saved) |
 | `led ring\|left\|right\|all <RRGGBB\|off>` | test colours |
 | `tone <Hz> [ms]`, `gain 9\|12\|15`, `mute [on\|off]` | audio tests (gain not saved) |
-| `wifi [on\|off\|scan\|join]`, `time` | WiFi state and control, local time |
+| `wifi [on\|off\|scan\|join\|forget]`, `time` | WiFi state and control (`forget` drops the home network), local time |
 | `demo` | one activation cycle (from `Idle`) |
 | `resume` | leaves the tests: homing, then `Idle` |
 | `reboot` | restart with the shutdown sequence |
 
-Hardware tests stop the state machine (`Manual`); they are refused during `Booting` and `Fault`. In bench mode, driving a servo releases the others.
+Hardware tests stop the state machine (`Manual`); they are refused during `Booting` and `Fault`. In debug mode, while limited to one servo (no `power full`), driving a servo releases the others.
 
 **Lab aids** (for the measurements of [../docs/experiments.md](../docs/experiments.md)):
 
@@ -348,7 +391,7 @@ Hardware tests stop the state machine (`Manual`); they are refused during `Booti
 | `sweep tone <Hz start> <Hz end> <ms>` | frequency sweep (20 Hz to 20 kHz, up to 30 s) |
 | `sweep stop` | stops both |
 | `led pattern bit` | fixed NeoPixel frame with a single bit set: first LED of the ring = red 0x80, all else 0, i.e. the **9th of 24 bits** (GRB order); brightness 255 and no dithering so the bytes are sent as is; `led off` to leave |
-| `loadtest <gap ms>` | commands all six servos (rotations to 110°, guns out, wings at their stop point), attached `gap` ms apart (0 = together), holds 1 s, returns, releases everything; attachment times in the log. Refused in bench mode |
+| `loadtest <gap ms>` | commands all six servos (rotations to 110°, guns out, wings at their stop point), attached `gap` ms apart (0 = together), holds 1 s, returns, releases everything; attachment times in the log. Refused in debug mode until `power full` |
 | PWR_FLT events | each one is logged with its number, time (and clock time with NTP) and what was running: attached servos, sound, amplifier, LEDs, state |
 
 A power fault or `resume` cancels a running sweep or load test.
@@ -379,7 +422,7 @@ These rules protect the board; the code follows them and any change must too (de
 - I2C always on `PIN_SDA` / `PIN_SCL` (IO35 / IO36), never on the defaults of a generic variant (IO8 / IO9 are the Hall sensors).
 - Never use IO0, IO19, IO20, IO45, IO46.
 - **Never burn an ESP32 eFuse** (`espefuse.py summary` only). Burning `STRAP_JTAG_SEL` would take IO3 (SW1) away.
-- Do not power the servos from a computer USB port (0.5 to 0.9 A): use bench mode (SW1) there.
+- Do not power the servos from a computer USB port (0.5 to 0.9 A): use debug mode (SW1) there, which keeps to one servo at a time.
 - Never connect the on-board USB-C and the remote USB (J1) to two hosts at the same time.
 
 ## 14. Calibration and bring-up
@@ -400,7 +443,9 @@ Plan §8 gives the full bring-up order (one peripheral at a time). Use `turret2_
 python tools/mock_server.py          # then http://localhost:8080, turret / stillalive
 ```
 
-Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`, `sim imu on|off`, `sim crash on|off` (fake core dump and previous-run log).
+Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`, `sim imu on|off`, `sim crash on|off` (fake core dump and previous-run log), `sim debug on|off` (debug mode, on by default), `sim oled on|off`.
+
+The **debug menu can be tried in the browser**: Tests → *Debug screen*, buttons A, A long, B, B long. The simulator walks through the real tree of `src/ui/MenuTree.h`; the information pages show fake values.
 
 **Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; detection zone; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
 

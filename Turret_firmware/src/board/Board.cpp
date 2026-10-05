@@ -12,6 +12,7 @@ const char *KEY_BROWNOUTS = "brownouts"; // lifetime brownout resets
 
 const ulong DEBOUNCE_MS = 30;
 const ulong LONG_PRESS_MS = 3000;       // D3: B held 3 s = WiFi on / off
+const ulong NAVIGATION_LONG_PRESS_MS = 600; // debug menu: long press of A / B
 const ulong FACTORY_RESET_HOLD_MS = 1000; // A + B must stay held this long at boot
 const ulong STABLE_RUN_MS = 60000;      // D5: counter cleared after 60 s of uptime
 const uint32_t REBOOT_LOOP_LIMIT = 3;   // D5: from 3 suspicious boots in a row
@@ -75,6 +76,12 @@ Board *instance = nullptr; // for the static Mark()
 } // namespace
 
 Board::Board() : buttonA(PIN_BUTTON_A), buttonB(PIN_BUTTON_B) { instance = this; }
+
+void Board::SetNavigationButtons(bool enabled) {
+  uint32_t ms = enabled ? NAVIGATION_LONG_PRESS_MS : LONG_PRESS_MS;
+  buttonA.SetLongPressMs(ms);
+  buttonB.SetLongPressMs(ms);
+}
 
 void Board::SetLabMarkers(bool enabled) {
   if (enabled == labMarkers) {

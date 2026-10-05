@@ -89,6 +89,10 @@ void Actions::Update() {
   }
   UpdateSweep(millis());
   UpdateLoadTest(millis());
+  if (shotPending && (long)(millis() - shotStopAt) >= 0) {
+    shotPending = false;
+    turret->audio.ShootAudio.Stop(); // leaves the loop, the tail plays out
+  }
 
   QueuedLine item;
   while (queue != nullptr && xQueueReceive(queue, &item, 0) == pdTRUE) {
@@ -276,6 +280,13 @@ String Actions::Execute(const String &line) {
       station->StartScan();
       return "scanning WiFi networks";
     }
+    // Forget the home network (debug menu): the access point stays.
+    if (args == "forget") {
+      turret->settings.Set(SettingId::StaSsid, "");
+      turret->settings.Set(SettingId::StaPassword, "");
+      station->Restart(turret->settings);
+      return "home network forgotten";
+    }
     // First setup: "set StaSsid ...", "set StaPassword ...", then "wifi join" applies them now.
     if (args == "join") {
       station->Restart(turret->settings);
@@ -310,7 +321,14 @@ String Actions::Execute(const String &line) {
     return "resuming (homing, then Idle)";
   }
   if (command == "demo") {
-    if (stateMachine->GetCurrentStateId() != StateId::Idle) {
+    StateId state = stateMachine->GetCurrentStateId();
+    // Debug mode: the state machine is stopped (Manual); a demo cycle is
+    // allowed from there once the 3 A supply was declared ("power full").
+    bool fromDebug = state == StateId::Manual && turret->board.IsBenchMode();
+    if (fromDebug && turret->board.IsServoLimited()) {
+      return "refused: one servo at a time (power full first)";
+    }
+    if (state != StateId::Idle && !fromDebug) {
       return "refused: only from Idle (use resume first)";
     }
     if (!turret->motion.CanDeploy()) {
@@ -345,13 +363,84 @@ String Actions::Execute(const String &line) {
     return SweepCommand(args);
   }
   if (command == "loadtest") {
-    if (turret->board.IsBenchMode()) {
-      return "refused: bench mode (one servo at a time)";
+    if (turret->board.IsServoLimited()) {
+      return "refused: one servo at a time (power full first)";
     }
     if (!EnterTestMode(error)) {
       return error;
     }
     return LoadTestCommand(args);
+  }
+  if (command == "power") {
+    if (args == "full" || args == "limited") {
+      turret->board.SetFullPower(args == "full");
+    }
+    return !turret->board.IsBenchMode() ? String("normal mode: all servos allowed")
+           : turret->board.IsServoLimited() ? String("debug mode: one servo at a time (weak supply)")
+                                            : String("debug mode: all servos allowed (3 A supply)");
+  }
+  if (command == "key") {
+    if (keyHandler && (args == "a" || args == "al" || args == "b" || args == "bl")) {
+      keyHandler(args == "a" ? logic::MenuKey::A : args == "al" ? logic::MenuKey::ALong
+                 : args == "b" ? logic::MenuKey::B : logic::MenuKey::BLong);
+      return "";
+    }
+    return "usage: key a|al|b|bl (debug menu: A, A long, B, B long)";
+  }
+  if (command == "screen") {
+    return screenText ? screenText() : String("no debug screen");
+  }
+  if (command == "servos" && args == "off") {
+    CancelLabTests();
+    turret->gantry.DetachAll();
+    return "all servos released";
+  }
+  if (command == "shot") {
+    turret->audio.ShootAudio.Begin();
+    shotStopAt = millis() + 1000;
+    shotPending = true;
+    return "gunshot, 1 s";
+  }
+  if (command == "cal") {
+    return CalibrationCommand(args);
+  }
+  if (command == "wing" || command == "gun") {
+    if (!EnterTestMode(error)) {
+      return error;
+    }
+    String what;
+    String side = FirstWord(args, what);
+    if (side != "left" && side != "right") {
+      return "usage: wing left|right open|close, gun left|right extend|retract";
+    }
+    Wing &wing = side == "left" ? turret->gantry.GetWingLeft() : turret->gantry.GetWingRight();
+    // Gantry channels: 2 / 3 = guns, 4 / 5 = wings (left, right).
+    uint8_t channel = (command == "wing" ? 4 : 2) + (side == "left" ? 0 : 1);
+    if (command == "wing" && (what == "open" || what == "close")) {
+      if (what == "open" && !turret->motion.CanDeploy()) {
+        return "refused: turret not upright";
+      }
+      LimitToChannel(channel);
+      if (what == "open") {
+        wing.Open();
+      } else {
+        wing.Home();
+      }
+      return "wing " + side + (what == "open" ? ": opening" : ": closing");
+    }
+    if (command == "gun" && (what == "extend" || what == "retract")) {
+      LimitToChannel(channel);
+      if (what == "extend") {
+        wing.GetGun().Extend();
+      } else {
+        wing.GetGun().Retract();
+      }
+      return "gun " + side + (what == "extend" ? ": out" : ": in");
+    }
+    return "usage: wing left|right open|close, gun left|right extend|retract";
+  }
+  if ((command == "wings" || command == "guns") && turret->board.IsServoLimited()) {
+    return "refused: one servo at a time (wing / gun left|right, or power full)";
   }
   if (command == "wings") {
     if (!EnterTestMode(error)) {
@@ -413,8 +502,11 @@ String Actions::Help() {
          "  get [key] | set <key> <value> | reset-settings [group]\n"
          "  servo <0-5|rotz|rotx|gunl|gunr|wingl|wingr> <angle 0-180|us 500-2400|off>\n"
          "  wings open|close | guns extend|retract | trim left|right <us>\n"
+         "  wing left|right open|close | gun left|right extend|retract | servos off | shot\n"
+         "  power [full|limited] | cal hall left|right open|closed | cal hall save | cal imu\n"
+         "  key a|al|b|bl (debug menu) | screen\n"
          "  led ring|left|right|all <RRGGBB|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
-         "  wifi [on|off|scan|join] | time | demo | resume | reboot\n"
+         "  wifi [on|off|scan|join|forget] | time | demo | resume | reboot\n"
          "Lab: sweep servo <n> <ms> | sweep tone <Hz start> <Hz end> <ms> | sweep stop\n"
          "     led pattern bit | loadtest <gap ms> | set LabMarkers true|false\n"
          "Tests stop the state machine (Manual); \"resume\" homes and goes back to Idle.";
@@ -434,13 +526,7 @@ String Actions::ServoCommand(const String &args) {
     return String(channel.GetName()) + " released";
   }
   // Bench mode (D1): a single servo attached at a time.
-  if (turret->board.IsBenchMode()) {
-    for (uint8_t i = 0; i < Gantry::CHANNEL_COUNT; i++) {
-      if (i != index) {
-        gantry.GetChannel(i).Release();
-      }
-    }
-  }
+  LimitToChannel(index);
   int value = valueText.toInt();
   if (value >= 0 && value <= 180) {
     channel.SetAngle(value);
@@ -471,6 +557,72 @@ String Actions::LedCommand(const String &args) {
   uint32_t rgb = strtoul(colorText.c_str(), nullptr, 16);
   turret->light.SetTestColor(mask, CRGB(rgb));
   return "LED " + strip + " = #" + colorText;
+}
+
+// Debug mode with a weak supply: a single servo attached at a time (D1).
+void Actions::LimitToChannel(uint8_t index) {
+  if (!turret->board.IsServoLimited()) {
+    return;
+  }
+  for (uint8_t i = 0; i < Gantry::CHANNEL_COUNT; i++) {
+    if (i != index) {
+      turret->gantry.GetChannel(i).Release();
+    }
+  }
+}
+
+// Calibration without the web page (debug menu, console):
+//   cal hall left|right open|closed   captures the present Hall value (RAM)
+//   cal hall save                      thresholds at 25 % / 75 % between the two, saved
+//   cal imu                            the turret stands upright: saves the dominant axis
+String Actions::CalibrationCommand(const String &args) {
+  String rest;
+  String what = FirstWord(args, rest);
+  if (what == "imu") {
+    uint8_t axis = turret->motion.DominantAxis();
+    if (!turret->motion.IsAvailable() || axis == 0) {
+      return "refused: no IMU reading";
+    }
+    turret->settings.Set(SettingId::ImuUpAxis, (int32_t)axis);
+    return "ImuUpAxis = " + String(axis);
+  }
+  if (what != "hall") {
+    return "usage: cal hall left|right open|closed | cal hall save | cal imu";
+  }
+  String position;
+  String side = FirstWord(rest, position);
+  if (side == "save") {
+    String done;
+    for (uint8_t s = 0; s < 2; s++) {
+      if (!hallCaptured[s][0] || !hallCaptured[s][1]) {
+        continue;
+      }
+      int32_t open = hallCapture[s][0];
+      int32_t closed = hallCapture[s][1];
+      if (abs(open - closed) < 200) {
+        return String(s == 0 ? "left" : "right") + ": open and closed too close";
+      }
+      turret->settings.Set(s == 0 ? SettingId::HallOpenL : SettingId::HallOpenR,
+                           (int32_t)(closed + (open - closed) * 3 / 4));
+      turret->settings.Set(s == 0 ? SettingId::HallCloseL : SettingId::HallCloseR,
+                           (int32_t)(closed + (open - closed) / 4));
+      done += s == 0 ? "L " : "R ";
+    }
+    if (done.length() == 0) {
+      return "capture open and closed first";
+    }
+    ApplyAllSettings();
+    return "Hall saved: " + done;
+  }
+  if ((side != "left" && side != "right") || (position != "open" && position != "closed")) {
+    return "usage: cal hall left|right open|closed | cal hall save | cal imu";
+  }
+  uint8_t s = side == "left" ? 0 : 1;
+  uint8_t p = position == "open" ? 0 : 1;
+  Wing &wing = s == 0 ? turret->gantry.GetWingLeft() : turret->gantry.GetWingRight();
+  hallCapture[s][p] = wing.ReadHall();
+  hallCaptured[s][p] = true;
+  return side + " " + position + " = " + String(hallCapture[s][p]);
 }
 
 // ------------------------------------------------------------------ lab aids

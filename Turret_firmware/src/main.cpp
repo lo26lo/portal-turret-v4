@@ -6,6 +6,7 @@
 #include "control/Actions.h"
 #include "pins.h"
 #include "states/StateMachine.h"
+#include "ui/DebugUi.h"
 #include "web/AccessPoint.h"
 #include "web/Station.h"
 #include "web/Ota.h"
@@ -29,6 +30,7 @@ Board board;
 AccessPoint accessPoint;
 Station station;
 Actions actions;
+DebugUi debugUi;
 
 // No radar frame for this long -> red LED code 4 (plan §3.2 step 7).
 const ulong RADAR_TIMEOUT_MS = 3000;
@@ -118,6 +120,12 @@ void setup() {
   // 10. WiFi + web server + OTA, before the servos: RF calibration draws a
   //     current peak that must not add up with theirs.
   actions.Initialize(turret, stateMachine, accessPoint, station);
+  // Lot IM: OLED on J11. Debug mode (SW1) = menu, buttons A / B navigate when
+  // a screen is there; normal mode = status page only.
+  debugUi.Initialize(turret, stateMachine, actions, accessPoint, station);
+  actions.SetDebugUi([](logic::MenuKey key) { debugUi.Key(key); }, []() { return debugUi.ScreenText(); });
+  server.SetScreenProvider([]() { return debugUi.ScreenJson(); });
+  board.SetNavigationButtons(debugUi.IsMenuActive() && debugUi.HasDisplay());
   accessPoint.Start(settings);
   station.Start(settings); // home network + NTP, if StaSsid is set
   server.Initialize(settings, actions, station);
@@ -149,6 +157,17 @@ void HandleButtons() {
     Log.printf("Button B: %s\n", b == ButtonEvent::LongPress ? "long" : "short");
   }
 #endif
+  // Debug mode with a screen: A and B drive the menu (A next / previous,
+  // B enter / back) instead of their normal functions.
+  if (debugUi.IsMenuActive() && debugUi.HasDisplay()) {
+    if (a != ButtonEvent::None) {
+      debugUi.Key(a == ButtonEvent::LongPress ? logic::MenuKey::ALong : logic::MenuKey::A);
+    }
+    if (b != ButtonEvent::None) {
+      debugUi.Key(b == ButtonEvent::LongPress ? logic::MenuKey::BLong : logic::MenuKey::B);
+    }
+    return;
+  }
   if (a == ButtonEvent::ShortPress && stateMachine.GetCurrentStateId() == StateId::Idle) {
     Log.println(actions.Execute("demo"));
   }
@@ -199,6 +218,7 @@ void loop() {
   actions.Update(); // console, web commands, OTA shutdown, reboot
   station.Update();
   accessPoint.Update(); // captive portal DNS
+  debugUi.Update(currentTime);
 
   gantry.Update(deltaTime);
   light.Update(deltaTime);

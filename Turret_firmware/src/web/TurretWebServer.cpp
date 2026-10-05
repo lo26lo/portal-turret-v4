@@ -200,6 +200,12 @@ void TurretWebServer::Initialize(Settings& settingsIn, Actions& actionsIn, Stati
     }).skipServerMiddlewares();
   }
 
+  // Lot IM: the six text lines of the debug screen (OLED or not).
+  webServer.on("/api/screen", HTTP_GET, [this](AsyncWebServerRequest* request) {
+    request->send(200, "application/json",
+                  screenProvider ? screenProvider() : String("{\"present\":false,\"menu\":false,\"lines\":[]}"));
+  });
+
   // A3: log tail of the previous run, and the core dump (ELF, streamed in chunks).
   webServer.on("/api/crashlog", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/plain; charset=utf-8", CrashLog::PreviousRun());

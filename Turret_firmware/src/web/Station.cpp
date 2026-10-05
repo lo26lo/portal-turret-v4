@@ -82,6 +82,7 @@ void Station::Update() {
       scanning = false;
       String json = "[";
       int listed = 0;
+      foundCount = 0;
       // One line per name (strongest access point), hidden networks left out.
       for (int i = 0; i < count; i++) {
         String name = WiFi.SSID(i);
@@ -91,6 +92,12 @@ void Station::Update() {
         }
         if (duplicate) {
           continue;
+        }
+        // The scan results come sorted by signal: the first ones are the strongest.
+        if (listed < FOUND_MAX) {
+          strlcpy(found[listed].ssid, name.c_str(), sizeof(found[listed].ssid));
+          found[listed].rssi = WiFi.RSSI(i);
+          foundCount = listed + 1;
         }
         name.replace("\\", "\\\\");
         name.replace("\"", "\\\"");

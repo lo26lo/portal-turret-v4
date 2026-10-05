@@ -28,6 +28,8 @@ void DisengageState::OnActivate() {
 void DisengageState::Update(ulong deltaTime) {
   disengageRoutine.runCoroutine();
   if (disengageRoutine.isDone()) {
-    stateMachine->GoToState(StateId::Idle);
+    // Debug mode (SW1): the state machine never starts a cycle by itself, so a
+    // demo cycle ends stopped (Manual) instead of waiting for the radar (Idle).
+    stateMachine->GoToState(turret->board.IsBenchMode() ? StateId::Manual : StateId::Idle);
   }
 }

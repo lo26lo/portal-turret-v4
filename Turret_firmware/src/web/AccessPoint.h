@@ -17,6 +17,10 @@ public:
   void Update();
   bool IsOn() const { return on; }
   const char *GetSsid() const { return ssid; }
+  // Password in use, for the debug screen only (someone in front of the
+  // turret, with the debug switch closed). /api/settings never sends it; the
+  // copy of the screen in /api/screen is itself behind this password.
+  const char *GetPassword() const { return password; }
   uint8_t GetClientCount() const;
   // The password is still the factory one: the web page shows a warning.
   bool HasDefaultPassword() const { return defaultPassword; }
@@ -26,4 +30,5 @@ private:
   bool defaultPassword = true;
   DNSServer dns;
   char ssid[SETTING_STRING_MAX] = "";
+  char password[SETTING_STRING_MAX] = "";
 };

@@ -30,6 +30,9 @@ enum SettingId {
   StaPassword,
   Timezone,
   LabMarkers,
+  Language,
+  OledType,
+  OledAnim,
   COUNT
 };
 

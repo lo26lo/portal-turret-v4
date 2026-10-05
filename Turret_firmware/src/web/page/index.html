@@ -32,6 +32,8 @@ button:active{transform:translateY(1px)}
 .field input{width:9em}.field input[type=text],.field input[type=password]{width:12em}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:60vh;overflow:auto;margin:0}
 input[type=range]{width:100%}
+.scr{font:14px/1.25 ui-monospace,Consolas,monospace;background:#000;color:#9fe8ff;padding:6px 8px;border-radius:6px;width:23ch;max-height:none;white-space:pre}
+.scr b{background:#9fe8ff;color:#000;font-weight:normal;display:inline-block;width:21ch}
 </style>
 </head>
 <body>
@@ -75,6 +77,11 @@ input[type=range]{width:100%}
 </section>
 
 <section id="t-tests">
+<div class="card"><h2>Debug screen</h2>
+<pre id="scr" class="scr"></pre>
+<div class="row"><button data-key="a">A</button><button data-key="al">A long</button><button data-key="b">B</button><button data-key="bl">B long</button><span id="scrinfo" style="color:var(--muted)"></span></div>
+<small>A: next / previous (long). B: enter / back (long). Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
+</div>
 <div class="card"><h2>Tests</h2><small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
 <div class="row"><button data-cmd="wings open">Wings open</button><button data-cmd="wings close">Wings close</button><button data-cmd="guns extend">Guns out</button><button data-cmd="guns retract">Guns in</button></div>
 <div class="row"><button data-cmd="tone 1000 500">Tone 1 kHz</button><button data-cmd="mute">Mute / unmute</button><button data-cmd="gain 9">9 dB</button><button data-cmd="gain 12">12 dB</button><button data-cmd="gain 15">15 dB</button></div>
@@ -117,7 +124,7 @@ function post(url,data){return fetch(url,{method:"POST",body:new URLSearchParams
 function act(cmd){return post("/api/action",{cmd}).then(()=>setTimeout(loadLog,400))}
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 
-function show(t){tab=t;$$("section").forEach(s=>s.classList.toggle("on",s.id=="t-"+t));$$("nav button").forEach(b=>b.classList.toggle("primary",b.dataset.t==t));if(t=="settings")loadSettings();if(t=="log")loadLog()}
+function show(t){tab=t;$$("section").forEach(s=>s.classList.toggle("on",s.id=="t-"+t));$$("nav button").forEach(b=>b.classList.toggle("primary",b.dataset.t==t));if(t=="settings")loadSettings();if(t=="log")loadLog();if(t=="tests")loadScreen()}
 $("#tabs").innerHTML=TABS.map(([k,v])=>`<button data-t="${k}">${v}</button>`).join("");
 $$("nav button").forEach(b=>b.onclick=()=>show(b.dataset.t));
 
@@ -202,6 +209,10 @@ $("#join").onclick=async()=>{const ssid=$("#ssid").value.trim(),pass=$("#pass").
  if(!ssid||ssid.length>32){alert("Network name: 1 to 32 characters");return}
  if(pass&&(pass.length<8||pass.length>63)){alert("WiFi password: 8 to 63 characters (empty for an open network)");return}
  await post("/api/settings",{StaSsid:ssid,StaPassword:pass});await act("wifi join");wifiEdit=false;$("#pass").value=""};
+async function loadScreen(){let s;try{s=await (await fetch("/api/screen")).json()}catch(e){return}
+ $("#scr").innerHTML=(s.lines||[]).map((l,i)=>(i==0||i==s.highlight)?`<b>${esc(l)||" "}</b>`:esc(l)).join("\n");
+ $("#scrinfo").textContent=(s.present?"OLED connected":"no OLED")+(s.menu?"":" · normal mode (status page)")}
+$$("[data-key]").forEach(b=>b.onclick=()=>post("/api/action",{cmd:"key "+b.dataset.key}).then(()=>setTimeout(loadScreen,150)));
 $$("[data-cmd]").forEach(b=>b.onclick=()=>act(b.dataset.cmd));
 $("#svgo").onclick=()=>act(`servo ${$("#sv").value} ${$("#svv").value}`);
 $("#svoff").onclick=()=>act(`servo ${$("#sv").value} off`);
@@ -221,7 +232,7 @@ $("#fwgo").onclick=()=>{const f=$("#fw").files[0];if(!f)return;const x=new XMLHt
  x.open("POST","/update");x.send(fd)};
 
 show("status");loadStatus();loadSettings();
-setInterval(()=>{if(document.hidden)return;loadStatus();if(tab=="log"&&$("#logauto").checked)loadLog()},1000);
+setInterval(()=>{if(document.hidden)return;loadStatus();if(tab=="log"&&$("#logauto").checked)loadLog();if(tab=="tests")loadScreen()},1000);
 </script>
 </body>
 </html>

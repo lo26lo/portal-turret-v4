@@ -41,6 +41,14 @@ bool Wing::IsPastOpen(uint16_t value) const { return logic::HallPastOpen(value, 
 
 bool Wing::IsPastClosed(uint16_t value) const { return logic::HallPastClosed(value, hallOpen, hallClosed); }
 
+uint8_t Wing::GetOpenPercent() const {
+  // A faulty sensor says nothing: fall back on the known end state.
+  if (hallFault) {
+    return isOpen ? 100 : 0;
+  }
+  return logic::HallPercent(lastHall, hallOpen, hallClosed);
+}
+
 uint16_t Wing::ReadHall() {
   lastHall = analogRead(hallSensorPin);
   return lastHall;

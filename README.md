@@ -121,7 +121,7 @@ The order of the firmware plan §3.2: outputs to a safe state within a few milli
 | Button A | demo cycle (open, fire, close) |
 | Button B | mute / unmute; held 3 s: WiFi access point on / off |
 | A + B held at power-up | all settings back to their defaults (WiFi password included) |
-| SW1 closed at power-up | bench mode: no servo attached, state machine stopped, one servo at a time from the console or web page |
+| SW1 closed at power-up | debug mode: the turret never fires by itself, one servo at a time (all of them once a 3 A supply is declared); with a 128×64 I²C OLED on the Qwiic port J11, buttons A and B drive a menu of information pages, tests and calibration (French or English) |
 
 Green LED: steady during boot, then a heartbeat. Red LED: steady during boot, then a blink code, lowest number first: 1 brownout / reboot loop, 2 eFuse fault, 3 IMU missing, 4 radar silent, 5 Hall sensor stuck, 6 LittleFS not mounted.
 

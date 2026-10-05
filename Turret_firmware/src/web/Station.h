@@ -28,6 +28,11 @@ public:
   // [{"ssid":..,"rssi":..,"secure":..},...], strongest first; any task.
   String ScanJson();
   bool IsScanning() const { return scanning; }
+  // Strongest networks of the last scan, for the debug screen (loop context).
+  static const uint8_t FOUND_MAX = 4;
+  uint8_t GetFoundCount() const { return foundCount; }
+  const char *GetFoundSsid(uint8_t index) const { return found[index].ssid; }
+  int8_t GetFoundRssi(uint8_t index) const { return found[index].rssi; }
 
   bool IsEnabled() const { return enabled; }
   bool IsConnected() const { return connected; }
@@ -49,6 +54,12 @@ private:
   bool timeLogged = false;
   bool scanning = false;
   String scanJson = "[]";
+  struct FoundNetwork {
+    char ssid[33];
+    int8_t rssi;
+  };
+  FoundNetwork found[FOUND_MAX] = {};
+  uint8_t foundCount = 0;
   SemaphoreHandle_t scanLock = nullptr;
   ulong lastCheck = 0;
   int8_t rssi = 0;

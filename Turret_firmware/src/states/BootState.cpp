@@ -29,9 +29,10 @@ void BootState::Update(ulong deltaTime) {
   switch (phase) {
   case Phase::Start:
     // D1 bench mode and D5 reduced mode: no servo is attached automatically.
-    if (board.IsBenchMode() || board.IsReducedMode()) {
-      Log.println(board.IsBenchMode() ? "Boot: bench mode, servos not attached"
-                                         : "Boot: reduced mode, servos not attached");
+    // In debug mode the servos are attached only once "power full" was given.
+    if (board.IsServoLimited() || board.IsReducedMode()) {
+      Log.println(board.IsReducedMode() ? "Boot: reduced mode, servos not attached"
+                                        : "Boot: debug mode, servos not attached");
       Finish();
       return;
     }

@@ -100,6 +100,33 @@ def main():
         code, body, _ = request(base, "/api/wifi/scan")
         check("wifi scan answers", code == 200 and "networks" in json.loads(body), code)
 
+        # Debug menu (lot IM): the tree of src/ui/MenuTree.h against the firmware.
+        import mock_menu
+        tree = mock_menu.parse_tree()
+        check("menu tree parsed", len(tree) > 40 and tree[0]["parent"] == -1, len(tree))
+        long_labels = [i[lang] for i in tree for lang in ("en", "fr") if len(i[lang]) > 19]
+        check("menu labels fit the screen (19 characters)", not long_labels, long_labels)
+        actions_cpp = open(os.path.join(ROOT, "src", "control", "Actions.cpp"), encoding="utf-8").read()
+        known = set(re.findall(r'command == "([\w-]+)"', actions_cpp))
+        unknown = sorted({i["command"].split()[0] for i in tree if i.get("command")} - known)
+        check("every menu command exists in control/Actions.cpp", not unknown, unknown)
+        setting_keys = set(keys)
+        bad_keys = sorted({i["key"] for i in tree if i["kind"] == "ADJ" and not i["key"].startswith("@")} - setting_keys)
+        check("every adjustable value is a setting", not bad_keys, bad_keys)
+        orphans = [i["en"] for i in tree if i["parent"] >= 0 and tree[i["parent"]]["kind"] != "MENU"]
+        check("every menu entry has a menu as parent", not orphans, orphans)
+
+        code, body, _ = request(base, "/api/screen")
+        scr = json.loads(body)
+        check("debug screen has six lines", code == 200 and len(scr["lines"]) == 6, code)
+        root_title = scr["lines"][0]
+        request(base, "/api/action", {"cmd": "key b"})
+        _, body, _ = request(base, "/api/screen")
+        check("key B enters the first menu", json.loads(body)["lines"][0] != root_title)
+        request(base, "/api/action", {"cmd": "key bl"})
+        _, body, _ = request(base, "/api/screen")
+        check("key B long goes back", json.loads(body)["lines"][0] == root_title)
+
         code, _, _ = request(base, "/api/coredump")
         check("no core dump -> 404", code == 404, code)
         request(base, "/api/action", {"cmd": "sim crash on"})

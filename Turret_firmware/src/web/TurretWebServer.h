@@ -3,6 +3,7 @@
 #include "WiFi.h"
 #include "settings/Settings.h"
 #include <ESPAsyncWebServer.h>
+#include <functional>
 
 class Actions;
 class Station;
@@ -16,6 +17,8 @@ class TurretWebServer
 public:
     TurretWebServer();
     void Initialize(Settings &settings, Actions &actions, Station &station);
+    // GET /api/screen: the debug screen as JSON (ui/DebugUi). Set before Initialize.
+    void SetScreenProvider(std::function<String()> provider) { screenProvider = provider; }
     AsyncWebServer webServer;
 
     static const char *USERNAME;
@@ -26,6 +29,7 @@ private:
     Settings *settings;
     Actions *actions;
     Station *station;
+    std::function<String()> screenProvider;
     AsyncAuthenticationMiddleware auth;
     // Copy taken at boot: a new ApPassword applies at the next boot.
     char password[SETTING_STRING_MAX];

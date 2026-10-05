@@ -11,6 +11,12 @@ Simulation commands that do not exist on the turret (type them in Tests > consol
     sim fault on|off     PWR_FLT low / high
     sim radar on|off     radar frames or silence
     sim imu on|off       IMU present or missing
+    sim crash on|off     fake core dump and previous-run log
+    sim debug on|off     debug mode (SW1): menu on the screen, or status page (default on)
+    sim oled on|off      OLED plugged in or not
+
+The debug menu (Tests > Debug screen) walks through the real tree of
+src/ui/MenuTree.h (tools/mock_menu.py).
 """
 import base64
 import json
@@ -22,6 +28,8 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
+
+import mock_menu
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAGE = os.path.join(ROOT, "src", "web", "page", "index.html")
@@ -77,6 +85,7 @@ state = {
     "state": "Idle", "pwrFlt": False, "radar": True, "imu": True, "muted": False, "gain": 9,
     "wingPos": 0.0, "wingTarget": 0.0, "servos": {n: None for n in SERVO_NAMES}, "powerFaults": 0,
     "wifiOn": True, "joinAt": None, "timeSet": False, "scanUntil": 0, "crash": False,
+    "debug": True, "fullPower": False, "oled": True,
 }
 
 
@@ -94,6 +103,54 @@ FAKE_NETWORKS = [
     {"ssid": "Voisins", "rssi": -81, "secure": True},
     {"ssid": "Cafe gratuit", "rssi": -85, "secure": False},
 ]
+
+
+def menu_value(key):
+    if not key or key.startswith("@"):
+        return 90
+    return int(setting(key)["value"])
+
+
+def menu_info(page, line, french):
+    """Fake but plausible lines for the information pages of the debug menu."""
+    pages = {
+        "PageState": [("État: " if french else "State: ") + state["state"],
+                      ("Défauts: aucun" if french else "Faults: none"),
+                      ("Durée: " if french else "Up: ") + "0 h %02d min %02d" % divmod(int(time.time() - start), 60),
+                      "mock"],
+        "PagePower": ["PWR_FLT: " + ("BAS" if state["pwrFlt"] else "ok"), "eFuse:%d brownout:0" % state["powerFaults"],
+                      ("Boucles:1 alim " if french else "Loops:1 supply ") + ("3 A" if state["fullPower"] else "PC"),
+                      "Reset: POWERON"],
+        "PageRadar": ["Radar: " + (("vivant" if french else "alive") if state["radar"] else ("muet" if french else "silent")) + ", 1",
+                      "1: x-120 y1500 ZONE", "2: -", "3: -"],
+        "PageImu": ["x0.1 y-9.8 z0.4", ("Axe: -Y  régl: " if french else "Axis: -Y  set: ") + str(setting("ImuUpAxis")["value"]),
+                    ("Debout: oui" if french else "Upright: yes"), "Temp: 31.5 C"],
+        "PageHall": [("G: " if french else "L: ") + str(hall("L")), "[" + "#" * (hall("L") * 15 // 4095) + "]",
+                     ("D: " if french else "R: ") + str(hall("R")), "[" + "#" * (hall("R") * 15 // 4095) + "]"],
+        "PageServos": ["rotz:---- rotx:----", "gunl:---- gunr:----", "wngl:---- wngr:----",
+                       ("Alim 3 A: tous" if state["fullPower"] else "Alim PC: 1 servo") if french
+                       else ("3 A supply: all" if state["fullPower"] else "PC supply: 1 servo")],
+        "PageAudio": ["Gain: %d dB" % state["gain"], "Volume: %s %%" % setting("Volume")["value"],
+                      ("Muet: " if french else "Muted: ") + str(state["muted"]), ("Lecture: non" if french else "Playing: no")],
+        "PageWifiAp": [setting("ApSsid")["value"], "Mot de passe :" if french else "Password:", password(),
+                       "192.168.4.1  1 cli."],
+        "PageWifiHome": ([setting("StaSsid")["value"],
+                          ("Connecté" if french else "Connected") if sta_connected() else ("Connexion..." if french else "Connecting..."),
+                          "192.168.1.42 -58" if sta_connected() else "", "portal-turret.local" if sta_connected() else ""]
+                         if setting("StaSsid")["value"] else
+                         ["Non réglé" if french else "Not set", "(par la page web)" if french else "(from the web page)", "", ""]),
+        "PageWifiScan": (["Scan en cours..." if french else "Scanning...", "", "", ""] if time.time() < state["scanUntil"]
+                         else ["%.16s %d" % (n["ssid"], n["rssi"]) for n in FAKE_NETWORKS[:4]] if state["scanUntil"]
+                         else ["Aucun (Scanner)" if french else "None (Scan networks)", "", "", ""]),
+        "PageTime": ([time.strftime("%Y-%m-%d"), time.strftime("%H:%M:%S"), "NTP: " + ("oui" if french else "yes")]
+                     if state["timeSet"] else
+                     ["Heure non réglée" if french else "Time not set", "(réseau maison)" if french else "(home network)",
+                      "NTP: " + ("non" if french else "no")]) + [str(setting("Timezone")["value"])[:21]],
+        "PageNetwork": ["AP: " + setting("ApSsid")["value"], "Clients: 1",
+                        "192.168.1.42 -58" if sta_connected() else ("Maison: non réglé" if french else "Home: not set"),
+                        time.strftime("%m-%d %H:%M:%S")],
+    }
+    return pages.get(page, [""] * 4)[line]
 
 
 def sta_connected():
@@ -213,6 +270,9 @@ def execute(line):
                 return "Fault: load shed (servos detached, amp muted, LEDs off)"
             state["state"] = "Idle"
             return "Fault: PWR_FLT high for 2 s, resuming"
+        if args[0] in ("debug", "oled"):
+            state[args[0]] = on
+            return f"sim {args[0]} {'on' if on else 'off'}"
         if args[0] == "crash":
             state["crash"] = on
             return "sim crash " + ("on: core dump and previous log available" if on else "off")
@@ -253,6 +313,11 @@ def execute(line):
     if cmd == "wifi" and arg == "scan":
         state["scanUntil"] = time.time() + 3
         return "scanning WiFi networks"
+    if cmd == "wifi" and arg == "forget":
+        setting("StaSsid")["value"] = ""
+        setting("StaPassword")["value"] = ""
+        state["joinAt"], state["timeSet"] = None, False
+        return "home network forgotten"
     if cmd == "wifi" and arg == "join":
         state["joinAt"] = time.time()
         state["timeSet"] = False
@@ -261,6 +326,34 @@ def execute(line):
     if cmd == "wifi":
         return "access point on, clients: 1; home network: " + (
             "not configured" if not setting("StaSsid")["value"] else setting("StaSsid")["value"])
+    if cmd == "key" and arg in ("a", "al", "b", "bl"):
+        if state["debug"]:
+            menu.key(arg)
+        return ""
+    if cmd == "power":
+        if arg in ("full", "limited"):
+            state["fullPower"] = arg == "full"
+        return "debug mode: " + ("all servos allowed (3 A supply)" if state["fullPower"] else "one servo at a time (weak supply)")
+    if cmd in ("wing", "gun") and len(args) == 2:
+        if cmd == "wing":
+            state["wingTarget"] = 1.0 if args[1] == "open" else 0.0
+        return f"{cmd} {args[0]}: {args[1]}"
+    if cmd in ("wings", "guns", "loadtest", "demo") and state["debug"] and not state["fullPower"]:
+        return "refused: one servo at a time (power full first)"
+    if cmd == "servos" and arg == "off":
+        state["servos"] = {n: None for n in SERVO_NAMES}
+        return "all servos released"
+    if cmd == "shot":
+        return "gunshot, 1 s"
+    if cmd == "cal":
+        if arg == "imu":
+            setting("ImuUpAxis")["value"] = 4
+            return "ImuUpAxis = 4"
+        if arg == "hall save":
+            return "Hall saved: L R"
+        if len(args) == 3 and args[0] == "hall":
+            return f"{args[1]} {args[2]} = {hall('L' if args[1] == 'left' else 'R')}"
+        return "usage: cal hall left|right open|closed | cal hall save | cal imu"
     if cmd == "coredump" and arg == "erase":
         state["crash"] = False
         return "core dump erased"
@@ -300,6 +393,38 @@ def execute(line):
     if cmd == "trim" and len(args) == 2:
         return f"wing {args[0]} at 1500 {args[1]} us for 2 s (not saved: set WingTrimL/R)"
     return f'unknown command "{cmd}" (help)'
+
+
+def menu_execute(command):
+    log(f"menu> {command}")
+    answer = execute(command)
+    log(answer)
+    return answer
+
+
+menu = mock_menu.MenuNav(mock_menu.parse_tree(), menu_execute, menu_value, menu_info)
+
+
+def screen():
+    french = int(setting("Language")["value"]) != 0
+    # Wing animation (logic::RenderWings): text version of what the OLED draws.
+    moving = abs(state["wingTarget"] - state["wingPos"]) > 0.01
+    if moving:
+        state["animUntil"] = time.time() + 0.8
+    if setting("OledAnim")["value"] and time.time() < state.get("animUntil", 0):
+        percent = int(max(0.0, min(1.0, state["wingPos"])) * 100)
+        gap = percent * 5 // 100
+        art = " " * (7 - gap) + "[]" + "=" * gap + "(O)" + "=" * gap + "[]"
+        side = ("G", "D") if french else ("L", "R")
+        lines = ["Ailes" if french else "Wings", "", art, "", "%s %3d%%     %s %3d%%" % (side[0], percent, side[1], percent),
+                 (("en mouvement..." if french else "moving...") if moving else ("arrêtées" if french else "stopped"))]
+        return {"present": state["oled"], "menu": state["debug"], "highlight": -1, "lines": lines, "animation": True}
+    if state["debug"]:
+        lines, highlight = menu.render(french)
+    else:
+        lines, highlight = ["Portal Turret", menu_info("PageState", 0, french), menu_info("PageState", 1, french),
+                            menu_info("PageNetwork", 2, french), menu_info("PageNetwork", 3, french), "mock"], -1
+    return {"present": state["oled"], "menu": state["debug"], "highlight": highlight, "lines": lines}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -350,7 +475,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not self.authorized():
             return
-        if self.path == "/api/crashlog":
+        if self.path == "/api/screen":
+            with lock:
+                self.reply(200, json.dumps(screen()))
+        elif self.path == "/api/crashlog":
             text = ("I (8123) Wing Movement Timeout\nWiFi: lost \"Livebox-3F2A\", retrying\n"
                     "Servo rotate X attached (1450 us)\n") if state["crash"] else ""
             self.reply(200, text, "text/plain; charset=utf-8")

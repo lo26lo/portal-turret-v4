@@ -32,6 +32,8 @@ public:
   uint16_t ReadHall();
   // Last value read by Update(), safe to use from another task (web server).
   uint16_t GetLastHall() const { return lastHall; }
+  // 0 (closed) .. 100 (open) from the last Hall value, for the screen animation.
+  uint8_t GetOpenPercent() const;
   // Hall sensor stuck at a rail, or no change during a whole movement.
   bool HasHallFault() const { return hallFault; }
   Gun& GetGun();

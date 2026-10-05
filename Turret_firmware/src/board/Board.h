@@ -29,6 +29,7 @@ public:
   void Initialize();
   void Update(ulong now);
   bool IsDown() const { return debouncer.IsDown(); }
+  void SetLongPressMs(uint32_t ms) { debouncer.SetLongPressMs(ms); }
   // Returns the pending event and clears it.
   ButtonEvent TakeEvent();
 
@@ -51,7 +52,16 @@ public:
   void BootDone();
   void Update(ulong deltaTime);
 
-  bool IsBenchMode() const { return benchMode; }             // D1, SW1 closed at boot
+  // D1, SW1 closed at boot: debug mode (formerly "bench mode"): the state
+  // machine never starts a cycle by itself; debug menu on the OLED (lot IM).
+  bool IsBenchMode() const { return benchMode; }
+  // Debug mode assumes a weak supply (computer USB port): no servo attached
+  // automatically, one at a time in the tests. "power full" lifts this once
+  // a 3 A supply is connected.
+  bool IsServoLimited() const { return benchMode && !fullPower; }
+  void SetFullPower(bool enabled) { fullPower = enabled; }
+  // Debug menu: a "long press" is 0.6 s instead of 3 s.
+  void SetNavigationButtons(bool enabled);
   bool IsFactoryResetRequested() const { return factoryReset; } // D3, A + B held at boot
   bool IsReducedMode() const { return reducedMode; }         // D5, reboot loop detected
   esp_reset_reason_t GetResetReason() const { return resetReason; }
@@ -91,6 +101,7 @@ private:
 
   esp_reset_reason_t resetReason = ESP_RST_UNKNOWN;
   bool benchMode = false;
+  bool fullPower = false;
   bool factoryReset = false;
   bool reducedMode = false;
   bool bootDone = false;

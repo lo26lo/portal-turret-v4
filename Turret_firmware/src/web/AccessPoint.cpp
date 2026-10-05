@@ -9,11 +9,11 @@ const char *DEFAULT_PASSWORD = "stillalive";
 
 void AccessPoint::Start(Settings &settings) {
   strlcpy(ssid, settings.GetString(SettingId::ApSsid), sizeof(ssid));
-  const char *password = settings.GetString(SettingId::ApPassword);
+  strlcpy(password, settings.GetString(SettingId::ApPassword), sizeof(password));
   // Settings::Set already refuses a short password; this covers a bad NVS value.
   if (strlen(password) < 8) {
     Log.println("WiFi: stored password too short, using the default one");
-    password = DEFAULT_PASSWORD;
+    strlcpy(password, DEFAULT_PASSWORD, sizeof(password));
   }
   defaultPassword = strcmp(password, DEFAULT_PASSWORD) == 0;
   on = WiFi.softAP(ssid, password);

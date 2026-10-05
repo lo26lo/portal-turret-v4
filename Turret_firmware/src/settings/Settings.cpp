@@ -50,6 +50,11 @@ Settings::Settings()
           {"Timezone", "Time zone (POSIX TZ)", "WiFi", SettingType::Str, "CET-1CEST,M3.5.0,M10.5.0/3"},
           // L1: green LED toggles at each boot step / servo attachment instead of the heartbeat
           {"LabMarkers", "Lab markers on the green LED", "Lab", SettingType::Bool, false},
+          // Debug screen on the Qwiic port J11 (lot IM)
+          {"Language", "Screen language (0 = English, 1 = French)", "Display", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)1},
+          // The controller cannot be detected; the I2C address (0x3C / 0x3D) is. Applied at the next boot.
+          {"OledType", "OLED (0 = SSD1306 0.96in, 1 = SSD1309 1.54in, 2 = SH1106 1.3in)", "Display", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2},
+          {"OledAnim", "Wing animation on the screen", "Display", SettingType::Bool, true},
       },
       prefsReady(false) {}
 

@@ -48,6 +48,7 @@ public:
   }
 
   bool IsDown() const { return stableDown; }
+  void SetLongPressMs(uint32_t ms) { longPressMs = ms; }
 
 private:
   uint32_t debounceMs;

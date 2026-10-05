@@ -5,7 +5,10 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
+#include <functional>
+
 #include "Turret.h"
+#include "logic/MenuLogic.h"
 #include "web/AccessPoint.h"
 #include "web/Station.h"
 
@@ -38,6 +41,11 @@ public:
   // L5: what draws current right now (servos attached, sound, amplifier, LEDs),
   // logged with each PWR_FLT event.
   String LoadSnapshot();
+  // Debug menu (ui/DebugUi): where the "key" and "screen" commands go.
+  void SetDebugUi(std::function<void(logic::MenuKey)> keys, std::function<String()> screen) {
+    keyHandler = keys;
+    screenText = screen;
+  }
 
 private:
   String Help();
@@ -55,6 +63,18 @@ private:
   void UpdateSweep(ulong now);
   void UpdateLoadTest(ulong now);
   void CancelLabTests();
+  void LimitToChannel(uint8_t index);
+  String CalibrationCommand(const String &args);
+
+  // Debug menu: receives the keys of the "key" command (virtual buttons).
+  std::function<void(logic::MenuKey)> keyHandler;
+  // Debug menu: text of the screen for the "screen" command.
+  std::function<String()> screenText;
+
+  bool shotPending = false;
+  ulong shotStopAt = 0;
+  uint16_t hallCapture[2][2] = {}; // [left, right][open, closed]
+  bool hallCaptured[2][2] = {};
 
   // L2: servo sweep 0 -> 180 -> 0 degrees
   int8_t sweepChannel = -1;

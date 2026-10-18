@@ -70,6 +70,14 @@ inline uint8_t LowestFault(uint8_t faults) {
   return 0;
 }
 
+// Green LED after boot: a heartbeat, two short beats ("lub-dub") then a rest,
+// 50 beats per minute. True while the LED is on at time now (ms).
+const uint32_t HEARTBEAT_PERIOD_MS = 1200;
+inline bool HeartbeatOn(uint32_t now) {
+  uint32_t t = now % HEARTBEAT_PERIOD_MS;
+  return t < 100 || (t >= 250 && t < 350);
+}
+
 // MAX98357A gain: only 9, 12 or 15 dB exist; anything else goes to the nearest.
 inline int32_t RoundAmpGain(int32_t db) { return db <= 10 ? 9 : (db <= 13 ? 12 : 15); }
 

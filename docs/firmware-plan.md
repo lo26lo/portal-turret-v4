@@ -254,20 +254,20 @@ Ordre conseillé : 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9, puis 10 et
 
 ## 8. Mise en service de la première carte
 
-Périphériques branchés un par un ; chaque étape doit passer avant la suivante.
+Périphériques branchés un par un ; chaque étape doit passer avant la suivante. La colonne « État » est tenue à jour ; le détail est dans [firmware-improvements.md](firmware-improvements.md), entrées du 17.10.2026 et suivantes.
 
-| Étape | Branché | Ce qu'on vérifie |
-|---|---|---|
-| A | rien, alimentation via un wattmètre USB | VBUS, 5 V, 3V3 sur les points de test ; courant au repos ; IO38 à 3,3 V |
-| B | — | `esptool.py flash_id` = **8 MB** ; `espefuse.py summary` (lecture seule) ; flash via USB natif (sinon BOOT + RESET, sinon UART0 / J16) ; `erase_flash`, puis `upload` + `uploadfs` |
-| C | — | firmware de mise en service : LEDs, boutons, SW1, PWR_FLT, bannière |
-| D | — | scan I²C → 0x6A ; ~9,8 m/s² sur l'axe vertical ; choix de l'axe |
-| E | haut-parleur | tonalité 1 kHz à faible volume ; gains 9 / 12 / 15 dB ; **aucun plop** au boot, au mute, au reboot OTA |
-| F | anneau puis canons (LEDs seules) | chaque canal séparément, luminosité plafonnée, plus de scintillement |
-| G | capteurs Hall | valeurs brutes aimant près / loin → réglage des seuils |
-| H | servos, un par un puis tous | courant crête au wattmètre ; PWR_FLT ; aucun reset ; cas pire : 6 servos + audio + LEDs |
-| I | radar | trames reçues, cibles cohérentes |
-| J | tout | cycle complet Idle → Activate → Firing → Disengage ; OTA ; USB déporté J1 (jamais deux hôtes à la fois) |
+| Étape | Branché | Ce qu'on vérifie | État (18.10.2026) |
+|---|---|---|---|
+| A | rien, alimentation via un wattmètre USB | VBUS, 5 V, 3V3 sur les points de test ; courant au repos ; IO38 à 3,3 V | **non mesuré** (la carte a été branchée directement sur l'USB du PC) |
+| B | — | `esptool.py flash_id` = **8 MB** ; `espefuse.py summary` (lecture seule) ; flash via USB natif (sinon BOOT + RESET, sinon UART0 / J16) ; `erase_flash`, puis `upload` + `uploadfs` | **fait** 17.10.2026 : 8 Mo, pas de PSRAM ; `upload` + `uploadfs` par l'USB natif (COM3), sans BOOT. Piège : le reset RTS après flash laisse la puce en mode téléchargement → `no_reset` + `scripts/reset_after_upload.py` |
+| C | — | firmware de mise en service : LEDs, boutons, SW1, PWR_FLT, bannière | **en partie** : bannière et PWR_FLT haut OK ; LEDs, boutons et SW1 pas encore regardés |
+| D | — | scan I²C → 0x6A ; ~9,8 m/s² sur l'axe vertical ; choix de l'axe | **en partie** : 0x6A trouvé, \|g\| ≈ 9,83 m/s², axe dominant -X ; `ImuUpAxis` à régler (tourelle debout) |
+| E | haut-parleur | tonalité 1 kHz à faible volume ; gains 9 / 12 / 15 dB ; **aucun plop** au boot, au mute, au reboot OTA | à faire (I²S et ampli démarrent) |
+| F | anneau puis canons (LEDs seules) | chaque canal séparément, luminosité plafonnée, plus de scintillement | à faire |
+| G | capteurs Hall | valeurs brutes aimant près / loin → réglage des seuils | à faire (repos : gauche 353, droite 187) |
+| H | servos, un par un puis tous | courant crête au wattmètre ; PWR_FLT ; aucun reset ; cas pire : 6 servos + audio + LEDs | à faire ; les 4 servos s'attachent déjà au boot en mode normal → SW1 fermé (mode debug) tant qu'on est sur l'USB du PC |
+| I | radar | trames reçues, cibles cohérentes | **échec** : aucune trame (branchement J5 / TX-RX à vérifier) |
+| J | tout | cycle complet Idle → Activate → Firing → Disengage ; OTA ; USB déporté J1 (jamais deux hôtes à la fois) | à faire |
 
 ---
 

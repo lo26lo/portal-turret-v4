@@ -17,8 +17,6 @@ const ulong FACTORY_RESET_HOLD_MS = 1000; // A + B must stay held this long at b
 const ulong STABLE_RUN_MS = 60000;      // D5: counter cleared after 60 s of uptime
 const uint32_t REBOOT_LOOP_LIMIT = 3;   // D5: from 3 suspicious boots in a row
 
-const ulong HEARTBEAT_PERIOD_MS = 1000;
-const ulong HEARTBEAT_ON_MS = 80;
 const ulong RED_BLINK_MS = 250; // on and off time of one blink
 const ulong RED_PAUSE_MS = 1500; // pause between two repetitions of the code
 
@@ -240,7 +238,7 @@ void Board::UpdateGreenLed(ulong now) {
   if (labMarkers) {
     return; // the green LED belongs to Mark()
   }
-  digitalWrite(PIN_LED_GREEN, (now % HEARTBEAT_PERIOD_MS) < HEARTBEAT_ON_MS ? HIGH : LOW);
+  digitalWrite(PIN_LED_GREEN, logic::HeartbeatOn(now) ? HIGH : LOW);
 }
 
 // Blinks the lowest active fault number, then pauses, and starts again.

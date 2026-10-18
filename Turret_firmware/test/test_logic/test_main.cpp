@@ -133,6 +133,20 @@ void test_lowest_fault() {
   TEST_ASSERT_EQUAL_UINT8(6, logic::LowestFault(0x20));
 }
 
+void test_heartbeat() {
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(0));    // first beat
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(99));
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(100)); // gap
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(249));
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(250));  // second beat
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(349));
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(350)); // rest
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(1199));
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(1200)); // next period
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(4294966800u));  // 1200 * 3579139: still in phase
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(4294967200u)); // 400 ms into that period
+}
+
 void test_amp_gain_rounding() {
   TEST_ASSERT_EQUAL_INT32(9, logic::RoundAmpGain(0));
   TEST_ASSERT_EQUAL_INT32(9, logic::RoundAmpGain(10));
@@ -471,6 +485,7 @@ int main() {
   RUN_TEST(test_button_long_press_once);
   RUN_TEST(test_button_held_at_boot);
   RUN_TEST(test_lowest_fault);
+  RUN_TEST(test_heartbeat);
   RUN_TEST(test_amp_gain_rounding);
   return UNITY_END();
 }

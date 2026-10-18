@@ -10,14 +10,21 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 2. Lire « État actuel » ci-dessous, puis le premier lot du tableau « Avancement » qui n'est pas *fait*, et sa fiche dans « Catalogue ».
 3. Relire les règles matérielles de [firmware-plan.md](firmware-plan.md) §2 et de [../Turret_firmware/README.md](../Turret_firmware/README.md) §13 avant de toucher au code (IO21 / IO47 jamais à l'état haut, ampli coupé avant tout arrêt de l'I²S, pas d'eFuse ESP32 brûlé…).
 4. À la fin de chaque session : mettre à jour « État actuel », « Avancement », « Erreurs » et ajouter une entrée dans « Sessions », **dans le même commit** que le travail. Reporter aussi dans le journal local si on l'utilise.
+5. Outils sur ce PC : PlatformIO n'est pas dans le PATH → `%USERPROFILE%\.platformio\penv\Scripts\pio.exe` ; pour les scripts série (pyserial), utiliser le Python de PlatformIO (`...\penv\Scripts\python.exe`), pas le `python` système. Carte branchée : **COM3** (`pio run -e turret2_bringup -t upload --upload-port COM3`). Pas de compilateur C++ hôte : les tests natifs ne tournent que dans la CI.
 
-## État actuel — 26.09.2026
+## État actuel — 18.10.2026
 
-- **Firmware** : lots 1 à 12 du plan faits (commit `7a20d46` sur `main`) ; compile (`turret2`, `turret2_bringup`, `turret2_ota_home`) ; **n'a jamais tourné sur une carte**. Page web testée seulement contre `Turret_firmware/tools/mock_server.py`.
-- **Améliorations** : **lot I1 fait** le 26.09.2026 (A1, A2, D4, D2) sous VS Code, commit `a54d633` ; compile ; vérifications de la page OK ; **CI GitHub verte** au premier passage.
-- **Lots I2 et IL faits** le 26.09.2026 (A3, A4, D1 ; L1 à L5), commit `cf57922` poussé ; **CI verte** (run 36267773678) : compilation, **tests natifs** (exécutés pour la première fois, dans la CI : pas de compilateur C++ sur le PC Windows) et vérification de la page.
-- **Prochaine action** : I3 (B1 visée, B3 mode recherche, C1 vue radar).
-- **05.10.2026** : nouvelle famille **M** (mode debug avec écran OLED sur J11, boutons A / B pour naviguer), lot **IM fait** le jour même, avant I3 (choix de l'utilisateur) ; commit `83544a4` poussé, CI verte ; jamais essayé sur un écran réel. Idées d'écran proposées ensuite, en attente du choix de l'utilisateur : retournement 180° et contraste, extinction automatique, auto-test, assistant de calibration, courbe Hall, journal / crash à l'écran, QR code Wi-Fi, vue radar, œil et sous-titres, statistiques. Réponses de l'utilisateur : écrans 0,96" (SSD1306) et un 1,54" « M154_4P » (SSD1309 très probable, non confirmé) à gérer tous les deux ; un servo à la fois par défaut, levable ; menus en français et en anglais.
+- **GitHub** : `main` = `8a88267` (05.10.2026, CI verte). **Non poussé** : la correction du flash du 17.10.2026 (`boards/turret2.json`, `platformio.ini`, `scripts/reset_after_upload.py`, README §3) et ce fichier.
+- **Firmware** : lots 1 à 12 du plan + améliorations **I1, I2, IL, IM** faits et poussés ; 24 tests natifs et `tools/check_web.py` (40 vérifications) verts dans la CI. Restent **I3** (B1 visée, B3 mode recherche, C1 vue radar de la page web ; la vue radar existe déjà sur l'OLED), **I4** et **I5**.
+- **Carte réelle** : **première carte flashée le 17.10.2026** (env `turret2_bringup`, `upload` + `uploadfs` par l'USB natif, COM3) ; elle démarre en ~4 s et la console répond. Auto-test rapide : 9 OK, **1 échec (radar : aucune trame)**, 9 non faits. Avancement de la mise en service : colonne « État » de [firmware-plan.md](firmware-plan.md) §8.
+- **Jamais vu sur le matériel** : l'écran OLED (mode debug IM), le son, les LEDs, les mouvements des servos et des ailes, la page web sur un vrai téléphone.
+- **Prochaine action** (dans l'ordre) :
+  1. radar : vérifier le branchement sur J5 et le croisement TX / RX, puis `selftest quick` ;
+  2. fermer SW1 (mode debug) tant que la carte est sur l'USB du PC ; brancher un OLED sur J11 et essayer les menus ;
+  3. calibration : `ImuUpAxis` (tourelle debout), seuils Hall aimant près / loin (plan §8 G) ;
+  4. sur une alimentation 3 A : son, LEDs, servos un par un, puis `selftest full` (plan §8 E, F, H) ;
+  5. ensuite seulement : lot I3.
+- **Écrans** (05.10.2026) : 0,96" (SSD1306) et 1,54" « M154_4P » (SSD1309 très probable, non confirmé) gérés tous les deux ; un servo à la fois par défaut, levable ; menus en français et en anglais.
 - **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
 
@@ -30,7 +37,8 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
 | IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27, CI verte |
-| IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commit `83544a4` ; passé avant I3 à la demande de l'utilisateur ; build OK, `check_web.py` 39/39 ; **CI verte** (run 37297330123) avec les 22 tests natifs, dont ceux du menu et de l'animation ; **jamais vu sur un vrai écran** |
+| IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commits `83544a4` puis `8a88267` (tâche d'affichage + dix idées d'écran) ; passé avant I3 à la demande de l'utilisateur ; `check_web.py` 40/40 ; **CI verte** (run 37303638236) avec 24 tests natifs ; **jamais vu sur un vrai écran** |
+| HW | Mise en service de la première carte (plan §8, étapes A à J) | en cours | 17.10.2026 : flash + premier démarrage OK (étape B) ; radar sans trame ; détail par étape dans plan §8 |
 | I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur |
 
 ## Catalogue
@@ -179,6 +187,7 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 |---|---|---|
 | 26.09.2026 | `www.ti.com` et `www.digchip.com` bloqués par le proxy du conteneur cloud (curl et WebFetch) | variante de l'eFuse obtenue par les extraits d'une recherche web seulement ; confirmer dans la datasheet depuis un poste normal |
 | 26.09.2026 | Sous VS Code (Windows), l'outil Bash retire les `\` du texte des commandes, même dans un heredoc `<<'EOF'` : un script Python passé en ligne a échoué (`SyntaxError`) | écrire tout script ou code contenant des `\` dans un fichier (outil d'écriture), puis l'exécuter ; déjà vu aux lots 4 et 10 (journal local) |
+| 17.10.2026 | Premier flash sur la carte : après l'écriture, le reset RTS d'esptool (`hard_reset`) laisse l'ESP32-S3 en mode téléchargement (ROM : `rst:0x15 (USB_UART_CHIP_RESET),boot:0x20 (DOWNLOAD(USB/UART0))`) ; console muette, partitions NVS et coredump vierges = l'application n'avait jamais tourné. `after_reset: watchdog_reset` démarre l'application mais le port USB disparaît pendant le reset : esptool lève une erreur série (`OSError(22)`) et pio affiche FAILED alors que tout est écrit et vérifié | `upload.after_reset = no_reset` dans `boards/turret2.json` + `scripts/reset_after_upload.py` (post-action de `upload` / `uploadfs`) qui relance esptool `--after watchdog_reset read_mac` et ignore la perte du port ; vérifié : SUCCESS et application démarrée |
 | 26.09.2026 | Dans le conteneur cloud, la branche locale était restée au commit `dae8587` alors que `main` avait avancé (lots 2 à 12 faits sous VS Code) | toujours `git fetch` + se placer sur `origin/main` en début de session ; le journal local n'étant plus versionné, l'état se lit dans ce fichier, `Turret_firmware/README.md` et les messages de commit |
 
 ## Sessions
@@ -356,3 +365,52 @@ Idées écartées : INA219 / INA226 en ligne (demande de couper un fil et, avec 
 **Rappel** : la tâche d'affichage (entrée précédente) et ces dix idées ne sont pas encore commitées.
 
 **Prochaine étape** : commit / push (CI), puis I3 (la vue radar de l'écran en couvre déjà une partie ; reste la visée, le mode recherche et la vue radar de la page web).
+
+### 05.10.2026 (6ᵉ entrée) — Push des idées d'écran
+
+**Demande** : « oui pousse ».
+
+**Fait** : commit `8a88267` (tâche d'affichage + dix idées d'écran) poussé ; **CI verte** (run 37303638236) : casse des includes, compilation des deux envs, **24 tests natifs** (dont `test_wrap_text` et `test_menu_wizard`, exécutés pour la première fois), vérification de la page.
+
+**Prochaine étape** : I3 (B1 visée, B3 mode recherche, C1 vue radar de la page web). Rien de ce lot IM n'a été vu sur un écran réel.
+
+### 17.10.2026 — Premier flash sur une vraie carte (COM3)
+
+**Demande** : « la carte est branchée sur COM3, peux-tu flasher le firmware de base ». Le firmware d'origine (`Fork/`) ne convient pas (cible 4 Mo + PSRAM) : c'est notre firmware, env `turret2_bringup`, qui a été flashé.
+
+**Problème et solution** : voir « Erreurs, impasses et pièges » (17.10.2026) : reset après flash laissant la puce en mode téléchargement ; corrigé par `no_reset` + `scripts/reset_after_upload.py` ; nouveau flash : SUCCESS, l'application démarre seule.
+
+**Constaté au premier démarrage** (console USB) :
+- ESP32-S3 QFN56 rév. v0.2, flash 8 Mo GD intégrée, pas de PSRAM, MAC 10:51:db:5a:17:ec.
+- Scan I2C : 0x6A seul ; LSM6DSOX OK, gravité (-8,73 ; 2,86 ; 3,50) m/s², |g| ≈ 9,83, axe dominant **-X** (ImuUpAxis encore à 0), 26,6 °C. Pas d'OLED branché.
+- Audio I2S démarré ; point d'accès « Portal Turret » actif ; 4 servos attachés à 250 ms d'écart (1450 µs) ; démarrage en ~4 s, puis Idle.
+- Raison du reset POWERON, PWR_FLT haut, 0 défaut, 0 brownout.
+- Auto-test rapide : 9 OK, **1 FAIL (trames radar)**, 9 SKIP.
+- Hall gauche 353, droite 187, tous deux vus « fermés » : calibration à faire.
+
+**À faire** : vérifier le radar (branché sur J5 ? TX/RX croisés ?) ; calibration Hall et ImuUpAxis ; auto-test complet sur alimentation 3 A ; utiliser le mode debug (SW1) tant que la carte est alimentée par l'USB du PC.
+
+### 18.10.2026 — État des lieux, plan mis à jour pour la reprise
+
+**Demande** : un état des lieux, savoir si GitHub est à jour, et mettre le plan à jour pour une reprise propre.
+
+**Constaté** : `git fetch` → `main` local = `origin/main` = `8a88267` ; la correction du flash du 17.10.2026 et la documentation correspondante ne sont pas encore commitées.
+
+**Fait** :
+- « État actuel » réécrit (daté du 18.10.2026) avec la liste ordonnée des prochaines actions ;
+- « Reprise rapide » : outils du PC (chemin de pio, Python de PlatformIO pour pyserial, COM3) ;
+- tableau « Avancement » : lot IM complété (`8a88267`), nouvelle ligne **HW** (mise en service) ;
+- [firmware-plan.md](firmware-plan.md) §8 : colonne « État » par étape (A à J).
+
+**Prochaine étape** : commit / push de tout cela si l'utilisateur le demande, puis radar et mise en service (voir « État actuel »).
+
+### 18.10.2026 (2ᵉ entrée) — LED verte : battement de cœur
+
+**Demande** : la LED verte doit rester allumée pendant le boot, puis battre comme un cœur. L'utilisateur voyait aussi la rouge clignoter : c'est le code de défaut 4 (radar muet), attendu tant que le radar n'envoie rien ; non modifié.
+
+**Fait** :
+- `logic::HeartbeatOn()` (`src/logic/BoardLogic.h`) : deux battements de 100 ms (à 0 et 250 ms) puis repos, période 1200 ms (50 par minute) ; remplace le flash de 80 ms par seconde ;
+- `Board::UpdateGreenLed()` l'utilise ; fixe pendant le boot inchangé ; `LabMarkers` garde la priorité ;
+- test natif `test_heartbeat` (25 tests) ; README §7 mis à jour.
+
+**Vérifié** : compilation `turret2_bringup` OK (RAM 25,2 %, flash 50,3 %). **Flash non fait** : COM3 avait disparu (`pio device list` vide : carte débranchée ou hors tension). Test natif à vérifier dans la CI (pas de gcc sur le PC).

@@ -43,6 +43,7 @@
     "flash_size": "8MB",
     "maximum_ram_size": 327680,
     "maximum_size": 8388608,
+    "after_reset": "no_reset",
     "require_upload_port": true,
     "speed": 460800
   },

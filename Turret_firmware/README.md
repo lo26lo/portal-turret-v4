@@ -108,6 +108,8 @@ pio run -t uploadfs           # LittleFS image: data/fire.mp3
 pio device monitor            # console, 115200 baud
 ```
 
+After an upload over the native USB, esptool's usual RTS reset leaves the ESP32-S3 in download mode (ROM: `boot:0x20 (DOWNLOAD(USB/UART0))`) and the firmware never starts. The board definition therefore asks for no reset (`upload.after_reset = no_reset`), and `scripts/reset_after_upload.py` then restarts the chip with a watchdog reset ("Board restarted: the firmware is running."). If it says it could not, press **RESET** (SW3).
+
 If the native USB does not show up: hold **BOOT** (SW2), press **RESET** (SW3), release BOOT, flash again. Last resort: UART0 on J16 with an ESP-Prog.
 
 First flash of a new board: `esptool.py flash_id` must report **8 MB** (module N8). The boot banner also warns when the flash is not 8 MB or when PSRAM is found.
@@ -285,7 +287,7 @@ Every entry runs a command of the console, so the behaviour and the protections 
 
 | LED | Meaning |
 |---|---|
-| Green (IO33) | steady during boot, then a short flash every second (the loop is alive) |
+| Green (IO33) | steady during boot, then a heartbeat: two short beats and a rest, 50 per minute (the loop is alive) |
 | Red (IO48) | steady during boot, then blinks the number of the lowest active fault, pause, repeat |
 
 | Red blinks | Fault |

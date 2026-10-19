@@ -324,6 +324,57 @@ void test_hall_percent() {
   TEST_ASSERT_EQUAL_UINT8(0, logic::HallPercent(2000, 2000, 2000));
 }
 
+void test_fault_alert() {
+  const uint8_t radar = 1u << 3, imu = 1u << 2;
+  logic::FaultAlert alert;
+  TEST_ASSERT_FALSE(alert.Update(0, 0));
+
+  // A new fault: shown for 5 s, then the screen goes on.
+  TEST_ASSERT_TRUE(alert.Update(radar, 1000));
+  TEST_ASSERT_TRUE(alert.JustStarted());
+  TEST_ASSERT_TRUE(alert.Update(radar, 5999));
+  TEST_ASSERT_FALSE(alert.JustStarted());
+  TEST_ASSERT_FALSE(alert.Update(radar, 6000));
+  TEST_ASSERT_FALSE(alert.Update(radar, 60000)); // still active, already announced
+
+  // A second fault starts a new alert; a key press closes it early.
+  TEST_ASSERT_TRUE(alert.Update(radar | imu, 61000));
+  alert.Dismiss();
+  TEST_ASSERT_FALSE(alert.Update(radar | imu, 61100));
+
+  // A fault that clears and comes back is announced again.
+  TEST_ASSERT_FALSE(alert.Update(imu, 62000));
+  TEST_ASSERT_TRUE(alert.Update(radar | imu, 63000));
+  // All faults gone: the alert ends at once.
+  TEST_ASSERT_FALSE(alert.Update(0, 63500));
+
+  // Counter wrap-around (millis() after 49 days).
+  logic::FaultAlert late;
+  TEST_ASSERT_TRUE(late.Update(radar, 0xFFFFF000u));
+  TEST_ASSERT_TRUE(late.Update(radar, 0x00000100u));
+  TEST_ASSERT_FALSE(late.Update(radar, 0x00000400u));
+
+  logic::MenuScreen screen;
+  logic::RenderFaultAlert(screen, logic::Lang::French, radar);
+  TEST_ASSERT_EQUAL_STRING("! Défaut", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("4 Radar muet", screen.line[1]);
+  TEST_ASSERT_EQUAL_STRING("", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("LED rouge : code 4", screen.line[5]);
+  TEST_ASSERT_EQUAL_INT8(-1, screen.highlight);
+
+  logic::RenderFaultAlert(screen, logic::Lang::English, radar | imu);
+  TEST_ASSERT_EQUAL_STRING("! Faults", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("3 IMU missing", screen.line[1]);
+  TEST_ASSERT_EQUAL_STRING("4 Radar silent", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("Red LED: code 3", screen.line[5]);
+
+  // Every name fits on a line with its number.
+  for (uint8_t n = 1; n <= logic::FAULT_COUNT; n++) {
+    TEST_ASSERT_TRUE(logic::Utf8Length(logic::FaultName(n, logic::Lang::French)) + 2 <= logic::SCREEN_COLUMNS);
+    TEST_ASSERT_TRUE(logic::Utf8Length(logic::FaultName(n, logic::Lang::English)) + 2 <= logic::SCREEN_COLUMNS);
+  }
+}
+
 void test_wing_animation_screen() {
   logic::MenuScreen screen;
   logic::RenderWings(screen, logic::Lang::French, 0, 0, true);
@@ -472,6 +523,7 @@ int main() {
   RUN_TEST(test_real_menu_tree);
   RUN_TEST(test_hall_percent);
   RUN_TEST(test_wing_animation_screen);
+  RUN_TEST(test_fault_alert);
   RUN_TEST(test_wrap_text);
   RUN_TEST(test_menu_wizard);
   RUN_TEST(test_decode_examples);

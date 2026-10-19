@@ -165,6 +165,12 @@ void DebugUi::Key(logic::MenuKey key) {
   if (wasAsleep || !IsMenuActive()) {
     return;
   }
+  // A key press during a fault alert only closes it.
+  if (faultAlert.IsActive()) {
+    faultAlert.Dismiss();
+    dirty = true;
+    return;
+  }
   nav->Key(key, millis());
   dirty = true;
 }
@@ -212,6 +218,13 @@ void DebugUi::Update(ulong now) {
   }
   UpdateSleep(now, moving);
 
+  // A new fault: shown for 5 s (it wakes the screen), then the screen goes on.
+  bool alerting = faultAlert.Update(turret->board.GetFaults(), now);
+  if (faultAlert.JustStarted()) {
+    Wake(now);
+    dirty = true;
+  }
+
   // Subtitle of the eye at each change of state.
   StateId state = stateMachine->GetCurrentStateId();
   if (state != lastState) {
@@ -241,7 +254,9 @@ void DebugUi::Update(ulong now) {
   // Static: ~480 bytes that do not need to live on the loop stack.
   static logic::MenuScreen screen;
   bool french = Language() == logic::Lang::French;
-  if (animating && turret->settings.GetBool(SettingId::OledAnim)) {
+  if (alerting) {
+    logic::RenderFaultAlert(screen, Language(), turret->board.GetFaults());
+  } else if (animating && turret->settings.GetBool(SettingId::OledAnim)) {
     logic::RenderWings(screen, Language(), left.GetOpenPercent(), right.GetOpenPercent(), moving);
   } else if (IsMenuActive()) {
     nav->Render(screen, Language(), now);
@@ -274,7 +289,8 @@ void DebugUi::RenderStatus(logic::MenuScreen &screen, bool french) {
 
 // Normal mode, OledFace on: the eye of the turret. Asleep while idle with
 // nobody in sight, awake and looking at the first target otherwise, angry
-// while it deploys and fires. Active faults replace the first subtitle line.
+// while it deploys and fires. Faults are not shown here: a new one gets the
+// 5 s alert (FaultAlert), then the red LED alone keeps signalling it.
 void DebugUi::RenderFace(logic::MenuScreen &screen, bool french, ulong now) {
   memset(&screen, 0, sizeof(screen));
   screen.highlight = -1;
@@ -304,9 +320,6 @@ void DebugUi::RenderFace(logic::MenuScreen &screen, bool french, ulong now) {
   screen.value[1] = mood;
   snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "%s", mood == 0 ? "(-)" : mood == 2 ? "(O)!" : "(o)");
 
-  if (turret->board.GetFaults() != 0) {
-    InfoLine(ui::PageState, 1, french, screen.line[4], logic::SCREEN_LINE_BYTES);
-  }
   if (subtitle[0] != '\0' && (long)(subtitleUntil - now) > 0) {
     snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", subtitle);
   } else {

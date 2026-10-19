@@ -165,6 +165,78 @@ inline void RenderWings(MenuScreen &screen, Lang lang, uint8_t leftPercent, uint
            moving ? (french ? "en mouvement..." : "moving...") : (french ? "arrêtées" : "stopped"));
 }
 
+// Fault numbers are the red LED blink codes (Board.h, Fault): bit n-1 = fault n.
+const uint8_t FAULT_COUNT = 6;
+const uint32_t FAULT_ALERT_MS = 5000;
+
+inline const char *FaultName(uint8_t n, Lang lang) {
+  static const char *const en[FAULT_COUNT] = {"Reboot loop", "eFuse fault",       "IMU missing",
+                                              "Radar silent", "Hall inconsistent", "LittleFS missing"};
+  static const char *const fr[FAULT_COUNT] = {"Boucle redémarrage", "Défaut eFuse",    "IMU absente",
+                                              "Radar muet",         "Hall incohérent", "LittleFS absent"};
+  if (n < 1 || n > FAULT_COUNT) {
+    return "?";
+  }
+  return lang == Lang::French ? fr[n - 1] : en[n - 1];
+}
+
+// When a fault appears, the screen shows it for FAULT_ALERT_MS, then goes back
+// to what it was showing; the red LED keeps blinking as long as the fault
+// lasts. A fault that clears and comes back is announced again.
+class FaultAlert {
+public:
+  // Call at each screen update with the active faults; true while the alert is shown.
+  bool Update(uint8_t faults, uint32_t now) {
+    uint8_t fresh = faults & (uint8_t)~announced;
+    announced = faults;
+    started = fresh != 0;
+    if (started) {
+      active = true;
+      until = now + FAULT_ALERT_MS;
+    }
+    if (active && (faults == 0 || (int32_t)(now - until) >= 0)) {
+      active = false;
+    }
+    return active;
+  }
+  // True if the last Update() started an alert (to wake the screen up).
+  bool JustStarted() const { return started; }
+  bool IsActive() const { return active; }
+  // A key press closes the alert early.
+  void Dismiss() { active = false; }
+
+private:
+  uint8_t announced = 0;
+  uint32_t until = 0;
+  bool active = false;
+  bool started = false;
+};
+
+// The alert screen: one fault per line, and the code the red LED blinks
+// (the lowest number when there are several).
+inline void RenderFaultAlert(MenuScreen &screen, Lang lang, uint8_t faults) {
+  memset(&screen, 0, sizeof(screen));
+  screen.highlight = -1;
+  bool french = lang == Lang::French;
+  uint8_t count = 0, lowest = 0;
+  for (uint8_t n = 1; n <= FAULT_COUNT; n++) {
+    if (faults & (1u << (n - 1))) {
+      if (lowest == 0) {
+        lowest = n;
+      }
+      if (count < INFO_LINES) {
+        snprintf(screen.line[1 + count], SCREEN_LINE_BYTES, "%u %s", n, FaultName(n, lang));
+      }
+      count++;
+    }
+  }
+  snprintf(screen.line[0], SCREEN_LINE_BYTES, "%s", count > 1 ? (french ? "! Défauts" : "! Faults")
+                                                              : (french ? "! Défaut" : "! Fault"));
+  if (lowest != 0) {
+    snprintf(screen.line[5], SCREEN_LINE_BYTES, "%s %u", french ? "LED rouge : code" : "Red LED: code", lowest);
+  }
+}
+
 struct MenuHooks {
   void *context;
   // Runs a command line of the interpreter and writes a short answer.

@@ -22,17 +22,20 @@ bool Display::Begin(int32_t oledType) {
     Log.println("Display: no OLED on J11 (0x3C / 0x3D)");
     return false;
   }
-  // Clock and data pins given explicitly: U8g2 then calls Wire.begin(35, 36),
-  // which leaves the bus started by I2cBus as it is.
+  // Never pass the clock and data pins to U8g2: its GPIO init does
+  // pinMode(pin, OUTPUT) on every pin it knows, which takes IO35 / IO36 away
+  // from the I2C peripheral and drives them low; the bus then hangs for good
+  // inside begin() (first board, 19.10.2026). Without them U8g2 calls
+  // Wire.begin(), which leaves the bus started by I2cBus (IO35 / IO36) as it is.
   switch (oledType) {
   case 1:
-    u8g2 = new U8G2_SSD1309_128X64_NONAME0_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE, PIN_SCL, PIN_SDA);
+    u8g2 = new U8G2_SSD1309_128X64_NONAME0_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
     break;
   case 2:
-    u8g2 = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE, PIN_SCL, PIN_SDA);
+    u8g2 = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
     break;
   default:
-    u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE, PIN_SCL, PIN_SDA);
+    u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
     break;
   }
   u8g2->setI2CAddress(address << 1);

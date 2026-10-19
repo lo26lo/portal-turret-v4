@@ -20,7 +20,9 @@ class StateMachine;
 //  - Normal mode with a screen plugged in: the eye of the turret with its
 //    subtitles (OledFace), or a plain status page; the buttons keep their
 //    normal functions.
-//  - In both modes: wing animation (OledAnim), screen off after OledSleepS
+//  - In both modes: a new fault is shown for 5 s, then the screen goes back
+//    to what it was showing (the red LED keeps blinking); wing animation
+//    (OledAnim), screen off after OledSleepS
 //    without activity, rotation and contrast (OledFlip, OledContrast).
 // The screen is a logic::MenuScreen: the OLED on J11 draws it, and the web
 // page shows its text lines (GET /api/screen), with or without a real screen.
@@ -84,6 +86,9 @@ private:
   // Subtitles of the eye
   const char *subtitle = "";
   ulong subtitleUntil = 0;
+
+  // A new fault is shown for 5 s, then the screen goes on (the red LED keeps blinking)
+  logic::FaultAlert faultAlert;
 
   // Hall curves: one sample every 50 ms, 100 samples = 5 s, value / 16 (0..255)
   static const uint8_t GRAPH_SAMPLES = 100;

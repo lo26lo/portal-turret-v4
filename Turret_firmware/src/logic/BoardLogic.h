@@ -78,6 +78,54 @@ inline bool HeartbeatOn(uint32_t now) {
   return t < 100 || (t >= 250 && t < 350);
 }
 
+// Factory reset with the board's own controls, no screen needed: SW1 closed
+// (debug position) and PROG (SW2, IO0) held RESET_GESTURE_HOLD_MS, at any
+// time after the boot (PROG held while RESET is released starts the ROM
+// download mode instead: that is why RESET is not part of the gesture).
+// Releasing PROG or opening SW1 before the end cancels. PROG must have been
+// seen released once since the boot before a hold counts.
+const uint32_t RESET_GESTURE_HOLD_MS = 5000;
+
+class ResetGesture {
+public:
+  enum class State : uint8_t { Idle, Holding, Accepted };
+
+  State Update(bool switchClosed, bool progDown, uint32_t now) {
+    if (state == State::Accepted) {
+      return state; // final: the board restarts
+    }
+    if (!progDown) {
+      armed = true;
+    }
+    if (!(armed && progDown && switchClosed)) {
+      state = State::Idle;
+      return state;
+    }
+    if (state == State::Idle) {
+      state = State::Holding;
+      since = now;
+    }
+    if (now - since >= RESET_GESTURE_HOLD_MS) {
+      state = State::Accepted;
+    }
+    return state;
+  }
+  State GetState() const { return state; }
+  // Holding: milliseconds left before the reset (rounded up to whole seconds by the caller).
+  uint32_t RemainingMs(uint32_t now) const {
+    if (state != State::Holding) {
+      return state == State::Accepted ? 0 : RESET_GESTURE_HOLD_MS;
+    }
+    uint32_t held = now - since;
+    return held >= RESET_GESTURE_HOLD_MS ? 0 : RESET_GESTURE_HOLD_MS - held;
+  }
+
+private:
+  State state = State::Idle;
+  bool armed = false;
+  uint32_t since = 0;
+};
+
 // MAX98357A gain: only 9, 12 or 15 dB exist; anything else goes to the nearest.
 inline int32_t RoundAmpGain(int32_t db) { return db <= 10 ? 9 : (db <= 13 ? 12 : 15); }
 

@@ -19,6 +19,9 @@ public:
   void Initialize(Settings &settings, bool reducedMode);
   // Reads AmpGain and Volume again (after a change from the web page or console).
   void ApplySettings();
+  // Volume in percent, RAM only (the rotary encoder saves it later, once).
+  void SetVolume(int32_t percent) { volume = constrain(percent, 0, 100); }
+  int32_t GetVolume() const { return volume; }
   void Update(ulong deltaTime);
   // Shutdown sequence (plan §3.3): amp in shutdown, then I2S stopped.
   void End();

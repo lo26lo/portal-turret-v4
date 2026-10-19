@@ -17,6 +17,7 @@ const ulong FACTORY_RESET_HOLD_MS = 1000; // A + B must stay held this long at b
 const ulong STABLE_RUN_MS = 60000;      // D5: counter cleared after 60 s of uptime
 const uint32_t REBOOT_LOOP_LIMIT = 3;   // D5: from 3 suspicious boots in a row
 
+const ulong FAST_BLINK_MS = 100; // factory reset gesture: on and off time
 const ulong RED_BLINK_MS = 250; // on and off time of one blink
 const ulong RED_PAUSE_MS = 1500; // pause between two repetitions of the code
 
@@ -124,6 +125,8 @@ void Board::Begin() {
   //    SW1 has R9 as pull-up; the internal one covers R9 not being fitted.
   pinMode(PIN_PWR_FLT, INPUT);
   pinMode(PIN_BENCH_MODE, INPUT_PULLUP);
+  // PROG (IO0): the strap was sampled at reset, it is a plain button now. Input only.
+  pinMode(PIN_PROG, INPUT_PULLUP);
   buttonA.Initialize();
   buttonB.Initialize();
   attachInterrupt(digitalPinToInterrupt(PIN_PWR_FLT), OnPowerFault, FALLING);
@@ -218,9 +221,53 @@ void Board::Update(ulong deltaTime) {
   }
 
   UpdateBootLoopCounter(now);
-  if (bootDone) {
+  UpdateResetGesture(now);
+  bool fastBlink = (now / FAST_BLINK_MS) % 2 == 0;
+  if (resetAccepted) {
+    // Accepted: green blinking fast, red off, until the restart.
+    digitalWrite(PIN_LED_GREEN, fastBlink ? HIGH : LOW);
+    digitalWrite(PIN_LED_RED, LOW);
+  } else if (resetGesture.GetState() == logic::ResetGesture::State::Holding) {
+    // Held: red blinking fast, green off.
+    digitalWrite(PIN_LED_RED, fastBlink ? HIGH : LOW);
+    digitalWrite(PIN_LED_GREEN, LOW);
+    redStep = 0; // the fault code starts again from the beginning afterwards
+  } else if (bootDone) {
     UpdateGreenLed(now);
     UpdateRedLed(now);
+  }
+}
+
+// SW1 is read here at any time (not only at boot) for the factory reset gesture.
+void Board::UpdateResetGesture(ulong now) {
+  using State = logic::ResetGesture::State;
+  State before = resetGesture.GetState();
+  State state = resetGesture.Update(digitalRead(PIN_BENCH_MODE) == LOW, digitalRead(PIN_PROG) == LOW, now);
+  if (state == before) {
+    return;
+  }
+  if (state == State::Holding) {
+    Log.println("PROG held with SW1 closed: factory reset in 5 s (release to cancel)");
+  } else if (state == State::Idle) {
+    Log.println("Factory reset cancelled");
+  } else {
+    resetRequested = true;
+    resetAccepted = true;
+  }
+}
+
+bool Board::TakeFactoryResetRequest() {
+  bool requested = resetRequested;
+  resetRequested = false;
+  return requested;
+}
+
+void Board::ClearCounters() {
+  bootLoopCount = 0;
+  brownoutCount = 0;
+  powerFaultCount = 0;
+  if (prefsReady) {
+    prefs.clear();
   }
 }
 

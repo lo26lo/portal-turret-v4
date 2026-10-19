@@ -75,6 +75,7 @@ private:
   void CancelLabTests();
   void LimitToChannel(uint8_t index);
   String CalibrationCommand(const String &args);
+  void SaveVolume();
 
   // Debug menu: receives the keys of the "key" command (virtual buttons).
   std::function<void(logic::MenuKey)> keyHandler;
@@ -110,6 +111,10 @@ private:
   size_t consoleLength = 0;
   ulong rebootAt = 0;
   bool rebootPending = false;
+  // "volume": NVS write deferred until the knob has stopped.
+  static const ulong VOLUME_SAVE_DELAY_MS = 2000;
+  bool volumeSavePending = false;
+  ulong volumeSaveAt = 0;
   std::atomic<bool> otaRequested{false};
   std::atomic<bool> otaReady{false};
 };

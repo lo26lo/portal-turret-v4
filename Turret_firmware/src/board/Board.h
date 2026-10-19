@@ -81,6 +81,18 @@ public:
   void SetFault(Fault fault, bool active);
   bool HasFault(Fault fault) const;
 
+  // Factory reset gesture (logic::ResetGesture): SW1 closed + PROG held 5 s.
+  // While held the red LED blinks fast; once accepted the green one does,
+  // until the restart. True once when the gesture is accepted.
+  bool TakeFactoryResetRequest();
+  logic::ResetGesture::State GetResetGestureState() const { return resetGesture.GetState(); }
+  uint32_t GetResetGestureRemainingMs() const { return resetGesture.RemainingMs(millis()); }
+  // Green LED blinking fast until the restart (also for the console command).
+  void ShowFactoryResetAccepted() { resetAccepted = true; }
+  bool IsFactoryResetAccepted() const { return resetAccepted; }
+  // Factory reset: boot-loop and brownout counters back to zero (NVS and RAM).
+  void ClearCounters();
+
   // L1 (lab aid): with LabMarkers on, the green LED no longer shows the
   // heartbeat; it toggles at each boot step and each servo attachment, to line
   // up an oscilloscope or PPK2 trace with the code. The label goes to the log.
@@ -95,6 +107,7 @@ private:
   void UpdateGreenLed(ulong now);
   void UpdateRedLed(ulong now);
   void UpdateBootLoopCounter(ulong now);
+  void UpdateResetGesture(ulong now);
 
   Preferences prefs;
   bool prefsReady = false;
@@ -113,6 +126,10 @@ private:
 
   bool labMarkers = false;
   bool markerLevel = false;
+
+  logic::ResetGesture resetGesture;
+  bool resetRequested = false;
+  bool resetAccepted = false;
 
   uint8_t faults = 0; // bit n-1 = Fault n
   uint8_t redCode = 0;

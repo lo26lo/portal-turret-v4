@@ -10,6 +10,13 @@
 //   A  long       previous entry      previous page       leave, no save      cancel         previous step
 //   B  short      enter / run         back                value + step        confirm        do the step
 //   B  long       back to parent      back                save and leave      cancel         leave
+//
+// Rotary encoder (sensors/RotaryEncoder): its keys are translated into the
+// ones above, depending on the mode:
+//   clockwise     next entry          next page           value + step        -              skip the step
+//   anticlockwise previous entry      previous page       value - step        -              previous step
+//   push          enter / run         back                save and leave      confirm        do the step
+//   push long     back to parent      back                leave, no save      cancel         leave
 
 #include <stdint.h>
 #include <stdio.h>
@@ -18,7 +25,19 @@
 namespace logic {
 
 enum class Lang : uint8_t { English, French };
-enum class MenuKey : uint8_t { A, ALong, B, BLong };
+enum class MenuKey : uint8_t {
+  A,
+  ALong,
+  B,
+  BLong,
+  // Rotary encoder: one detent each way, push, push held.
+  Clockwise,
+  Anticlockwise,
+  Push,
+  PushLong,
+};
+
+inline bool IsEncoderKey(MenuKey key) { return key >= MenuKey::Clockwise; }
 
 enum class ItemKind : uint8_t {
   Menu,    // has children (entries whose parent is this one)
@@ -237,6 +256,46 @@ inline void RenderFaultAlert(MenuScreen &screen, Lang lang, uint8_t faults) {
   }
 }
 
+// Factory reset gesture (SW1 closed + PROG held): countdown, then
+// confirmation until the restart. The LEDs say the same without a screen.
+inline void RenderFactoryReset(MenuScreen &screen, Lang lang, bool accepted, uint32_t remainingMs) {
+  memset(&screen, 0, sizeof(screen));
+  screen.highlight = -1;
+  bool french = lang == Lang::French;
+  snprintf(screen.line[0], SCREEN_LINE_BYTES, "%s", french ? "Réglages d'usine" : "Factory reset");
+  if (accepted) {
+    snprintf(screen.line[2], SCREEN_LINE_BYTES, "%s", french ? "Tout est effacé" : "Everything erased");
+    snprintf(screen.line[3], SCREEN_LINE_BYTES, "%s", french ? "Redémarrage..." : "Restarting...");
+    return;
+  }
+  unsigned seconds = (unsigned)((remainingMs + 999) / 1000);
+  snprintf(screen.line[1], SCREEN_LINE_BYTES, "%s", french ? "Tout sera effacé" : "Everything is erased");
+  snprintf(screen.line[2], SCREEN_LINE_BYTES, "%s %u s", french ? "dans" : "in", seconds);
+  snprintf(screen.line[4], SCREEN_LINE_BYTES, "%s", french ? "Lâcher PROG annule" : "Release PROG: cancel");
+}
+
+// Shown for a moment when the rotary encoder changes the volume or mutes
+// (normal mode): a bar of 20 steps of 5 %, and the value.
+const uint32_t VOLUME_SCREEN_MS = 1500;
+const uint8_t VOLUME_BAR = 20;
+
+inline void RenderVolume(MenuScreen &screen, Lang lang, int32_t volume, bool muted) {
+  memset(&screen, 0, sizeof(screen));
+  screen.highlight = -1;
+  bool french = lang == Lang::French;
+  volume = volume < 0 ? 0 : (volume > 100 ? 100 : volume);
+  snprintf(screen.line[0], SCREEN_LINE_BYTES, "Volume");
+  int filled = (int)((volume * VOLUME_BAR + 50) / 100);
+  for (int i = 0; i < VOLUME_BAR; i++) {
+    screen.line[2][i] = i < filled ? '#' : '.';
+  }
+  if (muted) {
+    snprintf(screen.line[3], SCREEN_LINE_BYTES, "%ld %%  (%s)", (long)volume, french ? "muet" : "muted");
+  } else {
+    snprintf(screen.line[3], SCREEN_LINE_BYTES, "%ld %%", (long)volume);
+  }
+}
+
 struct MenuHooks {
   void *context;
   // Runs a command line of the interpreter and writes a short answer.
@@ -262,6 +321,11 @@ public:
   int16_t GetWizardStep() const { return wizardStep; }
 
   void Key(MenuKey key, uint32_t now) {
+    // The hints at the bottom follow the last control used.
+    encoderHints = IsEncoderKey(key);
+    if (encoderHints && !FromEncoder(key)) {
+      return;
+    }
     switch (mode) {
     case Mode::Browse:
       KeyBrowse(key, now);
@@ -308,7 +372,9 @@ public:
           screen.highlight = 1 + row;
         }
       }
-      Copy(screen.line[5], showAnswer ? answer : (french ? "A:suiv  B:ok" : "A:next  B:ok"));
+      Copy(screen.line[5], showAnswer       ? answer
+                           : encoderHints ? (french ? "Tourner  Appui:ok" : "Turn  Push:ok")
+                                          : (french ? "A:suiv  B:ok" : "A:next  B:ok"));
       return;
     }
 
@@ -320,7 +386,8 @@ public:
         if (showAnswer) {
           Copy(screen.line[4], answer);
         }
-        Copy(screen.line[5], french ? "B:retour" : "B:back");
+        Copy(screen.line[5], encoderHints ? (french ? "Appui:retour" : "Push:back")
+                                          : (french ? "B:retour" : "B:back"));
         return;
       }
       snprintf(screen.line[0], SCREEN_LINE_BYTES, "%s %d/%d", Label(active, lang), wizardStep + 1, n);
@@ -328,7 +395,8 @@ public:
       if (showAnswer) {
         Copy(screen.line[4], answer);
       }
-      Copy(screen.line[5], french ? "B:ok  A:passer" : "B:ok  A:skip");
+      Copy(screen.line[5], encoderHints ? (french ? "Appui:ok  Tour:passer" : "Push:ok  Turn:skip")
+                                        : (french ? "B:ok  A:passer" : "B:ok  A:skip"));
       return;
     }
 
@@ -339,7 +407,8 @@ public:
           hooks.infoLine(hooks.context, items[active].infoPage, i, lang, screen.line[1 + i], SCREEN_LINE_BYTES);
         }
       }
-      Copy(screen.line[5], french ? "A:page  B:retour" : "A:page  B:back");
+      Copy(screen.line[5], encoderHints ? (french ? "Tour:page Appui:fin" : "Turn:page Push:back")
+                                        : (french ? "A:page  B:retour" : "A:page  B:back"));
       if (hooks.infoGraphic != nullptr) {
         hooks.infoGraphic(hooks.context, items[active].infoPage, screen);
       }
@@ -348,12 +417,18 @@ public:
       if (showAnswer) {
         Copy(screen.line[4], answer);
       }
-      Copy(screen.line[5], items[active].save != nullptr
-                               ? (french ? "A:- B:+ B long:sauve" : "A:- B:+ hold B:save")
-                               : (french ? "A:- B:+ B long:fin" : "A:- B:+ hold B:done"));
+      bool save = items[active].save != nullptr;
+      if (encoderHints) {
+        Copy(screen.line[5], save ? (french ? "Tour:± Appui:sauve" : "Turn:± Push:save")
+                                  : (french ? "Tour:± Appui:fin" : "Turn:± Push:done"));
+      } else {
+        Copy(screen.line[5], save ? (french ? "A:- B:+ B long:sauve" : "A:- B:+ hold B:save")
+                                  : (french ? "A:- B:+ B long:fin" : "A:- B:+ hold B:done"));
+      }
     } else {
       Copy(screen.line[2], french ? "Confirmer ?" : "Are you sure?");
-      Copy(screen.line[5], french ? "B:oui   A:non" : "B:yes   A:no");
+      Copy(screen.line[5], encoderHints ? (french ? "Appui:oui  long:non" : "Push:yes  hold:no")
+                                        : (french ? "B:oui   A:non" : "B:yes   A:no"));
     }
   }
 
@@ -492,6 +567,28 @@ private:
     wizardStep++;
   }
 
+  // Rotary encoder key -> button key for the current mode (table at the top
+  // of this file). False when the key does nothing here (turning the knob on
+  // a confirmation must not answer it).
+  bool FromEncoder(MenuKey &key) const {
+    bool clockwise = key == MenuKey::Clockwise, anticlockwise = key == MenuKey::Anticlockwise;
+    bool push = key == MenuKey::Push;
+    switch (mode) {
+    case Mode::Adjust:
+      key = clockwise ? MenuKey::B : anticlockwise ? MenuKey::A : push ? MenuKey::BLong : MenuKey::ALong;
+      return true;
+    case Mode::Confirm:
+      if (clockwise || anticlockwise) {
+        return false;
+      }
+      key = push ? MenuKey::B : MenuKey::A;
+      return true;
+    default: // Browse, Info, Wizard: turning = A / A long, pushing = B / B long
+      key = clockwise ? MenuKey::A : anticlockwise ? MenuKey::ALong : push ? MenuKey::B : MenuKey::BLong;
+      return true;
+    }
+  }
+
   void RunFormat(const char *format, uint32_t now) {
     if (format == nullptr) {
       return;
@@ -533,6 +630,7 @@ private:
   int32_t value = 0;
   char answer[SCREEN_LINE_BYTES] = "";
   uint32_t answerUntil = 0;
+  bool encoderHints = false; // last key came from the rotary encoder
 };
 
 } // namespace logic

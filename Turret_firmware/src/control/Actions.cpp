@@ -13,6 +13,7 @@ const size_t COMMAND_MAX = 128; // not LINE_MAX: that one is a system macro
 const UBaseType_t QUEUE_LENGTH = 24; // a whole settings group can be saved at once
 const ulong RADAR_ALIVE_MS = 3000;
 const ulong REBOOT_DELAY_MS = 500;   // lets the HTTP answer leave first
+const ulong FACTORY_RESET_REBOOT_MS = 2000; // green LED blinking fast meanwhile
 const ulong TRIM_TEST_MS = 2000;     // plan §10.4: trim slider stops after 2 s
 
 struct QueuedLine {
@@ -94,6 +95,9 @@ void Actions::Update() {
     shotPending = false;
     turret->audio.ShootAudio.Stop(); // leaves the loop, the tail plays out
   }
+  if (volumeSavePending && (long)(millis() - volumeSaveAt) >= 0) {
+    SaveVolume();
+  }
 
   QueuedLine item;
   while (queue != nullptr && xQueueReceive(queue, &item, 0) == pdTRUE) {
@@ -154,7 +158,16 @@ bool Actions::RequestOtaShutdown(uint32_t timeoutMs) {
   return otaReady;
 }
 
+void Actions::SaveVolume() {
+  volumeSavePending = false;
+  turret->settings.Set(SettingId::Volume, turret->audio.GetVolume());
+}
+
 void Actions::ShutdownForRestart() {
+  // A volume change from the knob not saved yet is kept across the restart.
+  if (volumeSavePending) {
+    SaveVolume();
+  }
   turret->gantry.DetachAll();
   turret->audio.End();
   turret->light.SetEnabled(false);
@@ -249,10 +262,41 @@ String Actions::Execute(const String &line) {
     return "settings reset" + (args.length() ? " (" + args + ")" : String("")) +
            "; WiFi settings apply at the next boot";
   }
+  if (command == "factory-reset") {
+    // Same as SW1 closed + PROG held 5 s: everything back to factory state,
+    // then a restart (the WiFi settings only apply at boot).
+    Log.println("Factory reset: settings, statistics, counters, core dump");
+    volumeSavePending = false; // the old volume must not come back at the restart
+    turret->settings.ResetToDefaults();
+    turret->stats.Clear();
+    turret->board.ClearCounters();
+    CoreDump::Erase();
+    turret->board.ShowFactoryResetAccepted();
+    rebootPending = true;
+    rebootAt = millis() + FACTORY_RESET_REBOOT_MS;
+    return "factory reset done, restarting (access point password: stillalive)";
+  }
   if (command == "mute") {
     bool muted = args == "off" ? false : (args == "on" ? true : !turret->audio.amp.IsMuted());
     turret->audio.amp.SetMuted(muted);
     return muted ? "muted" : "unmuted";
+  }
+  if (command == "volume") {
+    // Rotary encoder (normal mode) and console: applied at once in RAM, saved
+    // in NVS 2 s after the last change (one write for a whole turn of the knob).
+    if (args.length() > 0) {
+      int32_t value = args.toInt();
+      bool relative = args[0] == '+' || args[0] == '-';
+      int32_t volume = constrain(relative ? turret->audio.GetVolume() + value : value, 0, 100);
+      turret->audio.SetVolume(volume);
+      // Turning the volume up while muted: the sound comes back.
+      if (relative && value > 0 && turret->audio.amp.IsMuted()) {
+        turret->audio.amp.SetMuted(false);
+      }
+      volumeSavePending = true;
+      volumeSaveAt = millis() + VOLUME_SAVE_DELAY_MS;
+    }
+    return "volume " + String(turret->audio.GetVolume()) + " %" + (turret->audio.amp.IsMuted() ? " (muted)" : "");
   }
   if (command == "gain") {
     // RAM only; use "set AmpGain <dB>" to keep it.
@@ -384,12 +428,21 @@ String Actions::Execute(const String &line) {
                                             : String("debug mode: all servos allowed (3 A supply)");
   }
   if (command == "key") {
-    if (keyHandler && (args == "a" || args == "al" || args == "b" || args == "bl")) {
-      keyHandler(args == "a" ? logic::MenuKey::A : args == "al" ? logic::MenuKey::ALong
-                 : args == "b" ? logic::MenuKey::B : logic::MenuKey::BLong);
-      return "";
+    static const struct {
+      const char *name;
+      logic::MenuKey key;
+    } keys[] = {{"a", logic::MenuKey::A},           {"al", logic::MenuKey::ALong},
+                {"b", logic::MenuKey::B},           {"bl", logic::MenuKey::BLong},
+                {"cw", logic::MenuKey::Clockwise},  {"ccw", logic::MenuKey::Anticlockwise},
+                {"push", logic::MenuKey::Push},     {"hold", logic::MenuKey::PushLong}};
+    for (const auto &k : keys) {
+      if (keyHandler && args == k.name) {
+        keyHandler(k.key);
+        return "";
+      }
     }
-    return "usage: key a|al|b|bl (debug menu: A, A long, B, B long)";
+    return "usage: key a|al|b|bl|cw|ccw|push|hold (debug menu: A, A long, B, B long;\n"
+           "  rotary encoder: clockwise, anticlockwise, push, push held)";
   }
   if (command == "selftest") {
     if (selfTest == nullptr) {
@@ -529,9 +582,11 @@ String Actions::Help() {
          "  wings open|close | guns extend|retract | trim left|right <us>\n"
          "  wing left|right open|close | gun left|right extend|retract | servos off | shot\n"
          "  power [full|limited] | cal hall left|right open|closed | cal hall save | cal imu\n"
-         "  key a|al|b|bl (debug menu) | screen | selftest [quick|report|stop] | stats\n"
+         "  key a|al|b|bl|cw|ccw|push|hold (debug menu) | screen | selftest [quick|report|stop] | stats\n"
          "  led ring|left|right|all <RRGGBB|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
+         "  volume [0-100|+n|-n] (saved 2 s after the last change)\n"
          "  wifi [on|off|scan|join|forget] | time | demo | resume | reboot\n"
+         "  factory-reset (everything: settings, statistics, counters, core dump; also SW1 closed + PROG held 5 s)\n"
          "Lab: sweep servo <n> <ms> | sweep tone <Hz start> <Hz end> <ms> | sweep stop\n"
          "     led pattern bit | loadtest <gap ms> | set LabMarkers true|false\n"
          "Tests stop the state machine (Manual); \"resume\" homes and goes back to Idle.";

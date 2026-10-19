@@ -43,7 +43,7 @@ Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décision
 
 | GPIO | Fonction | Remarque |
 |---|---|---|
-| IO0 | BOOT (SW2 à la masse) | strap — ne pas utiliser |
+| IO0 | BOOT (SW2 à la masse) | strap — ne pas utiliser ; *depuis le 19.10.2026, lu en entrée après le boot (bouton PROG du geste de remise à zéro, SW1 fermé + 5 s)* |
 | IO1 / IO2 | servo canon gauche / droit | *pins.h* |
 | IO3 | SW1 (interrupteur DIP à la masse, pull-up 10 k R9) | strap JTAG_SEL, **sans effet tant que l'eFuse `STRAP_JTAG_SEL` n'est pas brûlé** → lisible comme GPIO. Rôle : **mode banc** (D1, §9) |
 | IO4 / IO5 | servo aile gauche / droite (servos à rotation continue : 90 = arrêt) | *pins.h* |

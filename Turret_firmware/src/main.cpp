@@ -7,6 +7,7 @@
 #include "control/SelfTest.h"
 #include "control/Stats.h"
 #include "pins.h"
+#include "sensors/RotaryEncoder.h"
 #include "states/StateMachine.h"
 #include "ui/DebugUi.h"
 #include "web/AccessPoint.h"
@@ -35,6 +36,11 @@ Actions actions;
 DebugUi debugUi;
 Stats stats;
 SelfTest selfTest;
+RotaryEncoder encoder;
+
+// Rotary encoder: long press (debug menu: back), volume step per detent (normal mode).
+const uint32_t ENCODER_LONG_PRESS_MS = 600;
+const int32_t VOLUME_STEP = 5;
 
 // No radar frame for this long -> red LED code 4 (plan §3.2 step 7).
 const ulong RADAR_TIMEOUT_MS = 3000;
@@ -103,6 +109,9 @@ void setup() {
 
   // 5. I2C on IO35 / IO36 (explicit), bus recovery, scan.
   I2cBus::Begin();
+  // Optional rotary encoder on J11 (Adafruit 4991 / 5752, Soldered 333188).
+  encoder.Begin();
+  encoder.SetLongPressMs(ENCODER_LONG_PRESS_MS);
   Board::Mark("step 5 I2C");
 
   // 6. IMU.
@@ -188,6 +197,36 @@ void HandleButtons() {
   }
 }
 
+// Rotary encoder. Debug mode with a screen: it drives the menu like the
+// buttons (turn = next / previous or value -/+, push = enter, push held =
+// back). Otherwise: turn = volume, push = mute / unmute, shown on the screen.
+void HandleEncoder() {
+  int32_t steps = encoder.TakeSteps();
+  ButtonEvent push = encoder.TakeEvent();
+  if (steps == 0 && push == ButtonEvent::None) {
+    return;
+  }
+  if (debugUi.IsMenuActive() && debugUi.HasDisplay()) {
+    for (; steps > 0; steps--) {
+      debugUi.Key(logic::MenuKey::Clockwise);
+    }
+    for (; steps < 0; steps++) {
+      debugUi.Key(logic::MenuKey::Anticlockwise);
+    }
+    if (push != ButtonEvent::None) {
+      debugUi.Key(push == ButtonEvent::LongPress ? logic::MenuKey::PushLong : logic::MenuKey::Push);
+    }
+    return;
+  }
+  if (steps != 0) {
+    actions.Execute("volume " + String(steps > 0 ? "+" : "") + String(steps * VOLUME_STEP));
+  }
+  if (push == ButtonEvent::ShortPress) {
+    Log.println(actions.Execute("mute"));
+  }
+  debugUi.ShowVolume(audio.GetVolume(), audio.amp.IsMuted());
+}
+
 void UpdateFaults() {
   // Statistics: a target that appears on the radar.
   static uint8_t lastTargetCount = 0;
@@ -230,7 +269,13 @@ void loop() {
   prevTime = currentTime;
 
   board.Update(deltaTime);
+  // SW1 closed + PROG held 5 s: everything back to factory state, then a restart.
+  if (board.TakeFactoryResetRequest()) {
+    Log.println(actions.Execute("factory-reset"));
+  }
   HandleButtons();
+  encoder.Update(currentTime);
+  HandleEncoder();
   UpdateFaults();
   actions.Update(); // console, web commands, OTA shutdown, reboot
   station.Update();

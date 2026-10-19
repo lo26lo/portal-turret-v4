@@ -28,3 +28,11 @@ void Stats::CountCycle() {
 }
 
 void Stats::CountTarget() { sessionTargets++; }
+
+void Stats::Clear() {
+  boots = totalCycles = sessionCycles = sessionTargets = 0;
+  lastCycleAt = 0;
+  if (ready) {
+    prefs.clear();
+  }
+}

@@ -240,6 +240,7 @@ One interpreter for the console, the buttons and the web page. The web server ru
 | Button B (IO34) short | mute / unmute |
 | Button B held 3 s | WiFi on / off (access point and home network) |
 | A + B held 1 s at power-up | all settings back to defaults, WiFi passwords included |
+| SW1 closed + **PROG** (SW2, on the board) held 5 s, at any time once started | **full factory reset**, no screen or external button needed: settings (WiFi passwords and calibrations included), statistics, boot-loop / brownout counters, core dump; then a restart. While PROG is held the red LED blinks fast (and a screen, if any, counts down); releasing PROG or opening SW1 cancels; once accepted the green LED blinks fast until the restart (2 s). Same as the `factory-reset` command. PROG held *while RESET is released* starts the ROM download mode instead: press PROG only once the turret runs |
 | SW1 (IO3) closed at power-up | **debug mode** (formerly "bench mode"): the turret never starts a cycle by itself (`Manual`), no servo attached automatically, one servo at a time; with an OLED on J11, buttons A and B drive the **debug menu** (next section) |
 
 ### Debug mode and OLED screen
@@ -260,6 +261,24 @@ Plug a 128×64 I²C OLED into the Qwiic port **J11** (3.3 V, shared bus with the
 In the guided setup: B does the step, A skips it, A long goes back one step, B long leaves.
 
 A + B held at power-up is still the factory reset.
+
+**Rotary encoder (optional)**, on J11 as well (daisy-chained with the screen through its second Qwiic socket), detected at boot, address jumpers / switches as delivered:
+
+| Module | Address | Notes |
+|---|---|---|
+| Adafruit I2C QT Rotary Encoder (4991, seesaw) | 0x36 | |
+| Adafruit I2C Quad Rotary Encoder (5752, seesaw) | 0x49 | knob 0 only; encoders sold separately, take PEC11-pinout ones **with a push switch** |
+| Soldered Rotary Encoder Breakout (333188, ATtiny404) | 0x30 | the board decides its own long press; a single click comes a little late (it waits for a possible double click); a double click counts as two pushes |
+
+In debug mode with a screen it drives the menu like the buttons; the hints at the bottom of the screen follow the last control used:
+
+| Encoder | In a menu | Information page | Adjusting a value | Confirmation | Guided setup |
+|---|---|---|---|---|---|
+| turn | next / previous entry | next / previous page | value + / − | nothing | next / previous step |
+| push | enter / run | back | save and leave | confirm | do the step |
+| push held (0.6 s) | back to the parent menu | back | leave without saving | cancel | leave |
+
+Otherwise (normal mode, or no screen): turn = volume in 5 % steps (turning up while muted unmutes), push = mute / unmute; the screen shows the volume for 1.5 s. The volume is saved 2 s after the last detent (one flash write per turn of the knob). Direction of rotation, and counts per detent on the Soldered board, still to check on the hardware.
 
 | Menu | Content |
 |---|---|
@@ -395,7 +414,9 @@ USB, 115200 baud. Type `help`.
 | `shot` | gunshot sound for 1 s |
 | `power [full\|limited]` | debug mode: all servos allowed (3 A supply) / one at a time (default) |
 | `cal hall left\|right open\|closed`, `cal hall save`, `cal imu` | calibration without the web page |
-| `key a\|al\|b\|bl`, `screen` | debug menu: press A, A long, B, B long / print the screen |
+| `key a\|al\|b\|bl\|cw\|ccw\|push\|hold`, `screen` | debug menu: press A, A long, B, B long, or turn / push the rotary encoder (works without one) / print the screen |
+| `volume [0-100\|+n\|-n]` | volume at once, saved 2 s after the last change |
+| `factory-reset` | everything back to factory state (settings, statistics, counters, core dump), then a restart; same as SW1 closed + PROG held 5 s |
 | `selftest [quick\|report\|stop]` | self-test: full, passive checks only, last report, stop |
 | `stats` | boots, cycles (total and since boot), targets seen, last cycle |
 | `trim left\|right <µs>` | runs a wing at its stop point with this trim for 2 s (not saved) |

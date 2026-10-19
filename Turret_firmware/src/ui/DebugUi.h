@@ -35,6 +35,8 @@ public:
   // the OLED only gets a frame when something changed.
   void Update(ulong now);
   void Key(logic::MenuKey key);
+  // Rotary encoder in normal mode: the volume screen for a moment.
+  void ShowVolume(int32_t volume, bool muted);
   // Reads OledFlip and OledContrast again.
   void ApplySettings();
 
@@ -89,6 +91,11 @@ private:
 
   // A new fault is shown for 5 s, then the screen goes on (the red LED keeps blinking)
   logic::FaultAlert faultAlert;
+
+  // Volume screen (rotary encoder, normal mode)
+  int32_t volumeShown = 0;
+  bool volumeMuted = false;
+  ulong volumeUntil = 0;
 
   // Hall curves: one sample every 50 ms, 100 samples = 5 s, value / 16 (0..255)
   static const uint8_t GRAPH_SAMPLES = 100;

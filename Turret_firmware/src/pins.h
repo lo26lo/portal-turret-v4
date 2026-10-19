@@ -1,7 +1,8 @@
 #pragma once
 
 // Turret2 pinout (ESP32-S3-MINI-1-N8). The board is wired to these pins: never reassign them.
-// Reference: docs/firmware-plan.md §1.2. Never use IO0, IO19, IO20, IO45, IO46.
+// Reference: docs/firmware-plan.md §1.2. Never use IO0, IO19, IO20, IO45, IO46
+// (IO0 is only ever read as an input, after the boot: PIN_PROG below).
 
 #define PIN_GUN_LEFT 1  // PWM
 #define PIN_GUN_RIGHT 2  // PWM
@@ -32,6 +33,7 @@
 #define PIN_BUTTON_A 26  // J12, external pull-up, active low
 #define PIN_BUTTON_B 34  // J13, external pull-up, active low
 #define PIN_BENCH_MODE 3  // SW1 to GND, pull-up R9, closed = bench mode (D1); JTAG strap, never burn STRAP_JTAG_SEL
+#define PIN_PROG 0  // SW2 "PROG" / BOOT to GND: boot strap; INPUT ONLY, read after the boot (factory reset gesture)
 #define PIN_IMU_INT1 37  // LSM6DSOX INT1
 #define PIN_UART0_TX 43  // J16, backup console
 #define PIN_UART0_RX 44  // J16, backup console

@@ -147,6 +147,33 @@ void test_heartbeat() {
   TEST_ASSERT_FALSE(logic::HeartbeatOn(4294967200u)); // 400 ms into that period
 }
 
+void test_reset_gesture() {
+  using S = logic::ResetGesture::State;
+  logic::ResetGesture g;
+  // PROG seen low before any release (stuck pin, or held since the boot): ignored.
+  TEST_ASSERT_TRUE(g.Update(true, true, 0) == S::Idle);
+  TEST_ASSERT_TRUE(g.Update(true, true, 6000) == S::Idle);
+  // Released once: a hold with SW1 closed counts.
+  TEST_ASSERT_TRUE(g.Update(true, false, 7000) == S::Idle);
+  TEST_ASSERT_TRUE(g.Update(true, true, 8000) == S::Holding);
+  TEST_ASSERT_EQUAL_UINT32(2000, g.RemainingMs(11000));
+  // Released before the end: cancelled, and the next hold starts from zero.
+  TEST_ASSERT_TRUE(g.Update(true, false, 12000) == S::Idle);
+  TEST_ASSERT_TRUE(g.Update(true, true, 13000) == S::Holding);
+  TEST_ASSERT_TRUE(g.Update(true, true, 17999) == S::Holding);
+  // SW1 opened while holding: cancelled too.
+  TEST_ASSERT_TRUE(g.Update(false, true, 18000) == S::Idle);
+  // SW1 open: PROG alone does nothing.
+  TEST_ASSERT_TRUE(g.Update(false, false, 19000) == S::Idle);
+  TEST_ASSERT_TRUE(g.Update(false, true, 30000) == S::Idle);
+  // A full 5 s hold: accepted, and it stays accepted (the board restarts).
+  TEST_ASSERT_TRUE(g.Update(true, false, 31000) == S::Idle);
+  TEST_ASSERT_TRUE(g.Update(true, true, 32000) == S::Holding);
+  TEST_ASSERT_TRUE(g.Update(true, true, 37000) == S::Accepted);
+  TEST_ASSERT_TRUE(g.Update(false, false, 38000) == S::Accepted);
+  TEST_ASSERT_EQUAL_UINT32(0, g.RemainingMs(38000));
+}
+
 void test_amp_gain_rounding() {
   TEST_ASSERT_EQUAL_INT32(9, logic::RoundAmpGain(0));
   TEST_ASSERT_EQUAL_INT32(9, logic::RoundAmpGain(10));
@@ -322,6 +349,108 @@ void test_hall_percent() {
   TEST_ASSERT_EQUAL_UINT8(100, logic::HallPercent(1200, 1200, 2800));
   // identical thresholds must not divide by zero
   TEST_ASSERT_EQUAL_UINT8(0, logic::HallPercent(2000, 2000, 2000));
+}
+
+void test_menu_encoder() {
+  using K = logic::MenuKey;
+  using M = logic::MenuNav::Mode;
+  logic::MenuNav nav = MakeNav();
+  logic::MenuScreen screen;
+
+  // Browse: turning moves the cursor; the hints follow the last control used.
+  Press(nav, K::Clockwise, 2);
+  TEST_ASSERT_EQUAL_INT16(3, nav.GetSelected()); // Info A
+  Press(nav, K::Anticlockwise);
+  TEST_ASSERT_EQUAL_INT16(2, nav.GetSelected()); // Reset
+  nav.Render(screen, logic::Lang::French, 0);
+  TEST_ASSERT_EQUAL_STRING("Tourner  Appui:ok", screen.line[5]);
+  Press(nav, K::A);
+  Press(nav, K::ALong);
+  nav.Render(screen, logic::Lang::French, 0);
+  TEST_ASSERT_EQUAL_STRING("A:suiv  B:ok", screen.line[5]);
+
+  // Confirm: turning does nothing, push held cancels, push confirms.
+  Press(nav, K::Push);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Confirm);
+  nav.Render(screen, logic::Lang::English, 0);
+  TEST_ASSERT_EQUAL_STRING("Push:yes  hold:no", screen.line[5]);
+  Press(nav, K::Clockwise, 3);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Confirm);
+  TEST_ASSERT_EQUAL_INT(0, commandCount);
+  Press(nav, K::PushLong);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Browse);
+  TEST_ASSERT_EQUAL_INT(0, commandCount);
+  Press(nav, K::Push, 2);
+  TEST_ASSERT_EQUAL_STRING("reset", lastCommand);
+
+  // Adjust: turning = value -/+, push = save and leave, push held = leave without saving.
+  Press(nav, K::Clockwise, 3);
+  TEST_ASSERT_EQUAL_INT16(5, nav.GetSelected()); // Vol
+  Press(nav, K::Push);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Adjust);
+  Press(nav, K::Clockwise);
+  TEST_ASSERT_EQUAL_INT32(60, nav.GetValue());
+  TEST_ASSERT_EQUAL_STRING("vol 60", lastCommand);
+  Press(nav, K::Anticlockwise, 2);
+  TEST_ASSERT_EQUAL_INT32(40, nav.GetValue());
+  nav.Render(screen, logic::Lang::French, 1000);
+  TEST_ASSERT_EQUAL_STRING("Tour:± Appui:sauve", screen.line[5]);
+  Press(nav, K::Push);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Browse);
+  TEST_ASSERT_EQUAL_STRING("save 40", lastCommand);
+  Press(nav, K::Push);
+  Press(nav, K::Clockwise);
+  Press(nav, K::PushLong);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Browse);
+  TEST_ASSERT_EQUAL_STRING("vol 60", lastCommand); // not saved
+
+  // Info: turning changes the page, push goes back.
+  Press(nav, K::Anticlockwise, 2);
+  Press(nav, K::Push);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Info);
+  Press(nav, K::Clockwise);
+  TEST_ASSERT_EQUAL_INT16(4, nav.GetSelected()); // Info B
+  nav.Render(screen, logic::Lang::French, 0);
+  TEST_ASSERT_EQUAL_STRING("p1 l0", screen.line[1]);
+  TEST_ASSERT_EQUAL_STRING("Tour:page Appui:fin", screen.line[5]);
+  Press(nav, K::Push);
+  TEST_ASSERT_TRUE(nav.GetMode() == M::Browse);
+
+  // Sub-menu: push enters, push held goes back to the parent.
+  Press(nav, K::Clockwise, 2);
+  Press(nav, K::Push);
+  TEST_ASSERT_EQUAL_INT16(6, nav.GetMenu());
+  Press(nav, K::PushLong);
+  TEST_ASSERT_EQUAL_INT16(0, nav.GetMenu());
+  TEST_ASSERT_EQUAL_INT16(6, nav.GetSelected());
+}
+
+void test_factory_reset_screen() {
+  logic::MenuScreen screen;
+  logic::RenderFactoryReset(screen, logic::Lang::French, false, 4200);
+  TEST_ASSERT_EQUAL_STRING("Réglages d'usine", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("dans 5 s", screen.line[2]); // rounded up
+  TEST_ASSERT_EQUAL_STRING("Lâcher PROG annule", screen.line[4]);
+  logic::RenderFactoryReset(screen, logic::Lang::English, false, 1);
+  TEST_ASSERT_EQUAL_STRING("in 1 s", screen.line[2]);
+  logic::RenderFactoryReset(screen, logic::Lang::English, true, 0);
+  TEST_ASSERT_EQUAL_STRING("Everything erased", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("Restarting...", screen.line[3]);
+  TEST_ASSERT_EQUAL_STRING("", screen.line[4]);
+}
+
+void test_volume_screen() {
+  logic::MenuScreen screen;
+  logic::RenderVolume(screen, logic::Lang::French, 80, false);
+  TEST_ASSERT_EQUAL_STRING("Volume", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("################....", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("80 %", screen.line[3]);
+  logic::RenderVolume(screen, logic::Lang::French, 0, true);
+  TEST_ASSERT_EQUAL_STRING("....................", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("0 %  (muet)", screen.line[3]);
+  logic::RenderVolume(screen, logic::Lang::English, 150, true); // out of range
+  TEST_ASSERT_EQUAL_STRING("####################", screen.line[2]);
+  TEST_ASSERT_EQUAL_STRING("100 %  (muted)", screen.line[3]);
 }
 
 void test_fault_alert() {
@@ -524,6 +653,10 @@ int main() {
   RUN_TEST(test_hall_percent);
   RUN_TEST(test_wing_animation_screen);
   RUN_TEST(test_fault_alert);
+  RUN_TEST(test_menu_encoder);
+  RUN_TEST(test_volume_screen);
+  RUN_TEST(test_factory_reset_screen);
+  RUN_TEST(test_reset_gesture);
   RUN_TEST(test_wrap_text);
   RUN_TEST(test_menu_wizard);
   RUN_TEST(test_decode_examples);

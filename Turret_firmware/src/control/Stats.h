@@ -14,6 +14,8 @@ public:
   void CountCycle();
   // A new target appeared on the radar.
   void CountTarget();
+  // Factory reset: every counter back to zero (NVS and RAM).
+  void Clear();
 
   uint32_t GetBoots() const { return boots; }
   uint32_t GetTotalCycles() const { return totalCycles; }

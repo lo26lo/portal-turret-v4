@@ -175,6 +175,15 @@ void DebugUi::Key(logic::MenuKey key) {
   dirty = true;
 }
 
+void DebugUi::ShowVolume(int32_t volume, bool muted) {
+  ulong now = millis();
+  Wake(now);
+  volumeShown = volume;
+  volumeMuted = muted;
+  volumeUntil = now + logic::VOLUME_SCREEN_MS;
+  dirty = true;
+}
+
 // OLEDs burn in: off after OledSleepS without a key, a movement, a state
 // change or a power fault. Anything of those wakes it.
 void DebugUi::UpdateSleep(ulong now, bool moving) {
@@ -254,8 +263,14 @@ void DebugUi::Update(ulong now) {
   // Static: ~480 bytes that do not need to live on the loop stack.
   static logic::MenuScreen screen;
   bool french = Language() == logic::Lang::French;
-  if (alerting) {
+  bool resetAccepted = turret->board.IsFactoryResetAccepted();
+  if (resetAccepted || turret->board.GetResetGestureState() == logic::ResetGesture::State::Holding) {
+    Wake(now);
+    logic::RenderFactoryReset(screen, Language(), resetAccepted, turret->board.GetResetGestureRemainingMs());
+  } else if (alerting) {
     logic::RenderFaultAlert(screen, Language(), turret->board.GetFaults());
+  } else if ((long)(volumeUntil - now) > 0) {
+    logic::RenderVolume(screen, Language(), volumeShown, volumeMuted);
   } else if (animating && turret->settings.GetBool(SettingId::OledAnim)) {
     logic::RenderWings(screen, Language(), left.GetOpenPercent(), right.GetOpenPercent(), moving);
   } else if (IsMenuActive()) {

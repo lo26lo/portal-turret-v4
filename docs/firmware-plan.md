@@ -56,7 +56,7 @@ Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décision
 | IO19 / IO20 | USB natif D− / D+ | ne jamais toucher |
 | IO21 | AMP_GAIN (GAIN_SLOT direct) | **jamais à l'état haut** |
 | IO26 | bouton A (J12), pull-up 10 k + 100 nF, 1 kΩ série, actif bas | libre uniquement parce que le module est un N8 (sur N4R2 c'est la PSRAM) |
-| IO33 | LED verte (470 Ω) | |
+| IO33 | LED verte D4 (R18 100 Ω, depuis le 19.10.2026 ; 1 kΩ avant) | |
 | IO34 | bouton B (J13), même montage que A | |
 | IO35 / IO36 | I²C SDA / SCL, pull-ups 2,2 k près de l'IMU | *pins.h* — partagé avec le Qwiic |
 | IO37 | IMU INT1 | réserve |
@@ -65,7 +65,7 @@ Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décision
 | IO43 / IO44 | UART0 TXD0 / RXD0 sur J16 | logs de secours, flash de secours |
 | IO45 / IO46 | straps, non connectés | ne pas utiliser |
 | IO47 | AMP_GAIN_100K (GAIN_SLOT via 100 kΩ) | **jamais à l'état haut** |
-| IO48 | LED rouge (470 Ω) | |
+| IO48 | LED rouge D3 (R12 680 Ω) | |
 
 Gain de l'ampli selon IO21 / IO47 :
 
@@ -260,7 +260,7 @@ Périphériques branchés un par un ; chaque étape doit passer avant la suivant
 |---|---|---|---|
 | A | rien, alimentation via un wattmètre USB | VBUS, 5 V, 3V3 sur les points de test ; courant au repos ; IO38 à 3,3 V | **non mesuré** (la carte a été branchée directement sur l'USB du PC) |
 | B | — | `esptool.py flash_id` = **8 MB** ; `espefuse.py summary` (lecture seule) ; flash via USB natif (sinon BOOT + RESET, sinon UART0 / J16) ; `erase_flash`, puis `upload` + `uploadfs` | **fait** 17.10.2026 : 8 Mo, pas de PSRAM ; `upload` + `uploadfs` par l'USB natif (COM3), sans BOOT. Piège : le reset RTS après flash laisse la puce en mode téléchargement → `no_reset` + `scripts/reset_after_upload.py` |
-| C | — | firmware de mise en service : LEDs, boutons, SW1, PWR_FLT, bannière | **en partie** : bannière et PWR_FLT haut OK ; LEDs, boutons et SW1 pas encore regardés |
+| C | — | firmware de mise en service : LEDs, boutons, SW1, PWR_FLT, bannière | **en partie** : bannière et PWR_FLT haut OK ; 19.10.2026 : **SW1 et PROG (SW2) lus correctement** (commande `inputs`, geste de remise à zéro vérifié), LEDs rouge / verte vues (codes de défaut, battement) ; boutons A / B (J12 / J13) pas encore branchés |
 | D | — | scan I²C → 0x6A ; ~9,8 m/s² sur l'axe vertical ; choix de l'axe | **en partie** : 0x6A trouvé, \|g\| ≈ 9,83 m/s², axe dominant -X ; `ImuUpAxis` à régler (tourelle debout) |
 | E | haut-parleur | tonalité 1 kHz à faible volume ; gains 9 / 12 / 15 dB ; **aucun plop** au boot, au mute, au reboot OTA | à faire (I²S et ampli démarrent) |
 | F | anneau puis canons (LEDs seules) | chaque canal séparément, luminosité plafonnée, plus de scintillement | à faire |

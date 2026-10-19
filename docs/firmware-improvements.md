@@ -16,7 +16,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 
 ## État actuel — 19.10.2026
 
-- **GitHub** : `main` = commit du 19.10.2026 « OLED: boot no longer hangs in U8g2 begin; 5 s fault alert » (correction de l'écran, alerte de défaut, ce fichier), après `a4eb329` (flash corrigé + battement de cœur) ; CI verte (run 39216617348), `test_heartbeat` et `test_fault_alert` compris. Puis commit « Rotary encoder, factory reset with SW1 + PROG, Qwiic module plan » : l'encodeur rotatif I²C (Q1 : `sensors/RotaryEncoder`, commande `volume`, touches d'encodeur du menu, tests `test_menu_encoder` et `test_volume_screen`) et la remise à zéro par SW1 + PROG (Q2 : commande `factory-reset`, tests `test_reset_gesture` et `test_factory_reset_screen`) — compilés, poussés à la demande de l'utilisateur **sans avoir été flashés** (carte débranchée), aucun encodeur encore reçu.
+- **GitHub** : `main` = commit du 19.10.2026 « OLED: boot no longer hangs in U8g2 begin; 5 s fault alert » (correction de l'écran, alerte de défaut, ce fichier), après `a4eb329` (flash corrigé + battement de cœur) ; CI verte (run 39216617348), `test_heartbeat` et `test_fault_alert` compris. Puis commit « Rotary encoder, factory reset with SW1 + PROG, Qwiic module plan » : l'encodeur rotatif I²C (Q1 : `sensors/RotaryEncoder`, commande `volume`, touches d'encodeur du menu, tests `test_menu_encoder` et `test_volume_screen`) et la remise à zéro par SW1 + PROG (Q2 : commande `factory-reset`, tests `test_reset_gesture` et `test_factory_reset_screen`) — compilés, poussés à la demande de l'utilisateur **sans avoir été flashés** (carte débranchée), aucun encodeur encore reçu. Puis commit « Factory reset checked on the board, inputs command, LED resistor docs » : Q2 vérifié, commande `inputs`, docs des résistances de LED (R18 100 Ω). Les fichiers KiCad modifiés dans `Turret2_portable/` ne sont **pas** commités (copie portable, le maître est hors du dépôt).
 - **Firmware** : lots 1 à 12 du plan + améliorations **I1, I2, IL, IM** faits et poussés ; 25 tests natifs et `tools/check_web.py` (40 vérifications) ; `test_heartbeat` pas encore vu passer dans la CI. Restent **I3** (B1 visée, B3 mode recherche, C1 vue radar de la page web ; la vue radar existe déjà sur l'OLED), **I4** et **I5**.
 - **Carte réelle** : **première carte flashée le 17.10.2026** (env `turret2_bringup`, `upload` + `uploadfs` par l'USB natif) ; elle démarre et la console répond. Auto-test rapide : 9 OK, **1 échec (radar : aucune trame)**, 9 non faits. **19.10.2026 : écran OLED 0,96" (SSD1306, `OledType` 0) sur J11 vu fonctionner** en mode normal, après correction d'un blocage au boot (voir « Erreurs »). Avancement de la mise en service : colonne « État » de [firmware-plan.md](firmware-plan.md) §8.
 - **Jamais vu sur le matériel** : les menus du mode debug sur l'écran (SW1 fermé), le son, les LEDs, les mouvements des servos et des ailes, la page web sur un vrai téléphone.
@@ -25,7 +25,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
   2. fermer SW1 (mode debug) tant que la carte est sur l'USB du PC (en mode normal, les 4 servos s'attachent au boot) ; essayer les menus sur l'OLED ;
   3. calibration : `ImuUpAxis` (tourelle debout), seuils Hall aimant près / loin (plan §8 G) ;
   4. sur une alimentation 3 A : son, LEDs, servos un par un, puis `selftest full` (plan §8 E, F, H) ;
-  5. dès que la carte est rebranchée : flasher et essayer l'encodeur (Q1, `key cw` sans module) et la remise à zéro SW1 + PROG (Q2) ;
+  5. encodeur (Q1) à sa réception : sens de rotation, pas par cran (Soldered) ; la remise à zéro SW1 + PROG (Q2) est vérifiée ;
   6. à la réception du MPR121 : Q3 (catalogue Q) ;
   7. ensuite seulement : lot I3.
 - **Écrans** (05.10.2026) : 0,96" (SSD1306) et 1,54" « M154_4P » (SSD1309 très probable, non confirmé) gérés tous les deux ; un servo à la fois par défaut, levable ; menus en français et en anglais.
@@ -44,7 +44,7 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commits `83544a4` puis `8a88267` (tâche d'affichage + dix idées d'écran) ; passé avant I3 à la demande de l'utilisateur ; `check_web.py` 40/40 ; **CI verte** (run 37303638236) avec 24 tests natifs ; 19.10.2026 : blocage au boot corrigé, écran 0,96" vu fonctionner (mode normal) ; menus du mode debug pas encore essayés sur l'écran |
 | HW | Mise en service de la première carte (plan §8, étapes A à J) | en cours | 17.10.2026 : flash + premier démarrage OK (étape B) ; radar sans trame ; détail par étape dans plan §8 |
 | I5 | au choix : A5, B5–B8, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur |
-| IQ | Modules Qwiic sur J11 : Q1 encodeur rotatif, Q2 remise à zéro par SW1 + PROG (sans module), Q3 touche capacitive MPR121, Q4–Q7 en option | en cours | Q1 et Q2 écrits le 19.10.2026, poussés **sans essai sur la carte** (débranchée) ; Q3 à la réception du MPR121 (commandé ou à commander : ADA1982 + ruban cuivre PRT-13827) |
+| IQ | Modules Qwiic sur J11 : Q1 encodeur rotatif, Q2 remise à zéro par SW1 + PROG (sans module), Q3 touche capacitive MPR121, Q4–Q7 en option | en cours | Q1 et Q2 écrits le 19.10.2026 ; **Q2 vérifié sur la carte** ; Q1 : commande `volume` vérifiée, encodeur pas encore reçu ; Q3 à la réception du MPR121 (commandé ou à commander : ADA1982 + ruban cuivre PRT-13827) |
 
 ## Catalogue
 
@@ -168,7 +168,7 @@ Branchés en chaîne sur le port Qwiic **J11** (3,3 V, bus partagé avec l'IMU e
 | # | Quoi | Détail | Effort | État |
 |---|---|---|---|---|
 | Q1 | **Encodeur rotatif** | Adafruit 4991 (0x36) / 5752 (0x49) / Soldered 333188 (0x30), voir « Décisions » ; menu en mode debug, volume + muet sinon | M | écrit, non essayé |
-| Q2 | **Remise à zéro par les boutons de la carte** | SW1 fermé + PROG 5 s, LEDs sans écran ; aucun module | S | écrit, non essayé |
+| Q2 | **Remise à zéro par les boutons de la carte** | SW1 fermé + PROG 5 s, LEDs sans écran ; aucun module | S | **vérifié sur la carte** le 19.10.2026 |
 | Q3 | **Touche capacitive MPR121** (Adafruit ADA1982, STEMMA QT, 0x5A ; idée de l'utilisateur) | électrodes en ruban de cuivre adhésif (PRT-13827, colle conductrice, 5 mm ; ou ruban anti-limaces de jardinerie, plus large) collées dans la coque ou dehors en décor, fil fin soudé, fils courts loin des câbles servos / haut-parleur, pastilles de 2–4 cm² espacées d'au moins 1 cm. **Usages** : (a) **réactions** au toucher (« Hello friend », œil qui se ferme si on la caresse, « Put me down! » si on la secoue en la tenant ; avec B2 / B4) ; (b) **boutons** : appui court / long par pastille, **commande configurable par un réglage par entrée** (ex. `TouchCmd0` = `demo`, `TouchLong0` = `wifi off`), donc modifiable depuis la page web sans recompiler ; (c) navigation du menu en mode debug ; (d) **curseur** : 3–4 bandes côte à côte, sens du glissement (volume) ; (e) **proximité** : électrodes regroupées, main détectée à quelques cm avant le contact (l'œil s'ouvre). Seuils par entrée à régler sur la tourelle montée (taille, fils, épaisseur du plastique) ; clés NVS ≤ 15 caractères | M | à la réception |
 | Q4 | **Horloge temps réel** PCF8523 (Adafruit, 0x68, pile CR1220) | l'heure sans NTP (point d'accès seul) : journal horodaté, base de B7 (nuit) et C6 (statistiques par jour) | S | idée |
 | Q5 | **Tampon I²C TCA4307** (Adafruit ADA5159, 4,45 CHF) | branchement à chaud sur J11 sans bloquer le bus de l'IMU, récupération automatique d'un bus coincé, capacité des câbles isolée ; rien à coder | – | idée |
@@ -495,3 +495,19 @@ Jugés inutiles : PIR (le radar fait mieux), ampli STEMMA (MAX98357A sur la cart
 **Non fait** : aucun essai sur la carte de Q1 / Q2 (débranchée) ; pilote MPR121 (à la réception).
 
 **Prochaine étape** : rebrancher la carte, flasher, essayer Q2 puis Q1 ; Q3 à la réception du MPR121.
+
+### 19.10.2026 (6ᵉ entrée) — Essai sur la carte de Q1 (sans module) et Q2
+
+**Demande** : « carte branchée » (COM5).
+
+**Vérifié sur la carte** (`f3da119`, puis commande `inputs`) :
+- boot sans encodeur : aucun message, rien ne change ;
+- `volume +10` : 90 % aussitôt, NVS encore à 80 juste après, **90 trois secondes plus tard** (enregistrement différé) ;
+- alerte de défauts avec deux défauts (1 boucle de redémarrage, 4 radar), code LED 1 ;
+- **remise à zéro SW1 + PROG** : journal « PROG held with SW1 closed… », « Factory reset… », redémarrage `SW (restart)` ; après : `stats` boots 22 → **1**, `Volume` 90 → **80**, boots suspects **0**, brownouts 0, pas de coredump ; démarrage en mode debug (SW1 fermé).
+
+**Enquête** : au premier essai, rien ; à l'essai suivant, 45 s d'écoute sans voir PROG enfoncé (appui fait hors de la fenêtre, ou sur un autre bouton). Commande `inputs` ajoutée (niveaux bruts de PROG, SW1, A, B ; étape C de la mise en service) ; un diagnostic temporaire des registres d'IO0 a montré une configuration correcte (fonction GPIO, entrée, tirage, aucune sortie, niveau 1 au repos), puis l'appui a été vu (niveau 0). Câblage confirmé dans `Turret2.kicad_pcb` : SW2 « Prog » → net `S3PRG` → U7 IO0 et J16.5 ; SW3 « Reset » → `S3En`. Conclusion : la lecture de PROG fonctionne ; le premier échec venait du geste (relâché trop tôt ou autre bouton), pas du firmware. Diagnostic de registres retiré ensuite.
+
+**Remarque** : après un flash, le reset par watchdog d'esptool est rapporté `POWERON` par `esp_reset_reason()` (et compte comme boot suspect), comme un vrai débranchement.
+
+**Prochaine étape** : encodeur et MPR121 à leur réception ; radar (J5).

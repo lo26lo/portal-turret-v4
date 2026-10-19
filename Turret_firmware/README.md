@@ -416,6 +416,7 @@ USB, 115200 baud. Type `help`.
 | `cal hall left\|right open\|closed`, `cal hall save`, `cal imu` | calibration without the web page |
 | `key a\|al\|b\|bl\|cw\|ccw\|push\|hold`, `screen` | debug menu: press A, A long, B, B long, or turn / push the rotary encoder (works without one) / print the screen |
 | `volume [0-100\|+n\|-n]` | volume at once, saved 2 s after the last change |
+| `inputs` | raw levels of PROG, SW1, buttons A and B (bring-up step C) |
 | `factory-reset` | everything back to factory state (settings, statistics, counters, core dump), then a restart; same as SW1 closed + PROG held 5 s |
 | `selftest [quick\|report\|stop]` | self-test: full, passive checks only, last report, stop |
 | `stats` | boots, cycles (total and since boot), targets seen, last cycle |

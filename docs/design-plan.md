@@ -39,7 +39,7 @@ Placement and routing finished on 22.09, followed by inspection and fixes (detai
 
 **Removed compared with the original schematics:** BQ24075 and its surroundings (R7, R8, R12, R13, C1, C2, C9, LED1, TP1), BQ27441 (U3, R14–R16, C12, C13), battery connector CN1, C5/C7/C8/C10/C11, nets `SYS`, `VBAT`, `SYSOFF`, `SYSComp`, `SYSSense`, `BatPGOOD`. Header U9 and its labels `GPIO1/2/21/47`. Old JTAG header U8 with STM32 pinout.
 
-**Kept:** USBC1, D1 USBLC6-2SC6, R1/R5 5.1 kΩ, U1 TPS631000 with L1 and its FB divider, LED2/LED3, R25/C29 on EN, SW2 BOOT.
+**Kept:** USBC1, D1 USBLC6-2SC6, R1/R5 5.1 kΩ, U1 TPS631000 with L1 and its FB divider, LED2/LED3, R25/C29 on EN, SW2 BOOT. *(The two LEDs ended up as D3 red / D4 green with R12 / R18, §3.7.)*
 
 **Also removed:** SW1 and its surroundings R39/R40/C46, net `3V3EN`, polyfuse F1, the AP22811 and net `5V_PERIPH`, connector J9 and its home-made remote board, the five 100 µF 6.3 V capacitors, the R2/R3/R9/R10 dividers and C6 (`SYSCOMP`, `SYSSense`).
 
@@ -110,7 +110,7 @@ Pins marked **pins.h** are imposed by the firmware and are not negotiable. The o
 | IO19 / IO20 *named `USB_D-` / `USB_D+` on the symbol, pins 23 and 24* | `USB_D-` / `USB_D+` | native USB via D1 | ESP32 |
 | IO21 | `AMP_GAIN` | GAIN_SLOT direct — never drive high | board |
 | IO26 | — | spare — R19 10 k to 3V3 + C11 100 nF, left over from button A removed on 20.09 (§12b.4) *(button A came back on 22.09, see §0c)* | |
-| IO33 | `ESP32Debug` | LED2 (green) via 470 Ω | board |
+| IO33 | `ESP32Debug` | D4 (green) via R18 100 Ω | board |
 | IO34 | — | spare — R20 10 k to 3V3 + C12 100 nF, left over from button B removed on 20.09 (§12b.4) *(button B came back on 22.09, see §0c)* | |
 | IO35 | `SDA` | I²C → LSM6DSOX | **pins.h** |
 | IO36 | `SCL` | I²C → LSM6DSOX | **pins.h** |
@@ -123,7 +123,7 @@ Pins marked **pins.h** are imposed by the firmware and are not negotiable. The o
 | IO43 / IO44 *named `TXD0` / `RXD0` on the symbol, pins 39 and 40* | `ESP32TXD0` / `ESP32RXD0` | no-connect — header J16 removed on 20.09 *(back on 22.09, see §3.5)* | ESP32 |
 | IO45 / IO46 | — | straps, no-connect | ESP32 |
 | IO47 | `AMP_GAIN_100K` | GAIN_SLOT via 100 kΩ — never drive high | board |
-| IO48 | `FaultLed` | LED3 (red) via 470 Ω | board |
+| IO48 | `FaultLed` | D3 (red) via R12 680 Ω | board |
 | EN | `S3En` | R25 10 kΩ → 3V3, C29 1 µF → GND, reset button, UART0 connector J16 | ESP32 |
 
 ---
@@ -326,7 +326,9 @@ Bus at 100 or 400 kHz, single slave.
 
 ### 3.7 Debug LEDs
 
-LED2 green: IO33 → 470 Ω → LED → GND. LED3 red: IO48 → 470 Ω → LED → GND. Not used by the reference firmware, available for tests.
+Green LED (D4): IO33 → **R18 100 Ω** → LED → GND. Red LED (D3, KT-0603R): IO48 → **R12 680 Ω** → LED → GND. Not used by the reference firmware; the Turret2 firmware uses them as status LEDs (green heartbeat, red fault codes).
+
+*Updated 19.10.2026:* R18 lowered from 1 kΩ to **100 Ω** (user's decision, made in the master KiCad project; the portable copy in `Turret2_portable/` follows when it is refreshed). With 3.3 V and a green LED forward voltage of 2.0 to 3.0 V, that is 3 to 13 mA, well within the GPIO's default drive (20 mA). Earlier versions of this plan said 470 Ω for both LEDs, then 1 kΩ (R26, R29, LED2 / LED3): those were the names and values before the final schematic.
 
 ---
 
@@ -514,7 +516,7 @@ The passives in stock are 0402: **not reused**, the board is entirely 0603 (§13
 | 3V3 regulator | TPS631000DRLR + L1 1 µH FTC303020D | with its 56 k / 10 k FB divider |
 | Accelerometer | LSM6DSOXTR | schematic already done |
 | Reset + boot buttons | TS-1088-AR02016 ×2 | exactly the count needed |
-| LED2 / LED3 | KT-0603R ×2 | red; no green in stock, doesn't matter |
+| Status LEDs (D3 / D4) | KT-0603R ×2 | red; no green in stock, doesn't matter *(finally D3 red KT-0603R, D4 green)* |
 | JTAG header | 20021121-00010T4LF ×2 | spare in case the TC2050 footprint does not work out |
 | 10 µF 50 V | GRM21BR61H106KE43L 0805 ×3 | 50 V: almost no loss at 5 V |
 | Amplifier bulk | EEE-FT1V101AP 100 µF SMD ×2 | low-ESR electrolytic — check the voltage code on the can |
@@ -971,7 +973,7 @@ Same rule as the capacitors: everything 0603, including values already in stock 
 | Value | Qty | Use |
 |---|---|---|
 | 523 Ω | 25 | eFuse ILM — 511 Ω would also work (3.95 A instead of 3.86) |
-| 1 kΩ | 25 | debug LEDs |
+| 1 kΩ | 25 | debug LEDs *(finally R12 680 Ω red, R18 100 Ω green: see §3.7)* |
 | 2 kΩ | 25 | series on the amplifier's SD_MODE |
 | 2.2 kΩ | 25 | I²C pull-ups |
 | 5.1 kΩ | 25 | USB-C CC1 and CC2 |
@@ -993,7 +995,7 @@ Yageo RC0603FR series or equivalent. About 5 CHF for the lot; at 25 pieces you a
 | — | **2.2 kΩ** ×2 | I²C pull-ups to `+3V3` | right next to the LSM6DSOX, **only one set on the board** |
 | R4 / R11 | 56 kΩ / 10 kΩ | TPS631000 FB divider | 0.5 V reference — do not touch |
 | R25 | 10 kΩ | module EN to 3V3 | with C29 |
-| R26, R29 | 1 kΩ | LED2 and LED3 | |
+| R12 / R18 | 680 Ω / **100 Ω** | red LED D3 (IO48) / green LED D4 (IO33) | R18 lowered from 1 kΩ on 19.10.2026; 3 to 13 mA |
 | — | 2 kΩ (or 1.5 kΩ from stock) | series on the amplifier's SD_MODE | 1.5 kΩ gives 3.25 V, well above the 1.4 V threshold |
 | — | 100 kΩ **±5 %** | IO47 to GAIN_SLOT | the 100 k in stock are ±1 %, so better |
 

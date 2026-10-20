@@ -433,6 +433,8 @@ Pinouts copied **exactly** from the reference board, to stay compatible with the
 | J2 | Gun right | 1 `5V` · 2 IO2 servo · 3 AHCT 3Y (LED) · 4 GND | servos |
 | J12 | Ring LED (9 × SK6812) | 1 `+5V` · 2 AHCT 1Y · 3 GND | logic |
 | J10 | HLK-LD2450 | 1 `+5V` · 2 radar TX → IO17 · 3 radar RX ← IO18 · 4 GND | logic |
+
+> *Correction (20.10.2026):* on the final board the radar connector is **J5**, and its pins 2 and 3 are the other way round: **J5.2 = IO18** (ESP32 TX → radar RX), **J5.3 = IO17** (ESP32 RX ← radar TX); the crossover is made in the cable (status-and-history §2). The radar actually fitted is an **Ai-Thinker RD-03D V2** (same frames as the LD2450; its connector is 1 5 V · 2 GND · 3 TX · 4 RX · 5 DP · 6 DM): see the radar cable in the main README.
 | J8 | Hall | see §5.2 | 3V3 |
 | J11 | Speaker | 2-pin terminal block OUT+ / OUT− | — |
 | — | Remote USB | no connector any more: Adafruit ADA6050 breakout wired directly, see §10 *(finally a 4-pin JST-PH, J1 "USB extender", see status-and-history §2)* | — |

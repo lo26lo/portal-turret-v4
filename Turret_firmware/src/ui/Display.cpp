@@ -12,7 +12,7 @@ const uint32_t TASK_STACK_BYTES = 4096;
 // Drawing area between the title and the bottom line.
 const int AREA_TOP = 12;
 const int AREA_BOTTOM = 51;
-const int32_t RADAR_RANGE_MM = 6000; // full scale of the radar view (range of the LD2450)
+const int32_t RADAR_RANGE_MM = 6000; // full scale of the radar view (range of the LD2450; the RD-03D reaches 8 m)
 } // namespace
 
 bool Display::Begin(int32_t oledType) {

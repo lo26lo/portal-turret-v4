@@ -52,7 +52,7 @@ Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décision
 | IO10 / IO11 / IO12 | I²S DIN / BCLK / LRCLK | *pins.h* |
 | IO13 | AMP_SD (SD_MODE via 2 kΩ, pull-down interne 100 k dans l'ampli) | bas = shutdown ; haut = canal gauche |
 | IO14 / IO15 / IO16 | NeoPixel anneau (9 LEDs) / canon gauche (2) / canon droit (2), via AHCT125 | *pins.h* |
-| IO17 / IO18 | radar HLK-LD2450 UART1 RX / TX, 256000 bauds | *pins.h* |
+| IO17 / IO18 | radar UART1 RX / TX, 256000 bauds (prévu pour le HLK-LD2450 ; monté : Ai-Thinker RD-03D V2, mêmes trames, voir le câble de J5 dans le README) | *pins.h* |
 | IO19 / IO20 | USB natif D− / D+ | ne jamais toucher |
 | IO21 | AMP_GAIN (GAIN_SLOT direct) | **jamais à l'état haut** |
 | IO26 | bouton A (J12), pull-up 10 k + 100 nF, 1 kΩ série, actif bas | libre uniquement parce que le module est un N8 (sur N4R2 c'est la PSRAM) |

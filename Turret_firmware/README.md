@@ -31,7 +31,7 @@ Design and reasons: [../docs/firmware-plan.md](../docs/firmware-plan.md). Hardwa
 
 ## 1. What the turret does
 
-At rest the wings are closed and the ring glows red. When the **HLK-LD2450 radar** sees someone, the turret opens its wings, extends its guns, plays the gunshot sound for 3 s, then retracts the guns and closes the wings. Button A starts the same cycle by hand.
+At rest the wings are closed and the ring glows red. When the **radar** (HLK-LD2450 or Ai-Thinker RD-03D, same frames) sees someone, the turret opens its wings, extends its guns, plays the gunshot sound for 3 s, then retracts the guns and closes the wings. Button A starts the same cycle by hand.
 
 Around that behaviour, which comes from the upstream firmware, Turret2 adds:
 
@@ -77,7 +77,7 @@ src/
   motion/Wing.*             wing servo (continuous rotation) + Hall sensor
   motion/Gantry.*           both wings, rotations X/Z, attach schedule, hold policy
   sensors/Motion.*          LSM6DSOX IMU, orientation
-  sensors/Radar.*           HLK-LD2450 frame parser (UART1, 256000 baud)
+  sensors/Radar.*           HLK-LD2450 / RD-03D frame parser (UART1, 256000 baud)
   settings/Settings.*       setting table, NVS storage
   states/*                  state machine: Booting, Idle, Activate, Firing, Disengage, Manual, Fault
   control/Actions.*         command interpreter shared by console, buttons and web page; status JSON
@@ -193,7 +193,7 @@ LSM6DSOX at 0x6A on the shared I2C bus (also the Qwiic port J11), 104 Hz, ±4 g,
 
 ### Radar (`sensors/Radar.*`)
 
-HLK-LD2450 on UART1 (RX IO17, TX IO18, 256000 baud), three targets per frame (position x / y in mm, y = distance ahead, speed, resolution). Parser from upstream, plus:
+HLK-LD2450 frame format on UART1 (RX IO17, TX IO18, 256000 baud), three targets per frame (position x / y in mm, y = distance ahead, speed in cm/s, resolution). The first board is fitted with an **Ai-Thinker RD-03D V2**, which sends the same frames (header `AA FF 03 00`, 3 × 8 bytes, tail `55 CC`, bit 15 = positive; Ai-Thinker user manual §5) and draws about 110 mA at 5 V; its range is up to 8 m (±60°), while the settings still stop at 6 m. Its connector order differs from J5: see the radar cable in the main README. Parser from upstream, plus:
 
 - a "radar alive" flag; after 1 s without a frame the targets in memory are cleared (an unplugged or hung radar used to keep its last target and make the turret fire in a loop);
 - a **detection zone**: a target only counts if it is in front, closer than `DetectMaxMm` and within ±`DetectAngle` of the radar axis.

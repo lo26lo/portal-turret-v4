@@ -1,6 +1,7 @@
 #pragma once
 
-// Pure logic of the HLK-LD2450 radar, without Arduino: used by sensors/Radar
+// Pure logic of the HLK-LD2450 radar (the Ai-Thinker RD-03D fitted on the
+// first board sends the same frames), without Arduino: used by sensors/Radar
 // and by the native tests (test/test_logic).
 
 #include <math.h>

@@ -23,7 +23,7 @@ The board keeps the **exact GPIO mapping of the firmware's `Fork/src/pins.h`**, 
 | IMU | **LSM6DSOX** accelerometer + gyroscope on I²C, address 0x6A (replaces the ADXL345) |
 | NeoPixels | SN74AHCT125 level shifter on the three data lines (ring, left gun, right gun) |
 | Servos | 6 servo outputs (wings, rotation X/Z, two guns) |
-| Sensors | HLK-LD2450 radar (UART1), two Hall sensors powered from **3.3 V** (fixes the V4 bug where 5 V sensors drove the ADC pins) |
+| Sensors | 24 GHz tracking radar on UART1: designed for the HLK-LD2450, fitted with an **Ai-Thinker RD-03D V2** (same frame format; different pin order, see J5), two Hall sensors powered from **3.3 V** (fixes the V4 bug where 5 V sensors drove the ADC pins) |
 | Expansion | Qwiic / STEMMA QT port (I²C, 3.3 V) |
 | Debug | native USB (flashing + serial console), backup UART0 connector (TXD0, RXD0, GND, EN, IO0), BOOT and RESET buttons, green debug LED (IO33), red fault LED (IO48) |
 | Remote USB | 4-pin connector for a remote USB-C socket (e.g. Adafruit ADA6050) reachable in the enclosure |
@@ -51,12 +51,14 @@ All wire-to-board connectors are **2 mm JST-PH** (vertical), except Qwiic and UA
 | J14 | Ring Led | 1 +5 V · 2 LED data (IO14 via AHCT) · 3 GND | front |
 | J17 | HALL_L | 1 +3.3 V · 2 HALL_LEFT IO8 · 3 GND | front |
 | J18 | HALL_R | 1 +3.3 V · 2 HALL_RIGHT IO9 · 3 GND | back |
-| J5 | HLK-LD2450 | 1 +5 V · 2 IO17 (ESP32 RX ← radar TX) · 3 IO18 (ESP32 TX → radar RX) · 4 GND | back |
+| J5 | HLK-LD2450 (v0.1 board; "Radar" in the master project from 20.10.2026) | 1 +5 V · 2 IO18 (ESP32 TX → radar RX) · 3 IO17 (ESP32 RX ← radar TX) · 4 GND | back |
 | J11 | I2C extender | Qwiic: 1 GND · 2 +3.3 V · 3 SDA IO35 · 4 SCL IO36 | front |
 | J16 | UART0 | TXD0 (IO43), RXD0 (IO44), GND, EN, IO0 — no 3.3 V | back |
 | J12 / J13 | ButtonA / ButtonB | button to GND on IO26 / IO34 (1 kΩ series, 10 k pull-up, 100 nF) | back |
 | J15 | Speaker | OUT+ / OUT− (BTL — never tie OUT− to ground), 4–8 Ω | front |
 | J1 | USB extender | VBUS, D+, D−, GND to a remote USB-C socket | front, label on back |
+
+**Radar cable (J5 → Ai-Thinker RD-03D V2):** the radar's connector is 1 5 V · 2 GND · 3 TX · 4 RX · 5 DP · 6 DM, so the cable is **not straight**: J5.1 → radar 1 (5 V), J5.4 → radar 2 (GND), J5.3 → radar 3 (TX), J5.2 → radar 4 (RX); radar 5 and 6 (programming) not connected. A straight cable would leave the radar without ground and short IO18 to it. *(Before 20.10.2026 this table had J5 pins 2 and 3 swapped; the board file is the reference.)*
 
 **Check the pin order against the schematic before crimping cables.** Servo, gun, ring and Hall connectors share the same family: use different cable colours. A mix-up can never put 5 V on IO8/IO9, but a Hall sensor plugged into a servo socket would be reverse-powered.
 

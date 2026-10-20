@@ -9,7 +9,7 @@ void Radar::Initialize() {
 
 namespace {
 // No complete frame for this long: the targets in memory are stale (radar
-// unplugged or hung). The LD2450 sends about 10 frames per second.
+// unplugged or hung). The LD2450 (and the RD-03D) send about 10 frames per second.
 const ulong STALE_MS = 1000;
 } // namespace
 

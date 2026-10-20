@@ -110,7 +110,7 @@ Créé le 26.09.2026. Des expériences pour **comprendre et vérifier** la carte
 - **Montage** : voie 1 sur J5 broche 2 (sortie du radar vers IO17).
 - **Réglages** : 1 V/div, 20 µs/div ; décodage UART **256 000 bauds, 8N1** si l'oscilloscope le permet.
 - **Attendu** : une trame toutes les ~100 ms environ, qui commence par `AA FF 03 00` et finit par `55 CC` ; niveau 3,3 V.
-- **On apprend** : une liaison série, le débit, le format de trame du LD2450 (3 cibles × 8 octets).
+- **On apprend** : une liaison série, le débit, le format de trame du LD2450 (3 cibles × 8 octets), le même sur l'Ai-Thinker RD-03D V2 monté sur la première carte.
 - **Mesures** : durée d'un bit = ____ µs (théorie 3,9 µs) ; période des trames = ____ ms
 
 ### X9. Bus I²C

@@ -234,7 +234,7 @@ void DebugUi::Update(ulong now) {
     dirty = true;
   }
 
-  // Subtitle of the eye at each change of state.
+  // Subtitle under the logo at each change of state.
   StateId state = stateMachine->GetCurrentStateId();
   if (state != lastState) {
     bool french = Language() == logic::Lang::French;
@@ -302,38 +302,15 @@ void DebugUi::RenderStatus(logic::MenuScreen &screen, bool french) {
   snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", FIRMWARE_VERSION);
 }
 
-// Normal mode, OledFace on: the eye of the turret. Asleep while idle with
-// nobody in sight, awake and looking at the first target otherwise, angry
-// while it deploys and fires. Faults are not shown here: a new one gets the
-// 5 s alert (FaultAlert), then the red LED alone keeps signalling it.
+// Normal mode, OledFace on: the aperture logo (it replaced the eye on
+// 21.10.2026, at the user's request) with the subtitles underneath. Faults
+// are not shown here: a new one gets the 5 s alert (FaultAlert), then the
+// red LED alone keeps signalling it.
 void DebugUi::RenderFace(logic::MenuScreen &screen, bool french, ulong now) {
   memset(&screen, 0, sizeof(screen));
   screen.highlight = -1;
-  screen.graphic = logic::Graphic::Eye;
-
-  StateId state = stateMachine->GetCurrentStateId();
-  int16_t gaze = 0;
-  bool target = false;
-  if (turret->radar.IsAlive(RADAR_ALIVE_MS)) {
-    for (uint8_t i = 0; i < TRACK_COUNT && !target; i++) {
-      const RadarTarget &t = turret->radar.GetTarget(i);
-      if (t.available && t.y > 0) {
-        // Angle of the target seen from the radar: 60 degrees = full deflection.
-        float angle = atan2f((float)t.x, (float)t.y) * 180.0f / PI;
-        gaze = (int16_t)constrain((int)(angle * 100 / 60), -100, 100);
-        target = true;
-      }
-    }
-  }
-  int16_t mood = 1;
-  if (state == StateId::Activate || state == StateId::FiringState) {
-    mood = 2;
-  } else if (state == StateId::Fault || ((state == StateId::Idle || state == StateId::Manual) && !target)) {
-    mood = 0;
-  }
-  screen.value[0] = gaze;
-  screen.value[1] = mood;
-  snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "%s", mood == 0 ? "(-)" : mood == 2 ? "(O)!" : "(o)");
+  screen.graphic = logic::Graphic::Logo;
+  snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "Aperture");
 
   if (subtitle[0] != '\0' && (long)(subtitleUntil - now) > 0) {
     snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", subtitle);

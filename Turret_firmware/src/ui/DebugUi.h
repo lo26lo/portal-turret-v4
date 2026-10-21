@@ -17,7 +17,7 @@ class StateMachine;
 //  - Debug mode (SW1 closed at power-up): menu of information pages, tests,
 //    calibration and settings, driven by buttons A and B (or the "key"
 //    command / the web page). See logic/MenuLogic.h for the keys.
-//  - Normal mode with a screen plugged in: the eye of the turret with its
+//  - Normal mode with a screen plugged in: the aperture logo with its
 //    subtitles (OledFace), or a plain status page; the buttons keep their
 //    normal functions.
 //  - In both modes: a new fault is shown for 5 s, then the screen goes back
@@ -85,7 +85,7 @@ private:
   bool asleep = false;
   StateId lastState = StateId::Booting;
 
-  // Subtitles of the eye
+  // Subtitles under the logo
   const char *subtitle = "";
   ulong subtitleUntil = 0;
 

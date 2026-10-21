@@ -14,9 +14,14 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
    - poste du 17.10.2026 : PlatformIO hors du PATH → `%USERPROFILE%\.platformio\penv\Scripts\pio.exe`, et son `python.exe` pour pyserial ; carte sur **COM3** ;
    - poste du 19.10.2026 : `pio` dans le PATH (`C:\DATA\python3\Scripts\pio.exe`, cœur PlatformIO dans `C:\DATA\platformio`), pyserial dans `C:\DATA\python3\python.exe` ; carte sur **COM5**.
 
-## État actuel — 19.10.2026
+## État actuel — 21.10.2026
 
-- **GitHub** : `main` = commit du 19.10.2026 « OLED: boot no longer hangs in U8g2 begin; 5 s fault alert » (correction de l'écran, alerte de défaut, ce fichier), après `a4eb329` (flash corrigé + battement de cœur) ; CI verte (run 39216617348), `test_heartbeat` et `test_fault_alert` compris. Puis commit « Rotary encoder, factory reset with SW1 + PROG, Qwiic module plan » : l'encodeur rotatif I²C (Q1 : `sensors/RotaryEncoder`, commande `volume`, touches d'encodeur du menu, tests `test_menu_encoder` et `test_volume_screen`) et la remise à zéro par SW1 + PROG (Q2 : commande `factory-reset`, tests `test_reset_gesture` et `test_factory_reset_screen`) — compilés, poussés à la demande de l'utilisateur **sans avoir été flashés** (carte débranchée), aucun encodeur encore reçu. Puis commit « Factory reset checked on the board, inputs command, LED resistor docs » : Q2 vérifié, commande `inputs`, docs des résistances de LED (R18 100 Ω). Les fichiers KiCad modifiés dans `Turret2_portable/` ne sont **pas** commités (copie portable, le maître est hors du dépôt).
+- **21.10.2026** :
+  - **Deuxième carte** : composants chers transférés, même ESP32. Démarre, IMU saine après les soudures ; un pont U6 9–10 est sans effet. Capteurs Hall pas encore branchés.
+  - **Firmware** : logo Aperture à la place de l'œil (OLED) et sur la page web, flashé sur COM3. Logo **pas encore vu sur l'écran** (SW1 était fermé).
+  - **Carte v2** : plan matériel complet dans [carte-v2-plan.md](carte-v2-plan.md), avec un brochage refait pour le routage et l'outil `Turret2_portable/tools/gpio_study/`. Le document de l'utilisateur [AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) est corrigé et renvoie au plan.
+  - Le tout est poussé avec ce fichier.
+- **GitHub, avant le 21.10.2026** : `main` = commit du 19.10.2026 « OLED: boot no longer hangs in U8g2 begin; 5 s fault alert » (correction de l'écran, alerte de défaut, ce fichier), après `a4eb329` (flash corrigé + battement de cœur) ; CI verte (run 39216617348), `test_heartbeat` et `test_fault_alert` compris. Puis commit « Rotary encoder, factory reset with SW1 + PROG, Qwiic module plan » : l'encodeur rotatif I²C (Q1 : `sensors/RotaryEncoder`, commande `volume`, touches d'encodeur du menu, tests `test_menu_encoder` et `test_volume_screen`) et la remise à zéro par SW1 + PROG (Q2 : commande `factory-reset`, tests `test_reset_gesture` et `test_factory_reset_screen`) — compilés, poussés à la demande de l'utilisateur **sans avoir été flashés** (carte débranchée), aucun encodeur encore reçu. Puis commit « Factory reset checked on the board, inputs command, LED resistor docs » : Q2 vérifié, commande `inputs`, docs des résistances de LED (R18 100 Ω). Les fichiers KiCad modifiés dans `Turret2_portable/` ne sont **pas** commités (copie portable, le maître est hors du dépôt).
 - **Firmware** : lots 1 à 12 du plan + améliorations **I1, I2, IL, IM** faits et poussés ; 25 tests natifs et `tools/check_web.py` (40 vérifications) ; `test_heartbeat` pas encore vu passer dans la CI. Restent **I3** (B1 visée, B3 mode recherche, C1 vue radar de la page web ; la vue radar existe déjà sur l'OLED), **I4** et **I5**.
 - **Carte réelle** : **première carte flashée le 17.10.2026** (env `turret2_bringup`, `upload` + `uploadfs` par l'USB natif) ; elle démarre et la console répond. Auto-test rapide : 9 OK, **1 échec (radar : aucune trame)**, 9 non faits. **19.10.2026 : écran OLED 0,96" (SSD1306, `OledType` 0) sur J11 vu fonctionner** en mode normal, après correction d'un blocage au boot (voir « Erreurs »). Avancement de la mise en service : colonne « État » de [firmware-plan.md](firmware-plan.md) §8.
 - **Jamais vu sur le matériel** : les menus du mode debug sur l'écran (SW1 fermé), le son, les LEDs, les mouvements des servos et des ailes, la page web sur un vrai téléphone.
@@ -27,7 +32,8 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
   4. sur une alimentation 3 A : son, LEDs, servos un par un, puis `selftest full` (plan §8 E, F, H) ;
   5. encodeur (Q1) à sa réception : sens de rotation, pas par cran (Soldered) ; la remise à zéro SW1 + PROG (Q2) est vérifiée ;
   6. à la réception du MPR121 : Q3 (catalogue Q) ;
-  7. ensuite seulement : lot I3.
+  7. ensuite seulement : lot I3 ;
+  8. carte v2 : mesures préalables du plan, §11 de [carte-v2-plan.md](carte-v2-plan.md) (fuite des TVS D1 / D5 au PPK2, modèle et courant des capteurs Hall, démarrage du RD-03D), puis placement KiCad et nouvelle passe de l'outil `gpio_study` avant de router.
 - **Écrans** (05.10.2026) : 0,96" (SSD1306) et 1,54" « M154_4P » (SSD1309 très probable, non confirmé) gérés tous les deux ; un servo à la fois par défaut, levable ; menus en français et en anglais.
 - **Matériel figé** (26.09.2026) : aucune modification de la carte ni du câblage, sauf « méga plus » (aucun identifié). Les mesures se font sans modification : cahier [experiments.md](experiments.md).
 - **eFuse** : TPS259573 identifié en **auto-retry** (plan §2.5, D5) — cas déjà couvert par la détection de boucle de redémarrage ; reste à lire dans la datasheet le délai d'auto-retry pour vérifier que 3 cycles tiennent dans la fenêtre de 60 s du compteur.
@@ -42,7 +48,8 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
 | IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27, CI verte |
 | IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commits `83544a4` puis `8a88267` (tâche d'affichage + dix idées d'écran) ; passé avant I3 à la demande de l'utilisateur ; `check_web.py` 40/40 ; **CI verte** (run 37303638236) avec 24 tests natifs ; 19.10.2026 : blocage au boot corrigé, écran 0,96" vu fonctionner (mode normal) ; menus du mode debug pas encore essayés sur l'écran |
-| HW | Mise en service de la première carte (plan §8, étapes A à J) | en cours | 17.10.2026 : flash + premier démarrage OK (étape B) ; radar sans trame ; détail par étape dans plan §8 |
+| HW | Mise en service de la première carte (plan §8, étapes A à J) | en cours | 17.10.2026 : flash + premier démarrage OK (étape B) ; radar sans trame ; détail par étape dans plan §8. 21.10.2026 : deuxième carte (composants transférés), même résultat, IMU saine |
+| V2 | Carte v2 : veille sous 1 mA (rails commutés), corrections de la v0.1, brochage refait pour le routage | plan écrit | 21.10.2026 : [carte-v2-plan.md](carte-v2-plan.md) (RD-03D seul, eFuse TPS259533, 3 × TPS22965, AO3401A, extendeur TCAL6416 au dos) ; outil `Turret2_portable/tools/gpio_study/` ; rien de fabriqué |
 | I5 | au choix : A5, B5–B10, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur ; B9 (veille sentinelle) et B10 (vitesse des cibles) ajoutées le 19.10.2026 ; B10 va naturellement avec I3 (visée B1, vue radar C1) |
 | IQ | Modules Qwiic sur J11 : Q1 encodeur rotatif, Q2 remise à zéro par SW1 + PROG (sans module), Q3 touche capacitive MPR121, Q4–Q7 en option | en cours | Q1 et Q2 écrits le 19.10.2026 ; **Q2 vérifié sur la carte** ; Q1 : commande `volume` vérifiée, encodeur pas encore reçu ; Q3 à la réception du MPR121 (commandé ou à commander : ADA1982 + ruban cuivre PRT-13827) |
 
@@ -443,6 +450,10 @@ Jugés inutiles : PIR (le radar fait mieux), ampli STEMMA (MAX98357A sur la cart
 
 **Vérifié** : compilation `turret2_bringup` OK (RAM 25,2 %, flash 50,3 %). **Flash non fait** : COM3 avait disparu (`pio device list` vide : carte débranchée ou hors tension). Test natif à vérifier dans la CI (pas de gcc sur le PC).
 
+### 18.10.2026 (3ᵉ entrée) — Push
+
+Commit `a4eb329` poussé (correction du flash, LED verte en battement de cœur, docs de mise en service) ; **CI verte** (run 39133815115) : includes, compilation des deux envs, tests natifs dont `test_heartbeat` (exécuté pour la première fois), page web. *(Entrée ajoutée le 21.10.2026 : notée localement le 18.10.2026, restée non poussée pendant les sessions du 19 et du 20.10.2026.)*
+
 ### 19.10.2026 — Flash sur un autre poste (COM5) ; l'écran OLED bloquait le boot
 
 **Demande** : lire les fichiers de reprise ; flasher (carte sur COM5) ; l'écran est branché mais « le boot s'arrête ».
@@ -532,3 +543,108 @@ Jugés inutiles : PIR (le radar fait mieux), ampli STEMMA (MAX98357A sur la cart
 **Non fait** : aucun essai (connecteur J5 pas encore soudé). La valeur et la sérigraphie de J5 passent de « HLK-LD2450 » à « Radar » dans le projet KiCad maître (fait par l'utilisateur, hors du dépôt) ; les cartes v0.1 gardent « HLK-LD2450 » imprimé.
 
 **Prochaine étape** : souder J5, faire le câble croisé, puis `status` / `selftest quick` ; si une seule cible est rapportée, ajouter la commande de passage en mode multi-cibles.
+
+### 21.10.2026 — Deuxième carte ; pont entre les broches 9 et 10 de U6
+
+**Information de l'utilisateur** : les composants chers ont été transférés sur une nouvelle carte, qui démarre ; un pont de soudure relie les broches 9 et 10 de U6 (non connectées normalement). Une analyse lui a été donnée ailleurs (sans danger ; INT2 / OCS_Aux ; retirer à la tresse ; à défaut `OIS_PU_DIS` = 1 dans `PIN_CTRL` 02h ; contrôle par WHO_AM_I = 0x6C).
+
+**Vérifié dans `Turret2_portable/Turret2.kicad_pcb`** : U6 = LSM6DSOXTR (LGA-14) ; pad 9 = INT2, pad 10 = OCS_Aux, tous deux `unconnected-…` ; SDx (2) et SCx (3) **à la masse**, donc le SPI auxiliaire ne peut recevoir aucune horloge : OCS_Aux tiré bas par le pont n'a aucun effet fonctionnel. Firmware : INT2 jamais configuré (aucune écriture de `INT2_CTRL` ni de `PIN_CTRL` dans `src/`), donc INT2 reste au niveau bas. L'analyse est juste ; seul effet : un petit courant permanent dans le tirage interne d'OCS_Aux.
+
+**Décision** : pas de contournement logiciel pour l'instant. `OIS_PU_DIS` coupe aussi le tirage de SDO_Aux (pad 11, en l'air) ; à n'envisager que si le pont reste inaccessible sous le boîtier.
+
+**À faire sur la nouvelle carte** : reprendre la mise en service (plan §8) ; vérifier `0x6A` au scan et la gravité (`selftest quick`) après retrait du pont.
+
+### 21.10.2026 (2ᵉ entrée) — Essai de la deuxième carte (ESP32 transféré)
+
+**Information** : l'ESP32 déjà flashé a été déplacé sur la nouvelle carte (même MAC 10:51:db:5a:17:ec, COM3) ; firmware présent : `f3da119-dirty` (flashé le 19.10.2026 sur l'autre poste). Pont U6 9–10 encore en place.
+
+**Vérifié par la console** : SW1 fermé (mode debug, état `Manual`), PROG / A / B relâchés ; reset POWERON, PWR_FLT haut, 0 défaut d'alimentation, 0 brownout ; scan I²C **0x3C (OLED) et 0x6A (IMU)** ; IMU : gravité (-0,02 ; 9,19 ; 3,18) m/s², |g| ≈ 9,73, axe dominant +Y (3), 27,8 °C, gyroscope ≈ 0 ; Hall gauche ~1030, droite ~830 (vus « fermés », valeurs très différentes de la 1ʳᵉ carte : 353 / 187) ; ampli actif, point d'accès actif. **Auto-test rapide : 10 OK, 1 FAIL (radar, J5 non câblé), 8 SKIP**. Défaut actif : 4 seulement.
+
+**Conclusion** : le pont U6 9–10 n'a aucun effet visible ; la carte se comporte comme la première. **À faire** : calibration Hall et `ImuUpAxis` sur cette carte (tourelle montée), radar, essais avec alimentation 3 A ; éventuellement reflasher le dernier `main`.
+
+### 21.10.2026 (3ᵉ entrée) — Flash de `58ba785` sur la deuxième carte ; Hall non branchés
+
+**Demande** : « les capteurs Hall ne sont pas encore branchés ; go flash ».
+
+**Fait** : flash `turret2_bringup` (`58ba785-dirty` : seuls des docs non commités) sur COM3 : **SUCCESS**, redémarrage par `reset_after_upload.py` (« Board restarted »), sans toucher à la carte. RAM 25,3 %, flash 50,5 %. Ensuite : auto-test rapide identique (10 OK, 1 FAIL radar, 8 SKIP).
+
+**Constaté (erreur de ma part dans l'entrée précédente)** : j'avais présenté les valeurs Hall (~1030 / ~830, puis 861 / 767) comme une différence de carte à calibrer : en fait **J17 / J18 sont vides** et les entrées IO8 / IO9 **flottent**. PCB vérifié : les nets `HALL_LEFT` / `HALL_RIGHT` ne vont qu'à U7 et à J17.2 / J18.2, **sans résistance de tirage**. Conséquence : l'auto-test passe « Hall gauche / droit » en OK sur une entrée en l'air (il ne refuse que les rails 0 / 4095) ; le défaut 5 (« Hall bloqué ») ne se déclenche pas non plus.
+
+**Idée proposée (non faite)** : détecter un capteur absent en activant brièvement le tirage interne bas puis haut de l'ESP32 pendant l'auto-test : une entrée en l'air suit le tirage (≈ 0 puis ≈ 4095), la sortie d'un capteur Hall linéaire ne bouge presque pas.
+
+### 21.10.2026 (4ᵉ entrée) — Logo Aperture à la place de l'œil, et sur la page web
+
+**Demande** : mettre le logo fourni (diaphragme à 6 lames, image PNG 512 × 512 sur fond transparent) à la place de l'œil de l'écran OLED, et sur le site web.
+
+**Fait** :
+- Géométrie ajustée sur l'image (disque, hexagone central d'apothème 0,34 R, six fentes de 0,06 R le long des côtés de l'hexagone jusqu'au bord) : 1,3 % de pixels différents, sur les bords lissés. Premier essai d'analyse raté : l'image est en mode « LA », tout noir en luminance, le dessin n'est que dans la couche alpha.
+- `tools/aperture_logo.py` (Python pur) : produit le bitmap XBM et le SVG ; vérifié identique aux données intégrées.
+- OLED : `src/ui/ApertureLogo.h` (42 × 42, 252 octets), `Display::DrawLogo` (`drawXBM`, centré, au-dessus des sous-titres) ; `logic::Graphic::Eye` → `Logo` ; `DebugUi::RenderFace` simplifié (plus de regard ni d'humeur ; ligne texte « Aperture » pour la version texte de la page) ; menus « Logo oui / non » ; description de `OledFace`.
+- Page web : logo SVG en `currentColor` dans l'en-tête (suit le thème clair / sombre), même SVG en orange comme icône d'onglet (data URI).
+- README du firmware.
+
+**Vérifié** : compilation `turret2_bringup` sans erreur (RAM 25,3 %, flash 50,5 %) ; `tools/check_web.py` : tout passe. **Non fait** : flash (COM3 a disparu, carte débranchée) ; logo pas encore vu sur l'écran ni sur un navigateur.
+
+### 21.10.2026 (5ᵉ entrée) — IMU après les soudures
+
+**Demande** : vérifier l'IMU après de nombreuses soudures (deuxième carte, COM3, firmware `58ba785-dirty`).
+
+**Vérifié par la console** : reset POWERON, PWR_FLT haut, 0 défaut ; scan I²C 0x3C et 0x6A ; 8 lectures `imu` de suite, carte à plat : gravité (-0,28 ; 1,00 ; 9,75) m/s² à ±0,01 près, **|g| = 9,81 m/s²**, axe dominant +Z ; gyroscope (0,010 ; -0,006 ; -0,011) rad/s, soit < 0,7 °/s, stable (dans le décalage de zéro typique du LSM6DSOX) ; température 23,2 → 23,7 °C (la carte chauffe après la mise sous tension). Auto-test rapide : 10 OK, 1 FAIL (radar), 8 SKIP. Conclusion : IMU saine. Non vérifié : chaque axe dans les deux sens (demande de poser la carte sur ses faces) ; état du pont U6 9–10 inconnu (sans effet de toute façon).
+
+### 21.10.2026 (6ᵉ entrée) — Lecture de `docs/AMELIORATIONS_V2.md`
+
+**Demande** : prendre connaissance du nouveau document v2 (déposé par l'utilisateur, non versionné pour l'instant) : load switches TPS22965 sur le 5 V (servos, LEDs, radar), OVLO de l'eFuse abaissé (R6 → 274 kΩ), /OE de l'AHCT125 commandé, radar sentinelle LD2410S, ampli déplacé sur IO39–IO42 pour libérer des GPIO RTC (réveil EXT1 par IMU_INT1 sur IO10 et sentinelle sur IO11), boutons A / B supprimés au profit d'un knob I²C, IMU et ampli au verso, deep sleep < 1 mA.
+
+**Vérifié contre le dépôt** :
+- Cohérent : IO0–IO21 seules capables de réveiller du deep sleep et toutes occupées sur la v0.1 (`pins.h`) ; 13 NeoPixels (9 + 2 + 2, `Light.cpp`) ; IO39–IO42 libres ; IO21 / IO47 gardés en drain ouvert ; LD2410S en 3,3 V, conforme à B9 (« veilleur sur une v0.2 avec interrupteur sur le 5 V »).
+- **Erreur** : le document dit IO3 « pas utilisée » / « libre » et propose d'y mettre une touche tactile ; **IO3 porte SW1** (`PIN_BENCH_MODE`, mode debug, et geste de remise à zéro SW1 + PROG). À corriger, ou bien décider explicitement du sort de SW1.
+- Périmé : le radar est un **RD-03D V2** (~110 mA, même protocole), pas un LD2450 ; « fork » → le firmware est `Turret_firmware/` ; le firmware actuel lit A / B (menus du mode debug, sourdine…) et gère déjà un encodeur I²C (Q1 : seesaw 0x36, Soldered) et un geste de secours sans réseau (SW1 + PROG, fait le 19.10.2026) ; la correction d'axes de l'IMU au verso dépasse `ImuUpAxis` (il faudra une matrice de passage dans `Motion`).
+
+**Flash** (même session) : logo Aperture flashé sur COM3 (`58ba785-dirty`, compilé le 21.10.2026 15:37) : SUCCESS, redémarrage automatique. SW1 fermé → l'écran montre le menu du mode debug (« Debug tourelle »), donc le logo n'est pas encore vu : il faut SW1 ouvert au démarrage.
+
+### 21.10.2026 (7ᵉ entrée) — `AMELIORATIONS_V2.md` corrigé
+
+**Décisions de l'utilisateur** : on **garde SW1** (IO3) ; les boutons A et B sont supprimés sur la v2, **IO26 et IO34 deviennent libres**.
+
+**Fait dans `docs/AMELIORATIONS_V2.md`** : bandeau de relecture ; RD-03D V2 à la place du LD2450 (consommation ~110 mA, références) ; IO3 = SW1 conservé (2.5, 2.6) ; tableau des broches libérées IO26 / IO34 (non RTC : ni réveil ni tactile) ; tactile via MPR121 (Q3) puisque IO1–IO14 sont toutes prises ; tableau de report des fonctions de A et B (démo, sourdine, Wi-Fi, réglages d'usine, menus) vers le knob, PROG et la page web ; encodeur I²C et geste SW1 + PROG signalés comme déjà faits ; correction d'axes de l'IMU au-delà d'`ImuUpAxis` ; « fork » → `Turret_firmware/` ; point de la section 5 sur A / B coché, report ajouté comme tâche.
+
+### 21.10.2026 (8ᵉ entrée) — Variante v2 avec extendeur de GPIO
+
+**Demande** : envisager un extendeur de GPIO ; « je ne risque pas de trop consommer ? ».
+
+**Fait** : section 2.9 de `docs/AMELIORATIONS_V2.md` : PCAL6416A conseillé (RESET, rappels internes, mémorisation des entrées, ~1 µA) ; signaux admis (EN des switches, `QWIIC_EN`, SW1, sentinelle, INT1 de l'IMU) ou exclus (PWM, NeoPixel, I²S, UART, ADC, `PWR_FLT`, `AMP_SD`) ; réveil par l'INT de l'extendeur sur IO3 (SW1 passe sur l'extendeur), l'ampli reste sur IO10–IO13 ; piège du reset (l'extendeur garde ses sorties : RESET relié à EN + écriture « tout coupé » au démarrage) ; bilan de courant ; ligne J11 ajoutée au bilan de la section 1 ; trois points à valider en section 5.
+
+**Réponse sur la consommation** : extendeur négligeable (~1 µA) ; le vrai risque pour le budget de veille est le 3,3 V de J11 (OLED allumé 10–20 mA, encodeur seesaw quelques mA, alimentés même en deep sleep), d'où la proposition `QWIIC_EN` (P-MOS commandé par l'extendeur). Valeurs de courant des modules : ordres de grandeur, à mesurer.
+
+### 21.10.2026 (9ᵉ entrée) — Plan matériel de la carte v2
+
+**Demande** : « un beau plan » : matériel à acheter, découplage et résistances de chaque nouvelle puce selon ses bonnes pratiques, tableau de toutes les GPIO, changements par rapport à la carte actuelle (broches flottantes), bus I²C et ses résistances, « et tout ce que je ne pense pas ». En cours de route : les modules Qwiic ne servent qu'au debug (tout sera piloté par la page web) ; **pas de LD2410S, on garde le RD-03D seul**.
+
+**Fait** : `docs/carte-v2-plan.md` (nouveau) ; bandeau dans `AMELIORATIONS_V2.md` qui renvoie au plan. Sources : relevé complet de `Turret2.kicad_pcb` (script dans le dossier temporaire), datasheets lues le jour même (TPS22965, TPS22918, TPS2595, TCAL6416, SN74AHCT125, AO3401A, MAX98357A via la copie Adafruit, SMAJ Vishay) et *Schematic Checklist* ESP32-S3 d'Espressif.
+
+**Constats nouveaux** :
+- le connecteur des canons J3 / J4 n'a qu'une broche +5 V pour le servo et les 2 LEDs → LEDs des canons sur le rail des servos ;
+- AMELIORATIONS_V2 attribuait le diviseur OVLO à R6 : c'est **R4** (R6 = pull-up de PWR_FLT) ; et 274 kΩ couperait dès 5,25 V avec la tolérance du seuil (1,13–1,27 V) → eFuse **TPS259533** (même boîtier et même brochage, sortie écrêtée à 5,2–5,7 V) ;
+- IO26 a un pull-up au reset (Espressif) : interdit pour un EN actif haut → utilisé pour `HALL_EN_N` (P-MOS, le pull-up va dans le bon sens) ; IO12, IO13, IO37, IO39–IO42 : « IE » seulement au reset ;
+- capteurs Hall alimentés en permanence (plusieurs mA) → P-MOS AO3401A ;
+- SMAJ5.0A : fuite spécifiée jusqu'à 800 µA à 5 V chacune → SMAJ6.5A proposée, après mesure ;
+- MAX98357A : pull-down interne de 92–108 kΩ sur SD_MODE → pas de pull-down externe ; 340 µA en standby si SD haut sans horloge ;
+- IO0 sans pull-up externe sur la v0.1 (Espressif en recommande un) ; entrées Hall et AHCT flottantes ; lignes PWM / UART / données LED sans résistance série.
+
+**Non vérifié** (marqué « [à vérifier] » dans le plan) : découplage exact du LSM6DSOX (site ST injoignable) et du MAX98357A (schéma d'application non extrait), courant de veille de la variante x3 de l'eFuse, de l'ESP32 et du TPS631000.
+
+**Erreurs de la session** : `pdftoppm` absent (PDF illisibles par l'outil de lecture) → pypdf installé dans le dossier temporaire ; adresses NXP et TI « tps25957 » en 404 ; Analog Devices et ST en délai dépassé (copie Adafruit pour le MAX98357A).
+
+### 21.10.2026 (10ᵉ entrée) — Brochage v2 refait pour le routage ; extendeur adopté
+
+**Demande** : « comme on repart un peu du début », chercher une affectation des GPIO qui donne moins de croisements et de vias au routage, en partant de la v1 et de la répartition recto / verso connue, pour ne pas être bloqué sur les dernières pistes. En cours de route : « n'oublie pas les nouveaux IC et l'extendeur GPIO ».
+
+**Fait** :
+- Relevé de la v1 (`Turret2.kicad_pcb`) : position des pastilles du module (gauche IO0–IO11, bas IO12–IO48, droite IO35–IO42 + UART0 + EN), longueur et vias par signal, pistes et vias au dos sous le module. Constats : servos sortis du côté gauche et faisant le tour (WING_LEFT 106 mm), IO39–IO42 (côté droit, le mieux placé) inutilisées, une vingtaine de pistes au dos sous le module, J16 sous le module.
+- Outil `Turret2_portable/tools/gpio_study/` (`kpcb.py` lecteur de PCB, `gpio_study.py` modèle + recuit simulé, `gpio_draw.py` dessin, README) : lignes droites recto ou verso avec vias, contraintes de l'ESP32-S3 (ADC1, RTC, tactile, pull-up de IO26, glitchs de démarrage), obstacles J16 et antenne, bus gardés groupés.
+- Résultats du modèle : broches v1 reprises 150 croisements / 32 vias / 1057 mm ; variante A sans extendeur 8 / 25 / 1002 mm mais ampli éclaté et 4 passages bloqués ; variante B extendeur en face avant 27 / 24 / 954 mm ; **variante C extendeur TCAL6416 au dos près de l'IMU, retenue : 22 / 25 / 939 mm, 1 passage bloqué, bus groupés**. 16 recherches indépendantes donnent le même brochage C.
+- `docs/carte-v2-plan.md` : §5 réécrit (tableau complet, §5.1 étude, §5.2 règles de placement : dégager le flanc droit du module de SW3 / R14 / C13, ROTATE_X au-dessus de J16, résistances série près des connecteurs, AHCT à portes libres, etc.), §4.9 fiche TCAL6416 (datasheet : RESET à EN, VCCI / VCCP 100 nF, ports en entrée à la mise sous tension), mises à jour des §0, 1, 2, 3, 4, 6, 7, 9 (devient la variante A), 10, 11, 12. Images `docs/img/gpio-v2-avant.png` et `gpio-v2-apres.png`.
+
+**Non vérifié** : adresse I²C du TCAL6416 (figure illisible dans l'extraction ; 0x20 attendu comme le PCAL6416A). Positions des nouvelles pièces = hypothèses : relancer l'outil sur le placement v2.
+
+**Erreurs de la session** : un premier brochage « nettoyé à la main » était moins bon que celui du recuit (36 croisements contre 22 : ordre des NeoPixel et de l'I²S) → abandonné ; « dont 4 ADC1 » écrit à tort (IO2–IO7 sont toutes ADC1), corrigé ; une commande de test écrivait une image à la racine du disque puis la supprimait : bloquée par la sécurité, rien n'a été exécuté, refait dans le dossier temporaire ; un téléchargement en parallèle (`cd X && (curl A) & (curl B)`) a lancé le second curl dans le dossier du dépôt : page « accès refusé » de Mouser enregistrée sous `lsm6dsox.pdf` à la racine, déplacée dans le dossier temporaire ; un script Python passé par heredoc a perdu ses `\` (piège connu) → réécrit dans un fichier.

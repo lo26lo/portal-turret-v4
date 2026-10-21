@@ -4,6 +4,7 @@
 #include "board/Log.h"
 #include "logic/RadarLogic.h"
 #include "pins.h"
+#include "ui/ApertureLogo.h"
 
 namespace {
 const uint8_t LINE_HEIGHT = 10; // 6 lines of the 6x10 font on 64 pixels
@@ -141,8 +142,8 @@ void Display::Draw(const logic::MenuScreen &screen) {
   case logic::Graphic::Qr:
     DrawQr(screen);
     break;
-  case logic::Graphic::Eye:
-    DrawEye(screen);
+  case logic::Graphic::Logo:
+    DrawLogo(screen);
     break;
   default:
     for (uint8_t i = 0; i < logic::SCREEN_LINES; i++) {
@@ -171,7 +172,7 @@ void Display::DrawFrameLines(const logic::MenuScreen &screen) {
   u8g2->drawUTF8(1, 5 * LINE_HEIGHT + 2 + BASELINE, screen.line[5]);
 }
 
-// Front view of the turret: oval body with its eye, and the two side panels
+// Front view of the turret: oval body with its lens, and the two side panels
 // sliding outwards as the wings open (0..100 % = 0..24 pixels); the gun
 // barrels appear in the gap.
 void Display::DrawWings(const logic::MenuScreen &screen) {
@@ -279,34 +280,12 @@ void Display::DrawQr(const logic::MenuScreen &screen) {
   }
 }
 
-// The eye of the turret (normal mode): the pupil follows the target
-// (value[0] = -100 .. 100), value[1] = 0 asleep, 1 awake, 2 angry.
-// Lines 4 and 5 are the subtitles.
-void Display::DrawEye(const logic::MenuScreen &screen) {
-  const int centerX = 64, centerY = 22, rx = 30, ry = 18;
-  int gaze = constrain((int)screen.value[0], -100, 100);
-  int mood = screen.value[1];
-
-  if (mood == 0) {
-    // Closed: the lower lid and a line.
-    u8g2->drawEllipse(centerX, centerY, rx, ry, U8G2_DRAW_LOWER_LEFT | U8G2_DRAW_LOWER_RIGHT);
-    u8g2->drawHLine(centerX - rx, centerY, 2 * rx + 1);
-  } else {
-    u8g2->drawEllipse(centerX, centerY, rx, ry);
-    int pupilX = centerX + gaze * (rx - 12) / 100;
-    int pupilRadius = mood == 2 ? 10 : 8;
-    u8g2->drawDisc(pupilX, centerY, pupilRadius);
-    u8g2->setDrawColor(0);
-    u8g2->drawDisc(pupilX - 3, centerY - 3, 2); // glint
-    u8g2->setDrawColor(1);
-    if (mood == 2) {
-      // Brows slanted towards the centre.
-      for (int t = 0; t < 2; t++) {
-        u8g2->drawLine(centerX - rx, 1 + t, centerX - 6, 8 + t);
-        u8g2->drawLine(centerX + rx, 1 + t, centerX + 6, 8 + t);
-      }
-    }
-  }
+// The aperture logo (normal mode), centred above the subtitles (lines 4 and 5,
+// from y = 42).
+void Display::DrawLogo(const logic::MenuScreen &screen) {
+  u8g2->setBitmapMode(1); // transparent: only the lit pixels are drawn
+  u8g2->drawXBM((128 - ui::APERTURE_LOGO_SIZE) / 2, 0, ui::APERTURE_LOGO_SIZE, ui::APERTURE_LOGO_SIZE,
+                ui::APERTURE_LOGO);
   // Subtitles, centred.
   for (uint8_t i = 4; i < logic::SCREEN_LINES; i++) {
     int width = u8g2->getUTF8Width(screen.line[i]);

@@ -76,7 +76,7 @@ enum class Graphic : uint8_t {
   Radar, // value[0..5] = x, y (mm) of three targets (y <= 0: none), value[6] = range mm, value[7] = half angle deg
   Graph, // data[0..dataLength-1] = samples 0..255, value[0] / value[1] = the two thresholds 0..255
   Qr,    // data = modules, row by row, MSB first; value[0] = modules per side
-  Eye,   // value[0] = gaze -100..100, value[1] = mood (0 asleep, 1 awake, 2 angry)
+  Logo,  // aperture logo (normal mode), lines 4 and 5 = subtitles
 };
 
 struct MenuScreen {

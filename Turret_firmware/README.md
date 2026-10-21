@@ -247,7 +247,7 @@ One interpreter for the console, the buttons and the web page. The web server ru
 
 Plug a 128×64 I²C OLED into the Qwiic port **J11** (3.3 V, shared bus with the IMU; nothing to modify on the board). It is looked for at boot at 0x3C, then 0x3D. The controller cannot be detected: choose it with the `OledType` setting (0 = SSD1306, the 0.96" modules; 1 = SSD1309, the 1.54" modules; 2 = SH1106, the 1.3" modules), then reboot. Menus in French or English (`Language`).
 
-- **SW1 open (normal mode)**: the screen shows **the eye of the turret** (`OledFace`): asleep while idle with nobody in sight, awake with the pupil following the first radar target, angry while it deploys and fires; underneath, subtitles at each change of state ("Target acquired", "Target lost", "Are you still there?"…) and the time. With `OledFace` off: one status page (state, faults, home network address, time). Buttons keep their normal functions.
+- **SW1 open (normal mode)**: the screen shows **the Aperture logo** (`OledFace`, 42 x 42 pixels, `src/ui/ApertureLogo.h`, made by `tools/aperture_logo.py`; it replaced the eye on 21.10.2026); underneath, subtitles at each change of state ("Target acquired", "Target lost", "Are you still there?"…) and the time. With `OledFace` off: one status page (state, faults, home network address, time). Buttons keep their normal functions.
 - **Faults, in both modes**: a fault that appears is shown full screen for 5 s (one line per fault with its name, and the red LED code), then the screen goes back to what it was showing; after that only the red LED keeps signalling it. A key press closes the alert early (debug mode). A fault that clears and comes back is shown again.
 - **SW1 closed at power-up (debug mode)**: the screen shows the menu and the buttons navigate. Without a screen the buttons keep their normal functions, and the same menu is available on the web page (Tests → *Debug screen*) and with the `key` command.
 
@@ -285,7 +285,7 @@ Otherwise (normal mode, or no screen): turn = volume in 5 % steps (turning up wh
 | Information | live pages: state and faults, power (PWR_FLT, counters, reset reason), radar (targets, in the zone or not), IMU, Hall sensors (values with a bar), servos (pulse of each output), audio, network and time; **radar view** (top view: the detection zone as an arc and two lines, full scale 6 m, targets as dots, filled when in the zone); **Hall curves** (left and right: the last 5 s, with the two thresholds as dotted lines); statistics (boots, cycles, targets seen, last cycle); **log** (last four lines); **last crash** (core dump summary, or the last lines before the reset) |
 | Tests | **self-test** quick or full, and its report (below); wings (left / right / both: open, close), guns (left / right: out, in), each servo by steps, LEDs (colours, one strip, one-bit pattern), sound (tone, gunshot, volume, gain, mute), demo cycle, load test, I²C scan, release all servos |
 | Calibration | **guided setup**: seven steps, one instruction per screen (open the left wing by hand, press B…) for the Hall sensors and the IMU; or entry by entry: Hall sensors (capture open / closed for each wing, then save: thresholds at 25 % and 75 %), IMU (the turret stands upright), wing trims (5 µs steps, the wing runs at its stop point for 2 s, hold B to save) |
-| Settings | volume, LED brightness, rest time, detection distance and angle, lab markers, wing animation, eye or status page, screen flipped, contrast, screen-off delay, language |
+| Settings | volume, LED brightness, rest time, detection distance and angle, lab markers, wing animation, logo or status page, screen flipped, contrast, screen-off delay, language |
 | WiFi | pages: turret network (name, **password**, 192.168.4.1, clients), home network (name, state, address and signal, `portal-turret.local`), networks found by the last scan (four strongest), date and time, **QR code to join the turret network** (point the phone camera at it), **QR code of the web page**; actions: scan, reconnect to the home network, forget it, WiFi on / off, factory password for the turret network (next boot). The home network password is typed on the web page, not with two buttons |
 | System | resume (homing), reboot, reset settings, erase core dump |
 
@@ -343,7 +343,7 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `Language` | Display | 1 | 0..1 | language of the debug screen: 0 English, 1 French |
 | `OledType` | Display | 0 | 0..2 | OLED controller: 0 SSD1306 (0.96"), 1 SSD1309 (1.54"), 2 SH1106 (1.3"); applied at the next boot |
 | `OledAnim` | Display | true | true / false | wing animation on the screen while the wings move |
-| `OledFace` | Display | true | true / false | normal mode: the eye and its subtitles (true) or a status page (false) |
+| `OledFace` | Display | true | true / false | normal mode: the Aperture logo and its subtitles (true) or a status page (false) |
 | `OledFlip` | Display | false | true / false | picture turned by 180° |
 | `OledContrast` | Display | 255 | 0..255 | screen contrast |
 | `OledSleepS` | Display | 300 | 0..3600 | screen off after this many seconds without activity (0 = never) |
@@ -370,7 +370,7 @@ Passwords are never sent back by the API nor printed by `get`.
 
 `http://192.168.4.1` (turret network) or `http://portal-turret.local` (home network). User **`turret`**, password **`ApPassword`**. The page is embedded in the firmware (gzip, about 6 kB), needs no Internet and is always the version of the firmware.
 
-Tabs: **Status** (home WiFi card, values refreshed every second, active faults, warning while the factory password is used), **Settings** (generated from the setting table, default button per field, save and reset per group), **Calibration** (Hall capture, IMU axis capture, wing trim sliders), **Tests** (wings, guns, tone, gain, mute, LED colours, any servo, I2C scan, demo, resume, free command line), **Log**, **Maintenance** (firmware upload, reboot, factory reset).
+The header shows the Aperture logo (inline SVG, follows the light / dark theme), also used as the tab icon (orange). Tabs: **Status** (home WiFi card, values refreshed every second, active faults, warning while the factory password is used), **Settings** (generated from the setting table, default button per field, save and reset per group), **Calibration** (Hall capture, IMU axis capture, wing trim sliders), **Tests** (wings, guns, tone, gain, mute, LED colours, any servo, I2C scan, demo, resume, free command line), **Log**, **Maintenance** (firmware upload, reboot, factory reset).
 
 | Method and path | Role |
 |---|---|

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Portal Turret</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cmask id='ap'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3Cg fill='%23000'%3E%3Cpolygon points='69.6,50.0 59.8,67.0 40.2,67.0 30.4,50.0 40.2,33.0 59.8,33.0'/%3E%3Cpolygon points='41.9,64.0 110.0,64.0 110.0,67.0 41.9,67.0'/%3E%3Cpolygon points='33.8,50.0 67.9,109.0 65.3,110.5 31.2,51.5'/%3E%3Cpolygon points='41.9,36.0 7.9,95.0 5.3,93.5 39.3,34.5'/%3E%3Cpolygon points='58.1,36.0 -10.0,36.0 -10.0,33.0 58.1,33.0'/%3E%3Cpolygon points='66.2,50.0 32.1,-9.0 34.7,-10.5 68.8,48.5'/%3E%3Cpolygon points='58.1,64.0 92.1,5.0 94.7,6.5 60.7,65.5'/%3E%3C/g%3E%3C/mask%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e07a10' mask='url(%23ap)'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#f4f4f2;--card:#fff;--fg:#1d1d1f;--muted:#6b6b70;--line:#dcdcdf;--accent:#e07a10;--bad:#c62828;--ok:#2e7d32}
 @media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1f1f23;--fg:#ececef;--muted:#9a9aa2;--line:#34343a;--accent:#f0932b;--bad:#ef5350;--ok:#66bb6a}}
@@ -11,6 +12,7 @@
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 header{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 header h1{font-size:17px;margin:0;flex:1}
+header .logo{width:28px;height:28px;flex:none}
 nav{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg)}
 nav button{white-space:nowrap}
 main{max-width:760px;margin:0 auto;padding:0 16px 40px}
@@ -37,7 +39,7 @@ input[type=range]{width:100%}
 </style>
 </head>
 <body>
-<header><h1>Portal Turret</h1><span id="state" class="badge">…</span><span id="faults"></span></header>
+<header><svg class="logo" viewBox="0 0 100 100" aria-hidden="true"><mask id="ap"><circle cx="50" cy="50" r="50" fill="#fff"/><g fill="#000"><polygon points="69.6,50.0 59.8,67.0 40.2,67.0 30.4,50.0 40.2,33.0 59.8,33.0"/><polygon points="41.9,64.0 110.0,64.0 110.0,67.0 41.9,67.0"/><polygon points="33.8,50.0 67.9,109.0 65.3,110.5 31.2,51.5"/><polygon points="41.9,36.0 7.9,95.0 5.3,93.5 39.3,34.5"/><polygon points="58.1,36.0 -10.0,36.0 -10.0,33.0 58.1,33.0"/><polygon points="66.2,50.0 32.1,-9.0 34.7,-10.5 68.8,48.5"/><polygon points="58.1,64.0 92.1,5.0 94.7,6.5 60.7,65.5"/></g></mask><circle cx="50" cy="50" r="50" fill="currentColor" mask="url(#ap)"/></svg><h1>Portal Turret</h1><span id="state" class="badge">…</span><span id="faults"></span></header>
 <nav id="tabs"></nav>
 <main>
 <div id="cdwarn" class="warn" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>

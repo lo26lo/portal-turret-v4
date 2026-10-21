@@ -44,7 +44,7 @@ private:
   void DrawRadar(const logic::MenuScreen &screen);
   void DrawGraph(const logic::MenuScreen &screen);
   void DrawQr(const logic::MenuScreen &screen);
-  void DrawEye(const logic::MenuScreen &screen);
+  void DrawLogo(const logic::MenuScreen &screen);
 
   U8G2 *u8g2 = nullptr;
   bool present = false;

@@ -59,7 +59,7 @@ Settings::Settings()
           {"OledContrast", "Screen contrast (0..255)", "Display", SettingType::Int, (int32_t)255, (int32_t)0, (int32_t)255},
           // OLEDs burn in: the screen goes off after this time without a key press or activity
           {"OledSleepS", "Screen off after (s, 0 = never)", "Display", SettingType::Int, (int32_t)300, (int32_t)0, (int32_t)3600},
-          {"OledFace", "Eye and subtitles in normal mode", "Display", SettingType::Bool, true},
+          {"OledFace", "Aperture logo and subtitles in normal mode", "Display", SettingType::Bool, true},
       },
       prefsReady(false) {}
 

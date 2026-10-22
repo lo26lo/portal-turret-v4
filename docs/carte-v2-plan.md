@@ -458,6 +458,14 @@ Reprend le §3 d'AMELIORATIONS_V2.md (IMU et ampli au verso, switches de puissan
 - **Points de test** : TP sur 5V_LED, 5V_RADAR, 3V3_HALL, SDA, SCL, IMU_INT1 ; TP2, déjà dans la zone des servos, devient celui de 5V_SERVO ; TP1 (VBUS), TP3 (5V) et TP4 (3V3) restent.
 - **Mesure du courant de veille** : pour la carte entière, fuite des TVS comprise, PPK2 en mode source par l'adaptateur USB-C, comme dans experiments.md. En plus, une **résistance de 0 Ω en 2512** en série juste après D1 / D5, avant l'eFuse, entourée de deux pastilles : on la dessoude pour mesurer sans les TVS (PPK2 en ampèremètre). En place, elle porte les 3 à 4 A des servos : référence donnée pour ≥ 4 A (§3.1).
 - **Version sur la carte** : sérigraphier « v0.2 » (la v0.1 porte « Turret V0.1 »).
+- **Pochoir de la face B avec la face A déjà peuplée** :
+  - **support (jig)** : la carte repose par ses bords et par des plots dans les zones libres de la face A. Hauteur supérieure au plus haut composant de la face A (C26 : 7,7 mm sur la v0.1, donc ~9 mm). Pièce imprimée en 3D avec des poches, ou cadre de chutes de PCB.
+  - **niveau** : le dessus du support affleure la face B, pour que le pochoir reste plan au-delà des bords.
+  - **plots juste sous les zones imprimées**, contre la flexion sous la raclette (pas de 0,5 mm du LGA et du TQFN).
+  - **centrage** par deux goupilles dans H1 / H2, trous repris dans le pochoir.
+  - **placement** : **regrouper les CMS de la face B dans une même zone**, pour pouvoir découper un pochoir partiel et simplifier le support.
+  - **connecteurs traversants** de la face B (J4, J5, J8, J18) au fer, en dernier.
+  - **seringue** à réserver au 0603 et au SOT-23, jamais au LGA ni au TQFN.
 
 ---
 

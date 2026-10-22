@@ -653,6 +653,10 @@ Commit `a4eb329` poussé (correction du flash, LED verte en battement de cœur, 
 
 **Erreurs de la session** : un premier brochage « nettoyé à la main » était moins bon que celui du recuit (36 croisements contre 22 : ordre des NeoPixel et de l'I²S) → abandonné ; « dont 4 ADC1 » écrit à tort (IO2–IO7 sont toutes ADC1), corrigé ; une commande de test écrivait une image à la racine du disque puis la supprimait : bloquée par la sécurité, rien n'a été exécuté, refait dans le dossier temporaire ; un téléchargement en parallèle (`cd X && (curl A) & (curl B)`) a lancé le second curl dans le dossier du dépôt : page « accès refusé » de Mouser enregistrée sous `lsm6dsox.pdf` à la racine, déplacée dans le dossier temporaire ; un script Python passé par heredoc a perdu ses `\` (piège connu) → réécrit dans un fichier.
 
+### 21.10.2026 (11ᵉ entrée) — Push
+
+Commit `0509307` poussé (logo Aperture sur l'OLED et la page web ; plan de la carte v2, brochage refait pour le routage, outil `gpio_study`, images) ; **CI verte** (run 39663277962) : includes, compilation des deux envs, tests natifs, page web. *(Entrée notée localement le 21.10.2026, poussée le 22.10.2026 après les sessions faites sur l'autre poste.)*
+
 ### 22.10.2026 — LED verte : respiration douce
 
 **Demande** : le battement de cœur de la LED verte va trop vite ; l'utilisateur veut l'effet de la LED du PPK2 (« il est parfait »), en piochant si possible dans https://github.com/nordicsemi/pc-nrfconnect-ppk. Effet précisé ensuite : **respiration douce** (fondu continu, montée et descente).
@@ -710,3 +714,14 @@ Commit `a4eb329` poussé (correction du flash, LED verte en battement de cœur, 
 *Puis* (« il manque la taille des pistes et des vias ») : relevé des règles de la v0.1 (classes de nets Power5V 0,8 mm / vias 0,9 / 0,5, Power3V3 0,5, Servo et LEDData 0,3, I2C et I2S 0,25, Audio 0,8, USB 0,2 ; règles `Turret2.kicad_dru` ; cuivre 35 µm sur les 4 couches ; largeurs réellement posées). Guide : étape 4.7 « Classes de nets » (motifs `5V_*`, `VBUS*`, `3V3_*` : sans eux, les nouveaux rails tomberaient à 0,2 mm sans erreur du DRC), labels « _C » côté connecteur des résistances série (étape 1.3), tableau « Avant de router » en phase 6 (largeurs par net d'après IPC-2221 à 10 °C : 2,0 mm pour 4 A au recto, 5,3 mm en couche interne, d'où les zones ; ~1 A par via de 0,9 / 0,5 mm, ≥ 7 à la sortie de SW_SERVO), références des nouvelles pièces à ajouter aux règles « Pas fin ».
 
 *Puis* : **second port I²C J19** demandé par l'utilisateur, Qwiic vertical Adafruit 4328 (lot de 10 ; plan du fabricant : Kaweei CCSH-W10-04-BK-RC, CMS vertical, empreinte du JST SH vertical, 1 A, ~4,6 mm de haut). En parallèle de J11 (1 GND, 2 +3V3, 3 SDA, 4 SCL, relevé dans la netlist), empreinte `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` (présente dans KiCad 10). Plan : §0, §3.1, §6 (pull-ups avec deux modules : ~1,5 kΩ, 2,2 mA), §11 (position et hauteur à décider) ; guide : étapes 1.4, 4.3, 5.3. Refusés par l'utilisateur : la limite de courant de l'eFuse commutable pour protéger le PPK2 (« il faut juste faire attention ») et la TPS22965N (il attend la TPS22965DSGR).
+
+### 22.10.2026 (5ᵉ entrée) — Pochoir de la face B avec la face A peuplée
+
+**Question** : comment poser le second pochoir sur la face B quand la face A est déjà peuplée ?
+
+**Fait** : `docs/carte-v2-plan.md` §8, nouvelle puce (écrite le 21.10.2026 au soir sur le premier poste, fusionnée le 22.10.2026) :
+- support (jig) qui porte la carte par ses bords et par des plots dans les zones libres de la face A, hauteur au-dessus du plus haut composant (~9 mm), dessus au niveau de la face B ;
+- plots sous les zones imprimées et centrage par goupilles dans H1 / H2 ;
+- CMS de la face B regroupés pour un pochoir partiel ;
+- connecteurs traversants au fer en dernier ;
+- pas de seringue pour le LGA ni le TQFN.

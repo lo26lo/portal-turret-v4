@@ -5,6 +5,8 @@
 > Si le projet KiCad maître (hors dépôt) a changé depuis le 25.09.2026, les numéros de composants v0.1 cités ici (R4, C9…) sont à revérifier.
 >
 > **Mis à jour le 21.10.2026 (soir)** : brochage refait pour faciliter le routage, et extendeur de GPIO intégré au plan principal (§4.9, §5). L'étude est reproductible avec `Turret2_portable/tools/gpio_study/`.
+>
+> **Mis à jour le 22.10.2026** : R18 à 100 Ω (changée le 19.10.2026) dans le §5 et le §12 ; LEDs d'état en deep sleep (§1.1) ; total de la veille profonde aligné entre le §1 et le §1.1 ; pièces manquantes ajoutées à la liste d'achat (§3.1).
 
 ---
 
@@ -32,7 +34,7 @@ Sans radar sentinelle, la carte ne peut pas « voir » quelqu'un en deep sleep :
 |---|---|---|---|---|
 | **Actif** | tout | — | — | selon les mouvements (pointes de servos ~3 A) |
 | **Veille radar** | RD-03D, ESP32 (Wi-Fi coupé ou non, CPU ralenti) | servos, anneau LED, capteurs Hall, ampli (SD bas) | une cible du RD-03D, la page web, PROG | **≈ 130–150 mA [estimation]** (radar ~110 mA + ESP32 20–40 mA) |
-| **Veille profonde** | IMU en mode réveil, ESP32 en deep sleep | tout le reste, radar compris | **IMU** (on tape ou on bouge la tourelle) sur IO15 ; **minuterie RTC** ; option **touche tactile** sur IO2 (§5) | **≈ 0,3–0,5 mA** (§1.1) |
+| **Veille profonde** | IMU en mode réveil, ESP32 en deep sleep | tout le reste, radar compris | **IMU** (on tape ou on bouge la tourelle) sur IO15 ; **minuterie RTC** ; option **touche tactile** sur IO2 (§5) | **≈ 0,25–0,35 mA** avec des TVS à faible fuite (§1.1) |
 
 **Option « ronde » en veille profonde** : réveil par minuterie toutes les *T* secondes, radar allumé pendant *t* secondes (le temps de démarrage du RD-03D est à mesurer), puis retour au deep sleep si personne. Moyenne ≈ (110 mA + ~40 mA d'ESP32) × *t* / *T*. Exemple : *t* = 2 s, *T* = 60 s → **≈ 5 mA** ; *T* = 30 s → ≈ 10 mA. Le temps de réaction est alors de *T* au pire.
 
@@ -54,7 +56,7 @@ Exemple d'usage : veille radar le jour, veille profonde la nuit (heure NTP), ré
 | LSM6DSOX en mode réveil | quelques µA à quelques dizaines selon l'ODR | **[à vérifier]** |
 | Résistances de tirage | 0 (EN bas, bus I²C au repos haut) | — |
 | SW1 fermé (R9 10 kΩ) | 330 µA | à éviter : **laisser SW1 ouvert** en usage normal |
-| LEDs d'état D3, D4 | 0 (GPIO non RTC, flottantes en deep sleep) | — |
+| LEDs d'état D3, D4 | 0 si éteintes avant le deep sleep | IO47 (rouge) n'est pas RTC : flottante en deep sleep. IO13 (verte) est RTC : ne pas la maintenir haute (`gpio_hold`, `rtc_gpio`) |
 | Capteurs Hall | **0 si coupés** ; sinon plusieurs mA (capteurs linéaires, modèle à identifier) | d'où le P-MOS `HALL_EN_N` (§2) |
 | Modules Qwiic (OLED, knob) | 0 : **débranchés en usage normal** (debug seulement) | décision de l'utilisateur |
 | **Total** | **≈ 0,25–0,35 mA** avec TVS à faible fuite ; jusqu'à ~1,9 mA dans le pire cas des SMAJ5.0A | |
@@ -115,12 +117,14 @@ Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état 
 | 2 (+2) | 1 nF **25 V X7R** | — | 0603 | CT de SW_LED et SW_RADAR |
 | 3 (+2) | 1 µF 25 V X7R | — | 0603 | CIN des switches (au ras de VIN) |
 | 3 (+2) | 100 nF 25 V X7R | — | 0603 | VBIAS des switches |
-| 3 (+2) | 10 µF 25 V X7R | — | 0805 ou 1206 | sortie 5V_LED, 5V_RADAR ; 10 µF du MAX98357A s'il ne suit pas |
+| 1 (+2) | 100 nF 25 V X7R | — | 0603 | 5V_RADAR, au ras de J5 (§2) |
+| 4 (+2) | 10 µF 25 V X7R | — | 0805 ou 1206 | sortie 5V_LED, 5V_RADAR ; 10 µF du MAX98357A s'il ne suit pas ; 10 µF sur VDD du LSM6DSOX si la datasheet ST le confirme (§4.5) |
 | 12 (+5) | 100 kΩ 1 % | — | 0603 | pull-downs : 3 × EN, 3 × entrées AHCT, 2 × Hall ; pull-up : grille Hall ; réserve |
 | 1 (+2) | 10 kΩ 1 % | — | 0603 | pull-up de IO0 (recommandé par Espressif) |
 | 9 (+3) | 330 Ω | — | 0603 | série : 6 PWM servos, 3 données NeoPixel |
 | 2 (+2) | 1 kΩ | — | 0603 | série : UART du radar |
 | 2 (+1) | TVS 6,5 V | Vishay / Littelfuse **SMAJ6.5A** | SMA (comme D1, D5) | remplace SMAJ5.0A (§7) |
+| 1 (+1) | Résistance 0 Ω, tenue ≥ 4 A | — | 2512 | pont de mesure du courant de veille, en série sur l'entrée de l'eFuse (§8) |
 | 1 | Pâte basse température **Sn42Bi58** | — | seringue | brasage du verso (§6) |
 | 1 | Second pochoir (verso) | JLCPCB | — | brasage du verso |
 
@@ -265,7 +269,7 @@ Côtés du module (antenne en haut, au bord de la carte) : **gauche** IO0–IO11
 | IO10 | gauche | I²S DIN | **HALL_RIGHT** | ADC1 | IE | oui | oui | 100 kΩ → GND près de J18 | au dos sous le module |
 | IO11 | gauche | I²S BCLK | **SCL** | I²C | IE | oui | oui | R15 2,2 kΩ → 3V3 | glitch bas ~60 µs au démarrage : récupération du bus au boot (§10) |
 | IO12 | bas | I²S LRCLK | **SDA** | I²C | IE | oui | oui | R16 2,2 kΩ → 3V3 | idem |
-| IO13 | bas | AMP_SD | **LED verte** | sortie | IE | oui | oui | R18 1 kΩ, D4 juste en dessous | |
+| IO13 | bas | AMP_SD | **LED verte** | sortie | IE | oui | oui | R18 100 Ω, D4 juste en dessous | |
 | IO14 | bas | NEOPIXEL_CENTER | **NEOPIXEL_RIGHT** | sortie | IE | oui | oui | 100 kΩ → GND à l'entrée de l'AHCT | au dos, sous l'USB |
 | IO15 | bas | NEOPIXEL_LEFT | **IMU_INT1** | entrée | — | oui | — | — (INT1 en push-pull) | **réveil EXT1** (ANY_HIGH) ; broche XTAL_32K_P (pas de quartz 32 kHz) |
 | IO16 | bas | NEOPIXEL_RIGHT | **NEOPIXEL_LEFT** | sortie | — | oui | — | 100 kΩ → GND à l'entrée de l'AHCT | broche XTAL_32K_N |
@@ -472,7 +476,7 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 | Extendeur en variante (§2.9), réveil par son INT sur IO3 | **adopté**, au dos près de l'IMU, pour les 4 commandes ; IMU_INT1 reste en direct sur IO15 | brochage refait pour le routage (§5.1) ; plus de sentinelle, donc l'INT de l'extendeur ne sert pas au réveil |
 | Brochage v1 conservé hors ampli (§2.6) | **brochage entièrement refait** | 150 → 22 croisements, 1057 → 939 mm de piste dans le modèle (§5.1) |
 | Capteurs Hall non traités | coupés par AO3401A | plusieurs mA permanents sinon |
-| LEDs d'état « ~3 mA chacune » | ~1–2 mA (680 Ω et 1 kΩ sous 3,3 V) | calcul sur R12 / R18 |
+| LEDs d'état « ~3 mA chacune » | rouge ~2 mA (R12 680 Ω) ; verte 3 à 13 mA (R18 100 Ω depuis le 19.10.2026) | calcul sous 3,3 V sur R12 / R18 |
 | — | résistances série, pull-up IO0, TVS, points de test, pont de mesure | protection et mesure |
 
 ---

@@ -100,7 +100,8 @@ void setup() {
   }
   light.ApplySettings(settings, board.IsReducedMode());
   // L1: from here on, each step can toggle the green LED (lab markers).
-  board.SetLabMarkers(settings.GetBool(SettingId::LabMarkers));
+  // Also the status LED modes, used once the boot is done.
+  board.ApplySettings(settings);
   if (!LittleFS.begin(false)) {
     Log.println("LittleFS: mount failed (filesystem image not uploaded?)");
     board.SetFault(Fault::LittleFs, true);

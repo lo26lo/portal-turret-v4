@@ -8,9 +8,33 @@ const size_t NVS_KEY_MAX = 15;
 
 SettingValue::SettingValue(const char *v) { strlcpy(valueString, v, SETTING_STRING_MAX); }
 
-SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min), max(max) {}
+SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min), max(max), options(nullptr) {}
 
-SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min((int32_t)0), max((int32_t)0) {}
+SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max, const char *options) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min), max(max), options(options) {}
+
+SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min((int32_t)0), max((int32_t)0), options(nullptr) {}
+
+bool OptionName(const char *options, int32_t index, char *out, size_t size) {
+  if (options == nullptr || index < 0 || size == 0) {
+    return false;
+  }
+  const char *start = options;
+  for (int32_t i = 0; i < index; i++) {
+    start = strchr(start, '|');
+    if (start == nullptr) {
+      return false;
+    }
+    start++;
+  }
+  const char *end = strchr(start, '|');
+  size_t length = end ? (size_t)(end - start) : strlen(start);
+  if (length >= size) {
+    length = size - 1;
+  }
+  memcpy(out, start, length);
+  out[length] = '\0';
+  return true;
+}
 
 // The rows must stay in the same order as SettingId.
 Settings::Settings()
@@ -40,6 +64,12 @@ Settings::Settings()
           {"LedBright", "LED brightness (0..255)", "Lights", SettingType::Int, (int32_t)255, (int32_t)0, (int32_t)255},
           // FastLED power cap on the 5 V rail: 13 LEDs at full white draw ~0.8 A
           {"LedMaxmA", "LED current limit (mA)", "Power", SettingType::Int, (int32_t)500, (int32_t)100, (int32_t)1500},
+          // Status LEDs on the board, after boot (during boot both stay on: LED test).
+          // Options in the order of logic::GreenLedMode / logic::RedLedMode.
+          {"GreenLedMode", "Green LED", "Status LEDs", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)3, "Breathing|Heartbeat|Steady|Off"},
+          {"GreenLedPeriod", "Green LED: one breath or heartbeat (ms)", "Status LEDs", SettingType::Int, (int32_t)4000, (int32_t)1000, (int32_t)10000},
+          {"GreenLedBright", "Green LED brightness (%)", "Status LEDs", SettingType::Int, (int32_t)100, (int32_t)1, (int32_t)100},
+          {"RedLedMode", "Red LED", "Status LEDs", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2, "Fault codes|On while a fault is active|Off"},
           // D7. Group "WiFi" = applied at the next boot. Passwords: 8..63 chars (WPA2).
           {"ApSsid", "Access point name", "WiFi", SettingType::Str, "Portal Turret"},
           {"ApPassword", "Access point and web password (8..63)", "WiFi", SettingType::Str, "stillalive"},
@@ -289,6 +319,17 @@ bool ParseBool(const char *text) {
   return strcasecmp(text, "true") == 0 || strcasecmp(text, "on") == 0 ||
          strcmp(text, "1") == 0;
 }
+
+// Index of the option named text (any case), -1 if none.
+int32_t OptionIndex(const char *options, const char *text) {
+  char name[SETTING_STRING_MAX];
+  for (int32_t i = 0; OptionName(options, i, name, sizeof(name)); i++) {
+    if (strcasecmp(name, text) == 0) {
+      return i;
+    }
+  }
+  return -1;
+}
 } // namespace
 
 bool Settings::SetFromString(SettingId id, const char *text) {
@@ -298,6 +339,22 @@ bool Settings::SetFromString(SettingId id, const char *text) {
   }
   switch (entry->type) {
   case SettingType::Int:
+    // A choice takes its option name ("set GreenLedMode off") or its number,
+    // nothing else: "off" must not silently become 0.
+    if (entry->options != nullptr) {
+      int32_t index = OptionIndex(entry->options, text);
+      if (index >= 0) {
+        return Set(id, index);
+      }
+      char *end = nullptr;
+      long number = strtol(text, &end, 10);
+      if (end == text || *end != '\0') {
+        Log.print("Settings: unknown option for ");
+        Log.println(entry->key);
+        return false;
+      }
+      return Set(id, (int32_t)number);
+    }
     return Set(id, (int32_t)strtol(text, nullptr, 10));
   case SettingType::Float:
     return Set(id, (float)strtod(text, nullptr));

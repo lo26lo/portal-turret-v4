@@ -55,7 +55,7 @@ def parse_settings():
     """Rows of the Settings constructor: {"Key", "Label", "Group", SettingType::X, ...}."""
     source = open(SETTINGS_CPP, encoding="utf-8").read()
     rows = []
-    pattern = re.compile(r'\{"(\w+)",\s*"([^"]*)",\s*"(\w+)",\s*SettingType::(\w+),\s*([^{}]*?)\}')
+    pattern = re.compile(r'\{"(\w+)",\s*"([^"]*)",\s*"([^"]+)",\s*SettingType::(\w+),\s*([^{}]*?)\}')
     for key, label, group, kind, rest in pattern.findall(source):
         values = [v.strip() for v in rest.split(",")]
         entry = {"key": key, "label": label, "group": group, "type": kind.lower().replace("str", "string")}
@@ -72,6 +72,8 @@ def parse_settings():
             entry["default"] = num(values[0])
             entry["min"] = num(values[1])
             entry["max"] = num(values[2])
+            if len(values) > 3:  # a choice: "A|B|C" names the values 0..n-1
+                entry["options"] = values[3].strip('"').split("|")
         entry["value"] = entry["default"]
         entry["reboot"] = group == "WiFi"
         if key in ("ApPassword", "StaPassword"):
@@ -267,6 +269,16 @@ def set_value(key, text):
         entry["value"] = text[:63]
     elif entry["type"] == "bool":
         entry["value"] = text.lower() in ("true", "on", "1")
+    elif "options" in entry:  # a choice: its name (any case) or its number, nothing else
+        names = [o.lower() for o in entry["options"]]
+        if text.lower() in names:
+            value = names.index(text.lower())
+        else:
+            try:
+                value = int(text)
+            except ValueError:
+                return f"refused: {entry['key']}"
+        entry["value"] = max(entry["min"], min(entry["max"], value))
     else:
         try:
             value = float(text) if entry["type"] == "float" else int(float(text))

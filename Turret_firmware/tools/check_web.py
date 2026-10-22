@@ -72,7 +72,7 @@ def main():
         check("page served", code == 200 and "<script>" in body, code)
 
         settings_cpp = open(os.path.join(ROOT, "src", "settings", "Settings.cpp"), encoding="utf-8").read()
-        expected = len(re.findall(r'\{"\w+",\s*"[^"]*",\s*"\w+",\s*SettingType::', settings_cpp))
+        expected = len(re.findall(r'\{"\w+",\s*"[^"]*",\s*"[^"]+",\s*SettingType::', settings_cpp))
         code, body, _ = request(base, "/api/settings")
         rows = json.loads(body)
         check("all settings listed", len(rows) == expected, f"{len(rows)} of {expected}")
@@ -80,13 +80,20 @@ def main():
         keys = [r["key"] for r in rows]
         check("NVS keys at most 15 characters", all(len(k) <= 15 for k in keys), [k for k in keys if len(k) > 15])
         check("keys unique", len(set(keys)) == len(keys))
+        choices = [r for r in rows if "options" in r]
+        check("choices listed (status LEDs)", {"GreenLedMode", "RedLedMode"} <= {r["key"] for r in choices})
+        bad_choices = [r["key"] for r in choices if r["min"] != 0 or r["max"] != len(r["options"]) - 1]
+        check("each choice has one option per value", not bad_choices, bad_choices)
 
-        request(base, "/api/settings", {"Volume": "150", "ApPassword": "short"})
+        request(base, "/api/settings", {"Volume": "150", "ApPassword": "short", "GreenLedMode": "off", "RedLedMode": "maybe"})
         _, body, _ = request(base, "/api/settings")
         values = {r["key"]: r["value"] for r in json.loads(body)}
         check("values clamped", values.get("Volume") == 100, values.get("Volume"))
+        check("choice set by its name", values.get("GreenLedMode") == 3, values.get("GreenLedMode"))
+        check("unknown choice ignored", values.get("RedLedMode") == 0, values.get("RedLedMode"))
         _, log, _ = request(base, "/api/log")
         check("short password refused", "refused: ApPassword" in log)
+        check("unknown choice refused", "refused: RedLedMode" in log)
 
         code, _, _ = request(base, "/api/action", {"cmd": "wings open"})
         check("action queued", code == 202, code)

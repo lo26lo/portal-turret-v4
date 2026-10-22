@@ -14,15 +14,19 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
    - poste du 17.10.2026 : PlatformIO hors du PATH → `%USERPROFILE%\.platformio\penv\Scripts\pio.exe`, et son `python.exe` pour pyserial ; carte sur **COM3** ;
    - poste du 19.10.2026 : `pio` dans le PATH (`C:\DATA\python3\Scripts\pio.exe`, cœur PlatformIO dans `C:\DATA\platformio`), pyserial dans `C:\DATA\python3\python.exe` ; carte sur **COM5**.
 
-## État actuel — 21.10.2026
+## État actuel — 22.10.2026
 
+- **22.10.2026** :
+  - **LEDs d'état** : la verte respire en douceur (sigma-delta, commit `d72c334`, flashée et vue sur la carte). Puis réglages *Status LEDs* sur la page web : mode de la verte (respiration, battement, fixe, éteinte), sa période et sa luminosité, mode de la rouge (codes de défaut, allumée tant qu'un défaut est actif, éteinte), en listes déroulantes. Compilés et vérifiés avec `tools/check_web.py`, **pas encore flashés**.
+  - **Carte v2** : plan revu avant gel ; guide pas à pas [carte-v2-kicad.md](carte-v2-kicad.md). Le travail dans KiCad se fera sur le PC du projet maître.
+  - **CI verte** sur `ce99340` (run 39743050619) : le nouveau `test_heartbeat` y est passé.
 - **21.10.2026** :
   - **Deuxième carte** : composants chers transférés, même ESP32. Démarre, IMU saine après les soudures ; un pont U6 9–10 est sans effet. Capteurs Hall pas encore branchés.
   - **Firmware** : logo Aperture à la place de l'œil (OLED) et sur la page web, flashé sur COM3. Logo **pas encore vu sur l'écran** (SW1 était fermé).
   - **Carte v2** : plan matériel complet dans [carte-v2-plan.md](carte-v2-plan.md), avec un brochage refait pour le routage et l'outil `Turret2_portable/tools/gpio_study/`. Le document de l'utilisateur [AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) est corrigé et renvoie au plan.
   - Le tout est poussé avec ce fichier.
 - **GitHub, avant le 21.10.2026** : `main` = commit du 19.10.2026 « OLED: boot no longer hangs in U8g2 begin; 5 s fault alert » (correction de l'écran, alerte de défaut, ce fichier), après `a4eb329` (flash corrigé + battement de cœur) ; CI verte (run 39216617348), `test_heartbeat` et `test_fault_alert` compris. Puis commit « Rotary encoder, factory reset with SW1 + PROG, Qwiic module plan » : l'encodeur rotatif I²C (Q1 : `sensors/RotaryEncoder`, commande `volume`, touches d'encodeur du menu, tests `test_menu_encoder` et `test_volume_screen`) et la remise à zéro par SW1 + PROG (Q2 : commande `factory-reset`, tests `test_reset_gesture` et `test_factory_reset_screen`) — compilés, poussés à la demande de l'utilisateur **sans avoir été flashés** (carte débranchée), aucun encodeur encore reçu. Puis commit « Factory reset checked on the board, inputs command, LED resistor docs » : Q2 vérifié, commande `inputs`, docs des résistances de LED (R18 100 Ω). Les fichiers KiCad modifiés dans `Turret2_portable/` ne sont **pas** commités (copie portable, le maître est hors du dépôt).
-- **Firmware** : lots 1 à 12 du plan + améliorations **I1, I2, IL, IM** faits et poussés ; 25 tests natifs et `tools/check_web.py` (40 vérifications) ; `test_heartbeat` pas encore vu passer dans la CI. Restent **I3** (B1 visée, B3 mode recherche, C1 vue radar de la page web ; la vue radar existe déjà sur l'OLED), **I4** et **I5**.
+- **Firmware** : lots 1 à 12 du plan + améliorations **I1, I2, IL, IM** faits et poussés ; 32 tests natifs et `tools/check_web.py` (45 vérifications, le 22.10.2026). Restent **I3** (B1 visée, B3 mode recherche, C1 vue radar de la page web ; la vue radar existe déjà sur l'OLED), **I4** et **I5**.
 - **Carte réelle** : **première carte flashée le 17.10.2026** (env `turret2_bringup`, `upload` + `uploadfs` par l'USB natif) ; elle démarre et la console répond. Auto-test rapide : 9 OK, **1 échec (radar : aucune trame)**, 9 non faits. **19.10.2026 : écran OLED 0,96" (SSD1306, `OledType` 0) sur J11 vu fonctionner** en mode normal, après correction d'un blocage au boot (voir « Erreurs »). Avancement de la mise en service : colonne « État » de [firmware-plan.md](firmware-plan.md) §8.
 - **Jamais vu sur le matériel** : les menus du mode debug sur l'écran (SW1 fermé), le son, les LEDs, les mouvements des servos et des ailes, la page web sur un vrai téléphone.
 - **Prochaine action** (dans l'ordre) :
@@ -679,3 +683,16 @@ Commit `a4eb329` poussé (correction du flash, LED verte en battement de cœur, 
 **Puis** : guide pas à pas pour faire la v2 dans KiCad, `docs/carte-v2-kicad.md` (phases 0 à 7, points de contrôle vérifiés avec `kicad-cli`, KiCad 10.0.6 installé). Relevé de la v0.1 pour l'écrire : ERC de départ à 28 avertissements, aucun bloquant (18 symboles LCSC sans librairie, 5 écarts de symbole, 4 croix « non connecté » au bout des fils de IO39–IO42, 1 pad de l'ampli) ; membres du +5V ; nets de chaque broche de l'ESP32 ; TPS22965 absent des librairies de KiCad 10 (PCAL6416APW et AO3401A présents) ; H1, H2 et le logo « carte uniquement » ; écarts de nomenclature de la v0.1 (C27 : valeur 1 µF mais référence d'un 100 nF ; R1, R2, R8, C14, C17 : références 0402 sur des empreintes 0603) ; J2 (TC2050-IDC) relié à rien et absent du PCB.
 
 **Erreurs de la session** : le 100 nF « 5V_RADAR » ajouté le matin à la liste d'achat était de trop (C29 existe déjà à côté de J5) → retiré à la revue ; la 0 Ω 2512, ajoutée sans courant nominal, a été retirée puis remise avec la condition ≥ 4 A ; un `python -` sans interpréteur valide a bloqué une commande (arrêtée) ; l'outil de lecture ne rend pas les pages d'un gros PDF (pdftoppm absent) → page extraite seule avec pypdf, puis lue.
+
+### 22.10.2026 (3ᵉ entrée) — Réglages des LEDs d'état sur la page web
+
+**Demande** : « dans les paramètres web, choisir la vitesse de la LED verte et les actions de la LED rouge, ou alors l'éteindre, etc. » (carte v0.1).
+
+**Fait** :
+- 4 réglages, groupe **Status LEDs** : `GreenLedMode` (0 respiration, 1 battement, 2 fixe, 3 éteinte), `GreenLedPeriod` (1000–10 000 ms, 4000 par défaut : un souffle ou un battement), `GreenLedBright` (1–100 %), `RedLedMode` (0 codes de défaut, 1 allumée tant qu'un défaut est actif, 2 éteinte). Appliqués tout de suite (`Board::ApplySettings`, qui reprend aussi `LabMarkers`).
+- **Réglages « choix »** : nouveau champ `options` de `SettingsEntry` (« A|B|C »), envoyé par `/api/settings` ; la page en fait une **liste déroulante** ; la console accepte le numéro ou le nom (`set GreenLedMode off`) et refuse le reste (« off » ne devient plus 0 en silence) ; `get` affiche le nom entre parenthèses.
+- Logique pure (`BoardLogic.h`) : `BreathLevel`, `HeartbeatOn` (retour du battement, période réglable), `ScaleLevel`, `GreenLedLevel` ; tests `test_breath_level`, `test_heartbeat`, `test_green_led_level` (32 tests natifs).
+- Inchangés : les deux LEDs allumées pendant le boot (test des LEDs), le clignotement du geste de remise à zéro et `LabMarkers`, prioritaires sur les réglages.
+- `tools/mock_server.py` (groupes avec espace, choix) et `tools/check_web.py` (5 vérifications de plus : 45) ; README (LEDs, réglages, API, console).
+
+**Vérifié** : compilation `turret2` OK (RAM 25,6 %, flash 46,9 %) ; `check_web.py` : tout passe, syntaxe JavaScript de la page comprise. **Non vérifié** : tests natifs (CI), page sur la carte.

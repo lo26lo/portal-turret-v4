@@ -71,15 +71,57 @@ inline uint8_t LowestFault(uint8_t faults) {
   return 0;
 }
 
-// Green LED after boot: a slow, smooth breath (like the PPK2's LED), one every
-// HEARTBEAT_PERIOD_MS, from off at t = 0 to full at half the period. Brightness
-// 0..255 at time now (ms): a raised cosine, squared because the eye sees small
-// changes at low light much more than at full light.
-const uint32_t HEARTBEAT_PERIOD_MS = 4000;
-inline uint8_t HeartbeatLevel(uint32_t now) {
-  uint32_t t = now % HEARTBEAT_PERIOD_MS;
-  float s = 0.5f - 0.5f * cosf(6.2831853f * (float)t / (float)HEARTBEAT_PERIOD_MS);
+// Status LEDs after boot: values of the settings GreenLedMode and RedLedMode
+// (same order as their option lists in settings/Settings.cpp).
+enum class GreenLedMode : uint8_t { Breathing, Heartbeat, Steady, Off };
+enum class RedLedMode : uint8_t { FaultCodes, Steady, Off };
+
+// Shortest period accepted (ms): the two beats of the heartbeat take 350 ms.
+const uint32_t MIN_LED_PERIOD_MS = 400;
+
+// Breathing (like the PPK2's LED): from off at t = 0 to full at half the
+// period. Brightness 0..255 at time now (ms): a raised cosine, squared because
+// the eye sees small changes at low light much more than at full light.
+inline uint8_t BreathLevel(uint32_t now, uint32_t periodMs) {
+  if (periodMs < MIN_LED_PERIOD_MS) {
+    periodMs = MIN_LED_PERIOD_MS;
+  }
+  uint32_t t = now % periodMs;
+  float s = 0.5f - 0.5f * cosf(6.2831853f * (float)t / (float)periodMs);
   return (uint8_t)(s * s * 255.0f + 0.5f);
+}
+
+// Heartbeat: two short beats ("lub-dub", 100 ms at 0 and at 250 ms), then a
+// rest until the end of the period. True while the LED is on.
+inline bool HeartbeatOn(uint32_t now, uint32_t periodMs) {
+  if (periodMs < MIN_LED_PERIOD_MS) {
+    periodMs = MIN_LED_PERIOD_MS;
+  }
+  uint32_t t = now % periodMs;
+  return t < 100 || (t >= 250 && t < 350);
+}
+
+// A brightness 0..255 scaled by percent (0..100), rounded.
+inline uint8_t ScaleLevel(uint8_t level, uint8_t percent) {
+  if (percent > 100) {
+    percent = 100;
+  }
+  return (uint8_t)(((uint16_t)level * percent + 50) / 100);
+}
+
+// Green LED brightness 0..255 at time now, for a mode, a period and a maximum brightness (%).
+inline uint8_t GreenLedLevel(GreenLedMode mode, uint32_t now, uint32_t periodMs, uint8_t percent) {
+  switch (mode) {
+  case GreenLedMode::Breathing:
+    return ScaleLevel(BreathLevel(now, periodMs), percent);
+  case GreenLedMode::Heartbeat:
+    return HeartbeatOn(now, periodMs) ? ScaleLevel(255, percent) : 0;
+  case GreenLedMode::Steady:
+    return ScaleLevel(255, percent);
+  case GreenLedMode::Off:
+    break;
+  }
+  return 0;
 }
 
 // Factory reset with the board's own controls, no screen needed: SW1 closed

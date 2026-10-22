@@ -133,22 +133,53 @@ void test_lowest_fault() {
   TEST_ASSERT_EQUAL_UINT8(6, logic::LowestFault(0x20));
 }
 
-void test_heartbeat() {
-  TEST_ASSERT_EQUAL_UINT8(0, logic::HeartbeatLevel(0));      // off
-  TEST_ASSERT_EQUAL_UINT8(64, logic::HeartbeatLevel(1000));  // quarter: half of the cosine, squared
-  TEST_ASSERT_EQUAL_UINT8(255, logic::HeartbeatLevel(2000)); // full
-  TEST_ASSERT_EQUAL_UINT8(64, logic::HeartbeatLevel(3000));  // same way down
-  TEST_ASSERT_EQUAL_UINT8(0, logic::HeartbeatLevel(4000));   // next period
+void test_breath_level() {
+  TEST_ASSERT_EQUAL_UINT8(0, logic::BreathLevel(0, 4000));      // off
+  TEST_ASSERT_EQUAL_UINT8(64, logic::BreathLevel(1000, 4000));  // quarter: half of the cosine, squared
+  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(2000, 4000)); // full
+  TEST_ASSERT_EQUAL_UINT8(64, logic::BreathLevel(3000, 4000));  // same way down
+  TEST_ASSERT_EQUAL_UINT8(0, logic::BreathLevel(4000, 4000));   // next period
+  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(1000, 2000)); // faster breath: full at 1 s
   // Smooth: rises without a step back, at most a few levels per 10 ms (one loop).
   uint8_t previous = 0;
   for (uint32_t t = 10; t <= 2000; t += 10) {
-    uint8_t level = logic::HeartbeatLevel(t);
+    uint8_t level = logic::BreathLevel(t, 4000);
     TEST_ASSERT_TRUE(level >= previous);
     TEST_ASSERT_TRUE(level - previous <= 4);
     previous = level;
   }
-  TEST_ASSERT_EQUAL_UINT8(0, logic::HeartbeatLevel(4294964000u));    // 4000 * 1073741: still in phase
-  TEST_ASSERT_EQUAL_UINT8(255, logic::HeartbeatLevel(4294966000u));  // 2000 ms into that period
+  TEST_ASSERT_EQUAL_UINT8(0, logic::BreathLevel(4294964000u, 4000));    // 4000 * 1073741: still in phase
+  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(4294966000u, 4000));  // 2000 ms into that period
+  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(200, 0));             // period 0 read as 400 ms
+}
+
+void test_heartbeat() {
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(0, 1200));    // first beat
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(99, 1200));
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(100, 1200)); // gap
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(249, 1200));
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(250, 1200));  // second beat
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(349, 1200));
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(350, 1200)); // rest
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(1199, 1200));
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(1200, 1200)); // next period
+  TEST_ASSERT_FALSE(logic::HeartbeatOn(3999, 4000)); // a longer rest with a longer period
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(4000, 4000));
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(400, 100));    // period below 350 ms read as 400 ms
+}
+
+void test_green_led_level() {
+  using M = logic::GreenLedMode;
+  TEST_ASSERT_EQUAL_UINT8(255, logic::ScaleLevel(255, 100));
+  TEST_ASSERT_EQUAL_UINT8(128, logic::ScaleLevel(255, 50));
+  TEST_ASSERT_EQUAL_UINT8(0, logic::ScaleLevel(1, 1));
+  TEST_ASSERT_EQUAL_UINT8(255, logic::ScaleLevel(255, 200)); // above 100 % read as 100 %
+  TEST_ASSERT_EQUAL_UINT8(255, logic::GreenLedLevel(M::Breathing, 2000, 4000, 100));
+  TEST_ASSERT_EQUAL_UINT8(128, logic::GreenLedLevel(M::Breathing, 2000, 4000, 50));
+  TEST_ASSERT_EQUAL_UINT8(255, logic::GreenLedLevel(M::Heartbeat, 50, 1200, 100));
+  TEST_ASSERT_EQUAL_UINT8(0, logic::GreenLedLevel(M::Heartbeat, 500, 1200, 100));
+  TEST_ASSERT_EQUAL_UINT8(77, logic::GreenLedLevel(M::Steady, 123, 4000, 30));
+  TEST_ASSERT_EQUAL_UINT8(0, logic::GreenLedLevel(M::Off, 2000, 4000, 100));
 }
 
 void test_reset_gesture() {
@@ -674,7 +705,9 @@ int main() {
   RUN_TEST(test_button_long_press_once);
   RUN_TEST(test_button_held_at_boot);
   RUN_TEST(test_lowest_fault);
+  RUN_TEST(test_breath_level);
   RUN_TEST(test_heartbeat);
+  RUN_TEST(test_green_led_level);
   RUN_TEST(test_amp_gain_rounding);
   return UNITY_END();
 }

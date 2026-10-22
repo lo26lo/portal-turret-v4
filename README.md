@@ -125,7 +125,7 @@ The order of the firmware plan §3.2: outputs to a safe state within a few milli
 | A + B held at power-up | all settings back to their defaults (WiFi password included) |
 | SW1 closed at power-up | debug mode: the turret never fires by itself, one servo at a time (all of them once a 3 A supply is declared); with a 128×64 I²C OLED on the Qwiic port J11, buttons A and B drive a menu of information pages, tests and calibration (French or English) |
 
-Green LED: steady during boot, then a slow breath (4 s). Red LED: steady during boot, then a blink code, lowest number first: 1 brownout / reboot loop, 2 eFuse fault, 3 IMU missing, 4 radar silent, 5 Hall sensor stuck, 6 LittleFS not mounted.
+Green LED: steady during boot, then a slow breath (4 s). Red LED: steady during boot, then a blink code, lowest number first: 1 brownout / reboot loop, 2 eFuse fault, 3 IMU missing, 4 radar silent, 5 Hall sensor stuck, 6 LittleFS not mounted. Both can be changed in the web settings (*Status LEDs*): green breathing, heartbeat, steady or off, with its speed and brightness; red fault codes, on while a fault is active, or off.
 
 ### Web page and console
 

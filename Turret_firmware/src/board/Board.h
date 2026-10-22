@@ -5,6 +5,8 @@
 
 #include "logic/BoardLogic.h"
 
+class Settings;
+
 // Turret2 board services (docs/firmware-plan.md §3.2 step 1, §4, D1, D3, D4, D5):
 // safe state of the outputs, reset reason, reboot-loop detection, status LEDs,
 // buttons, SW1 (bench mode) and the eFuse fault line.
@@ -48,8 +50,12 @@ public:
   void Begin();
   // Once Serial is up: reset reason, SW1, PWR_FLT, flash / PSRAM, counters.
   void PrintBanner();
-  // End of the boot sequence: green LED to heartbeat, red LED to fault codes.
+  // End of the boot sequence: the status LEDs leave their boot test (both on)
+  // and follow their settings.
   void BootDone();
+  // Status LED settings (GreenLedMode, GreenLedPeriod, GreenLedBright,
+  // RedLedMode) and LabMarkers. Again after every setting change.
+  void ApplySettings(const Settings &settings);
   void Update(ulong deltaTime);
 
   // D1, SW1 closed at boot: debug mode (formerly "bench mode"): the state
@@ -131,6 +137,10 @@ private:
   bool labMarkers = false;
   bool markerLevel = false;
   bool greenModulated = false; // pin routed to the sigma-delta modulator
+  logic::GreenLedMode greenMode = logic::GreenLedMode::Breathing;
+  uint32_t greenPeriodMs = 4000;
+  uint8_t greenPercent = 100;
+  logic::RedLedMode redMode = logic::RedLedMode::FaultCodes;
 
   logic::ResetGesture resetGesture;
   bool resetRequested = false;

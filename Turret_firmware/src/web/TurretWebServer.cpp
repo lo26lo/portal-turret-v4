@@ -99,6 +99,18 @@ String ToJson(Settings* settings) {
       json += ",\"max\":";
       AppendValue(json, entry.type, entry.max);
     }
+    // A choice: the names of values 0..n-1 (the page shows a drop-down list).
+    if (entry.options != nullptr) {
+      json += ",\"options\":[";
+      char name[SETTING_STRING_MAX];
+      for (int32_t n = 0; OptionName(entry.options, n, name, sizeof(name)); n++) {
+        if (n > 0) {
+          json += ',';
+        }
+        AppendEscaped(json, name);
+      }
+      json += ']';
+    }
     json += ",\"reboot\":";
     json += strcmp(entry.group, "WiFi") == 0 ? "true" : "false";
     if (secret) {

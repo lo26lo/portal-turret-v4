@@ -24,6 +24,10 @@ enum SettingId {
   ServoIdleMs,
   LedBright,
   LedMaxmA,
+  GreenLedMode,
+  GreenLedPeriod,
+  GreenLedBright,
+  RedLedMode,
   ApSsid,
   ApPassword,
   StaSsid,
@@ -67,6 +71,9 @@ class SettingsEntry {
 public:
   // Numeric settings: min/max bound the value.
   SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max);
+  // Int setting that picks one of a list: values 0..n-1 name the options,
+  // separated by '|' (min must be 0 and max n-1).
+  SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max, const char *options);
   // Bool and string settings: no meaningful range.
   SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue);
 
@@ -78,7 +85,11 @@ public:
   SettingValue defaultValue;
   SettingValue min;
   SettingValue max;
+  const char *options; // "A|B|C" for a choice (web page: a drop-down list), else nullptr
 };
+
+// Name of option `index` of an options string "A|B|C" into out; false if there is none.
+bool OptionName(const char *options, int32_t index, char *out, size_t size);
 
 class Settings {
 public:

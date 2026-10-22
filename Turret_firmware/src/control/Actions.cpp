@@ -178,7 +178,7 @@ void Actions::ApplyAllSettings() {
   turret->gantry.ApplySettings();
   turret->audio.ApplySettings();
   turret->light.ApplySettings(turret->settings, turret->board.IsReducedMode());
-  turret->board.SetLabMarkers(turret->settings.GetBool(SettingId::LabMarkers));
+  turret->board.ApplySettings(turret->settings);
   if (settingsListener) {
     settingsListener();
   }
@@ -878,7 +878,15 @@ String Actions::GetCommand(const String &args) {
     }
     out += String(entry.key) + " = ";
     switch (entry.type) {
-    case SettingType::Int: out += String(entry.value.valueInt); break;
+    case SettingType::Int:
+      out += String(entry.value.valueInt);
+      if (entry.options != nullptr) {
+        char name[SETTING_STRING_MAX];
+        if (OptionName(entry.options, entry.value.valueInt, name, sizeof(name))) {
+          out += String(" (") + name + ")";
+        }
+      }
+      break;
     case SettingType::Float: out += String(entry.value.valueFloat, 3); break;
     case SettingType::Bool: out += Bool(entry.value.valueBool); break;
     case SettingType::Str:

@@ -178,8 +178,9 @@ async function loadSettings(){
  $("#settings").innerHTML=Object.entries(groups).map(([g,items])=>`<div class="card" data-g="${esc(g)}"><h2>${esc(g)}</h2>`+
   items.map(s=>{const t=s.secret?"password":s.type=="string"?"text":"number";
    const lim=s.min!==undefined?` min="${s.min}" max="${s.max}"`:"";
-   const inp=s.type=="bool"?`<input type="checkbox" data-k="${s.key}" ${s.value?"checked":""}>`:`<input type="${t}" data-k="${s.key}" value="${esc(s.value)}"${lim}${s.secret?' placeholder="unchanged"':""}>`;
-   return `<div class="field"><label>${esc(s.label)}</label><span>${inp} ${s.secret?"":`<button data-def="${s.key}" title="default">↺</button>`}</span><small>${s.key}${s.secret?"":" · default "+esc(s.default)}${s.min!==undefined?" · "+s.min+"…"+s.max:""}${s.reboot?" · applied at the next boot":""}</small></div>`}).join("")+
+   const inp=s.options?`<select data-k="${s.key}">${s.options.map((o,n)=>`<option value="${n}"${n==s.value?" selected":""}>${esc(o)}</option>`).join("")}</select>`:
+    s.type=="bool"?`<input type="checkbox" data-k="${s.key}" ${s.value?"checked":""}>`:`<input type="${t}" data-k="${s.key}" value="${esc(s.value)}"${lim}${s.secret?' placeholder="unchanged"':""}>`;
+   return `<div class="field"><label>${esc(s.label)}</label><span>${inp} ${s.secret?"":`<button data-def="${s.key}" title="default">↺</button>`}</span><small>${s.key}${s.secret?"":" · default "+esc(s.options?s.options[s.default]:s.default)}${s.min!==undefined&&!s.options?" · "+s.min+"…"+s.max:""}${s.reboot?" · applied at the next boot":""}</small></div>`}).join("")+
   `<div class="row"><button class="primary" data-save>Save</button><button data-reset>Defaults for ${esc(g)}</button></div></div>`).join("");
  $$("[data-def]").forEach(b=>b.onclick=()=>{const s=S.find(x=>x.key==b.dataset.def),i=$(`[data-k="${s.key}"]`);if(i.type=="checkbox")i.checked=s.default;else i.value=s.default});
  $$("[data-save]").forEach(b=>b.onclick=()=>saveGroup(b.closest(".card")));

@@ -140,7 +140,7 @@ The order comes from the firmware plan §3.2. Steps 1 to 10 run in `setup()`, st
 | 10 | **WiFi** access point, home WiFi, web server, OTA | the RF calibration current peak happens before the servos |
 | 11 | **Servos one at a time**, `ServoStagger` apart (250 ms): rotate Z, rotate X (centred), gun left, gun right (retracted) | several servos jumping together draw 3 to 4 A, the eFuse limit |
 | 12 | **Homing**: guns retracted, wings closed unless the Hall sensors say they are | known mechanical state |
-| 13 | End: green LED heartbeat, red LED fault code, state `Idle` (or `Manual` in debug / reduced mode) | |
+| 13 | End: status LEDs as set (default: green breathing, red fault code), state `Idle` (or `Manual` in debug / reduced mode) | |
 
 PWR_FLT low at any point stops the sequence and enters `Fault`.
 
@@ -307,8 +307,10 @@ Every entry runs a command of the console, so the behaviour and the protections 
 
 | LED | Meaning |
 |---|---|
-| Green (IO33) | steady during boot, then a heartbeat: a slow, smooth breath, off to full and back in 4 s, like the PPK2's LED (the loop is alive) |
-| Red (IO48) | steady during boot, then blinks the number of the lowest active fault, pause, repeat |
+| Green (IO33) | steady during boot (LED test), then as set by `GreenLedMode` (the loop is alive): **breathing** (default), a slow, smooth breath like the PPK2's LED, off to full and back in `GreenLedPeriod` (4 s); **heartbeat**, two short beats then a rest, one every `GreenLedPeriod`; **steady**; or **off**. `GreenLedBright` sets its brightness |
+| Red (IO48) | steady during boot (LED test), then as set by `RedLedMode`: blinks the number of the lowest active fault, pause, repeat (default); or on while any fault is active; or off. The faults stay visible on the web page and the screen |
+
+The factory reset gesture and `LabMarkers` take over both LEDs whatever their settings.
 
 | Red blinks | Fault |
 |---|---|
@@ -321,7 +323,7 @@ Every entry runs a command of the console, so the behaviour and the protections 
 
 ## 8. Settings
 
-All settings are listed, with their limits, in the *Settings* tab of the web page, and with `get` on the console. The WiFi group is applied at the next boot; the home network also right away with `wifi join`.
+All settings are listed, with their limits, in the *Settings* tab of the web page, and with `get` on the console. The WiFi group is applied at the next boot; the home network also right away with `wifi join`. A setting that is a choice (`GreenLedMode`, `RedLedMode`) is a drop-down list on the page; on the console it takes the number or the name.
 
 | Key | Group | Default | Range | Meaning |
 |---|---|---|---|---|
@@ -340,6 +342,10 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ServoIdleMs` | Power | 5000 | 0..60000 | rotations released after this idle time (0 = never) |
 | `LedBright` | Lights | 255 | 0..255 | LED brightness |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
+| `GreenLedMode` | Status LEDs | 0 | 0..3 | green LED after boot: 0 breathing, 1 heartbeat, 2 steady, 3 off |
+| `GreenLedPeriod` | Status LEDs | 4000 | 1000..10000 | one breath, or one heartbeat (ms) |
+| `GreenLedBright` | Status LEDs | 100 | 1..100 | green LED brightness (%) |
+| `RedLedMode` | Status LEDs | 0 | 0..2 | red LED after boot: 0 fault codes, 1 on while a fault is active, 2 off |
 | `Language` | Display | 1 | 0..1 | language of the debug screen: 0 English, 1 French |
 | `OledType` | Display | 0 | 0..2 | OLED controller: 0 SSD1306 (0.96"), 1 SSD1309 (1.54"), 2 SH1106 (1.3"); applied at the next boot |
 | `OledAnim` | Display | true | true / false | wing animation on the screen while the wings move |
@@ -347,7 +353,7 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `OledFlip` | Display | false | true / false | picture turned by 180° |
 | `OledContrast` | Display | 255 | 0..255 | screen contrast |
 | `OledSleepS` | Display | 300 | 0..3600 | screen off after this many seconds without activity (0 = never) |
-| `LabMarkers` | Lab | false | true / false | green LED toggles at each boot step / servo attachment instead of the heartbeat (lab aid) |
+| `LabMarkers` | Lab | false | true / false | green LED toggles at each boot step / servo attachment instead of its status pattern (lab aid) |
 | `ApSsid` | WiFi | Portal Turret | 1..32 chars | name of the turret's network |
 | `ApPassword` | WiFi | stillalive | 8..63 chars | turret network **and** web page password |
 | `StaSsid` | WiFi | (empty) | 0..32 chars | home network; empty = not used |
@@ -376,7 +382,7 @@ The header shows the Aperture logo (inline SVG, follows the light / dark theme),
 |---|---|
 | `GET /` | the page |
 | `GET /api/status` | JSON: version, uptime, state, reset reason, counters, PWR_FLT, modes, active faults, radar, IMU, Hall, wings, servo pulses (`null` = released), amplifier, WiFi (access point, home network), time, free heap |
-| `GET /api/settings` | the setting table (key, label, group, type, value, default, min, max, `reboot`, `secret`) |
+| `GET /api/settings` | the setting table (key, label, group, type, value, default, min, max, `options` for a choice, `reboot`, `secret`) |
 | `POST /api/settings` | form fields `key=value`; each becomes a `set` command (answer in the log) |
 | `POST /api/settings/reset` | optional field `group`; all settings otherwise |
 | `POST /api/action` | field `cmd`: any console command |
@@ -405,7 +411,7 @@ USB, 115200 baud. Type `help`.
 | `flt` / `reset-reason` | PWR_FLT and fault count / reset reason and counters |
 | `crashlog` | log tail of the previous run (after a crash or a restart) |
 | `coredump [erase]` | core dump summary / erase it |
-| `get [key]` / `set <key> <value>` | read / change a setting (saved in NVS, applied at once except WiFi) |
+| `get [key]` / `set <key> <value>` | read / change a setting (saved in NVS, applied at once except WiFi); a choice takes its number or its name (`set GreenLedMode off`) |
 | `reset-settings [group]` | defaults |
 | `servo <0-5\|rotz\|rotx\|gunl\|gunr\|wingl\|wingr> <angle 0-180 \| µs 500-2400 \| off>` | drive one servo |
 | `wings open\|close`, `guns extend\|retract` | move the mechanics (both sides; refused while limited to one servo) |

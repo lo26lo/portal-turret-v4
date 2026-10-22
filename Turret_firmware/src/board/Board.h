@@ -105,6 +105,10 @@ public:
 
 private:
   void UpdateGreenLed(ulong now);
+  // Green LED brightness 0..255. 0 and 255 drive the pin as a plain GPIO
+  // (truly off / on); levels in between go through the sigma-delta modulator,
+  // which leaves the LEDC timers to the servos.
+  void SetGreenLevel(uint8_t level);
   void UpdateRedLed(ulong now);
   void UpdateBootLoopCounter(ulong now);
   void UpdateResetGesture(ulong now);
@@ -126,6 +130,7 @@ private:
 
   bool labMarkers = false;
   bool markerLevel = false;
+  bool greenModulated = false; // pin routed to the sigma-delta modulator
 
   logic::ResetGesture resetGesture;
   bool resetRequested = false;

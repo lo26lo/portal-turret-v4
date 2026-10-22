@@ -3,6 +3,7 @@
 // Pure board logic (button debounce and presses, LED fault code, amplifier gain),
 // without Arduino: used by board/Board, audio/Amp and the native tests (test/test_logic).
 
+#include <math.h>
 #include <stdint.h>
 
 namespace logic {
@@ -70,12 +71,15 @@ inline uint8_t LowestFault(uint8_t faults) {
   return 0;
 }
 
-// Green LED after boot: a heartbeat, two short beats ("lub-dub") then a rest,
-// 50 beats per minute. True while the LED is on at time now (ms).
-const uint32_t HEARTBEAT_PERIOD_MS = 1200;
-inline bool HeartbeatOn(uint32_t now) {
+// Green LED after boot: a slow, smooth breath (like the PPK2's LED), one every
+// HEARTBEAT_PERIOD_MS, from off at t = 0 to full at half the period. Brightness
+// 0..255 at time now (ms): a raised cosine, squared because the eye sees small
+// changes at low light much more than at full light.
+const uint32_t HEARTBEAT_PERIOD_MS = 4000;
+inline uint8_t HeartbeatLevel(uint32_t now) {
   uint32_t t = now % HEARTBEAT_PERIOD_MS;
-  return t < 100 || (t >= 250 && t < 350);
+  float s = 0.5f - 0.5f * cosf(6.2831853f * (float)t / (float)HEARTBEAT_PERIOD_MS);
+  return (uint8_t)(s * s * 255.0f + 0.5f);
 }
 
 // Factory reset with the board's own controls, no screen needed: SW1 closed

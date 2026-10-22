@@ -134,17 +134,21 @@ void test_lowest_fault() {
 }
 
 void test_heartbeat() {
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(0));    // first beat
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(99));
-  TEST_ASSERT_FALSE(logic::HeartbeatOn(100)); // gap
-  TEST_ASSERT_FALSE(logic::HeartbeatOn(249));
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(250));  // second beat
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(349));
-  TEST_ASSERT_FALSE(logic::HeartbeatOn(350)); // rest
-  TEST_ASSERT_FALSE(logic::HeartbeatOn(1199));
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(1200)); // next period
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(4294966800u));  // 1200 * 3579139: still in phase
-  TEST_ASSERT_FALSE(logic::HeartbeatOn(4294967200u)); // 400 ms into that period
+  TEST_ASSERT_EQUAL_UINT8(0, logic::HeartbeatLevel(0));      // off
+  TEST_ASSERT_EQUAL_UINT8(64, logic::HeartbeatLevel(1000));  // quarter: half of the cosine, squared
+  TEST_ASSERT_EQUAL_UINT8(255, logic::HeartbeatLevel(2000)); // full
+  TEST_ASSERT_EQUAL_UINT8(64, logic::HeartbeatLevel(3000));  // same way down
+  TEST_ASSERT_EQUAL_UINT8(0, logic::HeartbeatLevel(4000));   // next period
+  // Smooth: rises without a step back, at most a few levels per 10 ms (one loop).
+  uint8_t previous = 0;
+  for (uint32_t t = 10; t <= 2000; t += 10) {
+    uint8_t level = logic::HeartbeatLevel(t);
+    TEST_ASSERT_TRUE(level >= previous);
+    TEST_ASSERT_TRUE(level - previous <= 4);
+    previous = level;
+  }
+  TEST_ASSERT_EQUAL_UINT8(0, logic::HeartbeatLevel(4294964000u));    // 4000 * 1073741: still in phase
+  TEST_ASSERT_EQUAL_UINT8(255, logic::HeartbeatLevel(4294966000u));  // 2000 ms into that period
 }
 
 void test_reset_gesture() {

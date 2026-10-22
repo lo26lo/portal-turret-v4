@@ -307,7 +307,7 @@ Every entry runs a command of the console, so the behaviour and the protections 
 
 | LED | Meaning |
 |---|---|
-| Green (IO33) | steady during boot, then a heartbeat: two short beats and a rest, 50 per minute (the loop is alive) |
+| Green (IO33) | steady during boot, then a heartbeat: a slow, smooth breath, off to full and back in 4 s, like the PPK2's LED (the loop is alive) |
 | Red (IO48) | steady during boot, then blinks the number of the lowest active fault, pause, repeat |
 
 | Red blinks | Fault |

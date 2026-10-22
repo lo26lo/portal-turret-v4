@@ -696,3 +696,17 @@ Commit `a4eb329` poussé (correction du flash, LED verte en battement de cœur, 
 - `tools/mock_server.py` (groupes avec espace, choix) et `tools/check_web.py` (5 vérifications de plus : 45) ; README (LEDs, réglages, API, console).
 
 **Vérifié** : compilation `turret2` OK (RAM 25,6 %, flash 46,9 %) ; `check_web.py` : tout passe, syntaxe JavaScript de la page comprise. **Non vérifié** : tests natifs (CI), page sur la carte.
+
+*Ajout* : poussé (`010e302`), CI verte (run 39748335024) ; carte débranchée avant la remise des réglages des LEDs par défaut (elle garde : verte en battement 1,2 s, rouge allumée sur défaut).
+
+### 22.10.2026 (4ᵉ entrée) — Zones d'alimentation de la v2 ; vias et larmes
+
+**Demande** : « est-ce que les 3 îlots de courant restent comme sur la v1 ? », puis une image, et prévoir à la fin du guide l'ajout de vias et des larmes (« lames »).
+
+**Constat** (relevé de `Turret2.kicad_pcb`) : In2 porte VBUS, 3V3, 5V_logique et 5V_servos (doublée au verso, même contour) ; au recto, 5V_etoile à la sortie de l'eFuse, avec 7 vias de 0,9 / 0,5 mm vers les couches internes : 3 dans la zone 5V_logique, 4 qui touchent la zone des servos.
+
+**Fait** : image `docs/img/zones-alim-v2.png` (v0.1 et v2, dessinée d'après les zones du PCB) ; guide KiCad : étape 5.4 « Zones d'alimentation » (contours gardés, zone des servos → 5V_SERVO, 4 vias de l'étoile à enlever, ≥ 7 vias à la sortie de SW_SERVO, TP2 → point de test 5V_SERVO), phase 6 corrigée (« sans via sur le chemin des servos » était faux : la v0.1 passe déjà par des vias) et nouvelle étape 6.7 « Finition : vias et larmes » (puissance, thermiques, couture de masse, larmes, remplissage) ; plan §8 (zones, points de test).
+
+*Puis* (« il manque la taille des pistes et des vias ») : relevé des règles de la v0.1 (classes de nets Power5V 0,8 mm / vias 0,9 / 0,5, Power3V3 0,5, Servo et LEDData 0,3, I2C et I2S 0,25, Audio 0,8, USB 0,2 ; règles `Turret2.kicad_dru` ; cuivre 35 µm sur les 4 couches ; largeurs réellement posées). Guide : étape 4.7 « Classes de nets » (motifs `5V_*`, `VBUS*`, `3V3_*` : sans eux, les nouveaux rails tomberaient à 0,2 mm sans erreur du DRC), labels « _C » côté connecteur des résistances série (étape 1.3), tableau « Avant de router » en phase 6 (largeurs par net d'après IPC-2221 à 10 °C : 2,0 mm pour 4 A au recto, 5,3 mm en couche interne, d'où les zones ; ~1 A par via de 0,9 / 0,5 mm, ≥ 7 à la sortie de SW_SERVO), références des nouvelles pièces à ajouter aux règles « Pas fin ».
+
+*Puis* : **second port I²C J19** demandé par l'utilisateur, Qwiic vertical Adafruit 4328 (lot de 10 ; plan du fabricant : Kaweei CCSH-W10-04-BK-RC, CMS vertical, empreinte du JST SH vertical, 1 A, ~4,6 mm de haut). En parallèle de J11 (1 GND, 2 +3V3, 3 SDA, 4 SCL, relevé dans la netlist), empreinte `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` (présente dans KiCad 10). Plan : §0, §3.1, §6 (pull-ups avec deux modules : ~1,5 kΩ, 2,2 mA), §11 (position et hauteur à décider) ; guide : étapes 1.4, 4.3, 5.3. Refusés par l'utilisateur : la limite de courant de l'eFuse commutable pour protéger le PPK2 (« il faut juste faire attention ») et la TPS22965N (il attend la TPS22965DSGR).

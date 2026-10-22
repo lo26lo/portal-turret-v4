@@ -11,12 +11,12 @@
 - **Une étape à la fois, dans l'ordre.** Chaque phase finit par un **point de contrôle** : enregistrer, lancer l'ERC (ou le DRC), faire un commit (`v2 : étape N — …`), puis me dire « étape N faite ».
 - **À chaque point de contrôle, je vérifie sans ouvrir KiCad** : `kicad-cli` exporte la netlist et lance l'ERC / le DRC ; je compare au plan et je te dis ce qui manque ou ce qui est faux. On ne passe à la suite que quand c'est propre.
 - **Utiliser les noms de nets de ce guide** (5V_SERVO, SERVO_EN, etc.) : mes vérifications s'appuient dessus.
-- **Ce que je peux faire pour toi** : préparer le symbole du TPS22965 (étape 2.0), vérifier chaque point de contrôle, relancer l'étude des GPIO sur ton placement (étape 5.4), tenir le plan et le journal à jour.
+- **Ce que je peux faire pour toi** : préparer le symbole du TPS22965 (étape 2.0), vérifier chaque point de contrôle, relancer l'étude des GPIO sur ton placement (étape 5.5), tenir le plan et le journal à jour.
 
 | Phase | Où | Contenu | Taille |
 |---|---|---|---|
 | 0 | dépôt, KiCad | copie de travail v2, état de départ | petite |
-| 1 | schéma | retraits, valeurs, résistances simples | moyenne |
+| 1 | schéma | retraits, valeurs, résistances simples, second port I²C | moyenne |
 | 2 | schéma | nouvelle feuille « Rails » : 3 switches, P-MOS, extendeur ; rails branchés | grosse |
 | 3 | schéma | nouveau brochage de l'ESP32 | moyenne, **délicate** |
 | 4 | schéma | finitions : points de test, annotation, empreintes, nomenclature | moyenne |
@@ -90,7 +90,7 @@ Les labels JTAG_* et les croix au bout des fils de IO39–IO42 partent à l'éta
 
 ### 1.3 Ajouter les résistances « simples »
 
-Elles se branchent sur des nets dont le nom ne change pas : on peut les poser dès maintenant. Pour une résistance **en série**, couper le fil entre le label et la broche du connecteur et l'y insérer ; le label reste côté ESP32.
+Elles se branchent sur des nets dont le nom ne change pas : on peut les poser dès maintenant. Pour une résistance **en série**, couper le fil entre le label et la broche du connecteur et l'y insérer ; le label reste côté ESP32, et **le côté connecteur reçoit un label au même nom suffixé « _C »** (GUN_LEFT_C, RADAR_TX_C, NEOPIXEL_RING_C pour J14, NEOPIXEL_LEFT_C pour J3.3…) : il garde ainsi sa classe de net, donc sa largeur et ses isolements (étape 4.7). Sans nom, il tomberait dans la classe par défaut (0,2 mm).
 
 | Ajout | Net | Où | Plan |
 |---|---|---|---|
@@ -103,6 +103,10 @@ Elles se branchent sur des nets dont le nom ne change pas : on peut les poser d�
 | *option* 100 kΩ → GND × 5 | ROTATE_X, ROTATE_Z, GUN_LEFT, WING_LEFT, WING_RIGHT | à côté des 330 Ω ; attribut DNP (« ne pas monter ») tant que la place n'est pas confirmée | §4.8 |
 | 1 kΩ série × 2 | RADAR_TX → J5.2, RADAR_RX → J5.3 | IO, près de J5 | §4.8 |
 | 0 Ω 2512 (≥ 4 A) | entre VBUS (USB-C, J1, D1, D5, TP1) et l'entrée de IC1 (broches 3, 4) | racine ; nommer le côté eFuse `VBUS_IN`, et y mettre R3 (diviseur OVLO) | §8 |
+
+### 1.4 Second port I²C (J19)
+
+Feuille IO, à côté de J11 : un connecteur 4 broches (même symbole que J11), **J19**, relié aux mêmes nets que J11 : 1 GND, 2 +3V3, 3 SDA, 4 SCL, pattes de fixation à GND (§6). Pièce : Adafruit 4328, Qwiic vertical.
 
 **Point de contrôle 1** : ERC (rien de nouveau), commit. Je vérifie : pièces retirées absentes, valeurs, chaque nouvelle résistance sur les bons nets.
 
@@ -177,7 +181,7 @@ Les pull-downs des ON (étapes 2.2, 2.3) et le pull-up de la grille (2.4) sont d
 | 5V_RADAR | J5.1 ; C29 | IO |
 | 3V3_HALL | J17.1, J18.1 ; C31, C32 | IO |
 
-**Restent sur +5V** : sortie de IC1, U1 (TPS631000), U9 (ampli) avec C24, C25, C26, IC2 (AHCT), C3, C4, C8, TP2, TP3.
+**Restent sur +5V** : sortie de IC1, U1 (TPS631000), U9 (ampli) avec C24, C25, C26, IC2 (AHCT), C3, C4, C8, TP3. **TP2** passe sur 5V_SERVO : il est déjà dans la zone des servos sur le PCB (étape 5.4), il devient le point de test de ce rail.
 
 Sur la feuille MCU, le +5V est dessiné à partir de **trois symboles +5V** et de fils : repérer la branche qui dessert les connecteurs de servos et leurs condensateurs, la séparer du reste (AHCT, ampli) et y mettre le label global 5V_SERVO.
 
@@ -226,7 +230,7 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
 
 ## Phase 4 — Schéma : finitions
 
-1. **Points de test** (§8) sur 5V_SERVO, 5V_LED, 5V_RADAR, 3V3_HALL, SDA, SCL, IMU_INT1.
+1. **Points de test** (§8) sur 5V_LED, 5V_RADAR, 3V3_HALL, SDA, SCL, IMU_INT1 ; celui de 5V_SERVO est TP2 (étape 2.6).
 2. **Annoter** (menu Outils) en **conservant les annotations existantes** : seules les nouvelles pièces reçoivent un numéro, la v0.1 garde les siens.
 3. **Empreintes** des nouvelles pièces (Outils > Assigner les empreintes) :
 
@@ -238,6 +242,7 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
    | R et C 0603 | comme la v0.1 : `Turret_Resistor_SMD:R_0603_1608Metric`, `Turret_Capacitor_SMD:C_0603_1608Metric` |
    | 10 µF | `Turret_Capacitor_SMD:C_0805_2012Metric` (comme C15, C25) |
    | 0 Ω 2512 | `Resistor_SMD:R_2512_6332Metric` |
+   | J19 (Qwiic vertical) | `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` |
    | Points de test | `Turret_TestPoint:TestPoint_Pad_D1.0mm` |
 
 4. **Champs pour la nomenclature** : valeur et référence fabricant de chaque nouvelle pièce ; attribut DNP sur les pull-downs PWM optionnels si tu n'as pas tranché. Au passage, **des références de la v0.1 ne collent pas** :
@@ -247,6 +252,15 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
    Sans importance si tu soudes d'après les valeurs ; à corriger si la nomenclature sert à commander.
 5. **ERC final** : il ne doit rester que les avertissements de départ (étape 0.3), moins les 4 croix.
 6. **Nomenclature** : je la compare à la liste d'achat (§3.1).
+7. **Classes de nets** (Paramètres du schéma ou de la carte > Classes de nets, partagés par le projet). Les classes de la v0.1 s'attribuent par motifs de nom ; les nouveaux nets n'en suivent aucun et tomberaient dans la classe par défaut (0,2 mm, vias de 0,6 / 0,3 mm). Ajouter :
+
+   | Motif | Classe | Nets concernés |
+   |---|---|---|
+   | `5V_*` | Power5V | 5V_SERVO, 5V_LED, 5V_RADAR |
+   | `VBUS*` (remplace `VBUS`) | Power5V | VBUS, VBUS_IN |
+   | `3V3_*` | Power3V3 | 3V3_HALL |
+
+   Les côtés connecteur des résistances série (« _C », étape 1.3) suivent déjà les motifs existants (`*GUN_*`, `*RADAR_*`, `*NEOPIXEL*`…). Je vérifie la classe de chaque net dans la netlist au point de contrôle.
 
 **Point de contrôle 4** : commit et `git tag sch-v0.2` : schéma v2 terminé.
 
@@ -276,8 +290,25 @@ Presque toutes les GPIO changent de broche : les pistes de signal de la v0.1 rel
 6. Résistances série et pull-downs **près des connecteurs** ; 330 Ω des NeoPixel près de IC2.
 7. **0 Ω 2512** entre D1 / D5 et IC1 ; R7 / R8 collées à la broche FB du TPS631000 (§4.10).
 8. Points de test.
+9. **J19** (second port Qwiic) : là où on y accède de l'extérieur de la tourelle ; hauteur ~4,6 mm ; au bout du bus I²C (module → IMU → extendeur → J11 → J19).
 
-### 5.4 Relancer l'étude des GPIO (moi)
+### 5.4 Zones d'alimentation (îlots)
+
+Sur la v0.1, la couche interne In2 porte les alimentations : VBUS, 3V3, et un +5V fait de deux zones (« 5V_logique » et « 5V_servos », cette dernière doublée au verso, même contour) ; au recto, la zone « 5V_etoile » est le point d'étoile à la sortie de l'eFuse. **Les contours restent ; seule la zone des servos change de net, et le point d'étoile change de raccordement.**
+
+![Zones d'alimentation : v0.1 et v2](img/zones-alim-v2.png)
+
+| Zone de la v0.1 (couche) | Alimente | En v2 |
+|---|---|---|
+| VBUS (In2, bas gauche) | USB-C, J1, D1 | même contour, même net ; l'entrée de l'eFuse passe derrière la 0 Ω 2512 (`VBUS_IN`, piste large au recto) et ne touche plus la zone |
+| 3V3 (In2, haut gauche) | module, IMU | inchangée ; 3V3_HALL en pistes (8 mA) |
+| 5V_logique (In2, centre) | ampli, AHCT, C26, entrée du TPS631000 | reste +5V ; J14 et J5 n'y sont plus reliés (5V_LED et 5V_RADAR en pistes) |
+| 5V_servos (In2) et 5V_servos_L4 (verso) | J3, J4, J7–J10, C9, C18, TP2 | **même contour, net 5V_SERVO** (propriétés de la zone) |
+| 5V_etoile (recto) | sortie de l'eFuse | reste +5V ; SW_SERVO et SW_LED s'y branchent |
+
+**Au point d'étoile**, 7 vias de 0,9 / 0,5 mm descendent aujourd'hui le +5V dans les couches internes : 3 tombent dans la zone 5V_logique (à garder), **4 touchent la zone des servos : à enlever**, sinon SW_SERVO est contourné. Le courant des servos repart par **au moins 7 vias de même taille à la sortie de SW_SERVO**, posées dans la zone 5V_SERVO. Le DRC aide : une via +5V restée dans la zone 5V_SERVO n'y est plus reliée (pas de court-circuit), et une sortie de switch non reliée à sa zone sort en connexion manquante.
+
+### 5.5 Relancer l'étude des GPIO (moi)
 
 Je relance `Turret2_portable/tools/gpio_study/` sur ton placement (`TURRET_PCB=Turret2_v2/Turret2.kicad_pcb`). S'il trouve nettement mieux pour quelques broches, on les change dans le schéma (étape 3.2), puis F8.
 
@@ -287,16 +318,52 @@ Je relance `Turret2_portable/tools/gpio_study/` sur ton placement (`TURRET_PCB=T
 
 ## Phase 6 — PCB : routage
 
+### Avant de router : largeurs, vias, règles
+
+La v0.1 a déjà des classes de nets et des règles (`Turret2.kicad_dru`), et du cuivre de 35 µm (1 oz) sur les quatre couches. Avec les motifs de l'étape 4.7, les nouveaux rails en héritent ; voici les largeurs visées (IPC-2221, échauffement 10 °C) :
+
+| Net | Courant | Classe | Largeur visée | Remarque |
+|---|---|---|---|---|
+| VBUS → 0 Ω → VBUS_IN → eFuse | ≤ 3,9 A (limite de l'eFuse) | Power5V | **2,0 mm** au recto (1,4 mm au minimum) ; 0,2 mm sur les seules broches de IC1 | 4 A en couche externe : 2,0 mm ; la v0.1 a déjà du VBUS en 2,0 mm |
+| +5V : étoile → entrées des switches | ≤ 3,9 A | Power5V | zone 5V_etoile (recto) | comme la v0.1 |
+| Sortie de SW_SERVO → vias | ≤ 3,9 A | Power5V | cuivre plein d'au moins 2 mm dès les broches 7–8 | puis ≥ 7 vias (ci-dessous) |
+| 5V_SERVO | pointes ~3 A | Power5V | zones In2 + verso, comme la v0.1 ; au recto, 2,0 mm près des connecteurs (règle « Largeur 5V servos ») | en couche interne, 4 A demanderaient une piste de 5,3 mm : d'où les zones |
+| 5V_LED | ≤ 0,6 A (anneau de 9 LEDs) | Power5V | 0,8 mm (défaut de la classe) | 0,15 mm suffiraient pour l'échauffement ; la marge limite la chute de tension |
+| 5V_RADAR | ~0,15 A | Power5V | 0,8 mm (0,5 mm toléré) | |
+| 3V3_HALL | 8 mA | Power3V3 | 0,5 mm (0,3 mm toléré) | |
+| Lignes des servos, NeoPixel, UART du radar, Hall (et leurs côtés « _C ») | signaux | Servo, LEDData, Analog | 0,3 mm (0,25 mm au minimum) | comme la v0.1 |
+| I²C, I²S | signaux | I2C, I2S | 0,25 mm | inchangé |
+| Commandes des rails, LEDs d'état, PWR_FLT, tirages, FB du TPS631000 | signaux | Default | 0,2 mm | |
+| Sorties HP (OUTP / OUTN) | ~1 A crête | Audio | 1,5 mm (0,8 mm au minimum) | inchangé |
+| USB D+ / D– | 90 Ω différentiel | USB | 0,2 mm, écart 0,15 mm | ne pas toucher |
+
+| Via | Diamètre / perçage | Où | Combien |
+|---|---|---|---|
+| **Puissance** (classes Power5V et Audio, règle « Via puissance ») | **0,9 / 0,5 mm** | tout changement de couche du 5 V, du VBUS et de l'audio | compter ~1 A par via (estimation prudente : IPC-2221, cuivre de via ~20 µm) : sortie de SW_SERVO **≥ 7** ; alimentation de l'ampli au verso **3** (~0,7 A crête) ; SW_RADAR **2** ; SW_LED **2** si elle change de couche ; VBUS / VBUS_IN : aucune si tout reste au recto, sinon ≥ 5 |
+| Signal (classe par défaut) | 0,6 / 0,3 mm | signaux, raccords de masse | une par passage |
+| Couture de masse | 0,6 / 0,3 mm | bords, autour de l'ampli, des switches et de l'I²S | tous les quelques millimètres (~5 mm) ; jamais dans la zone d'antenne |
+| Thermiques | dans l'empreinte | TPS22965 : l'empreinte de IC1 a déjà ses vias thermiques ; ampli : son empreinte n'en a pas, en ajouter ~4 de 0,6 / 0,3 mm sous le pad exposé, recouvertes de vernis côté opposé pour que la soudure ne s'y perde pas | |
+| Serrée | 0,45 / 0,2 mm (déjà dans la liste du projet) | seulement si la place manque | |
+
+**Règles DRC à compléter** (`Turret2.kicad_dru`) : ajouter les références des 3 TPS22965 et de l'extendeur (connues après l'annotation, étape 4.2) aux deux règles « Pas fin ». Leurs pastilles au pas de 0,5 / 0,65 mm ne peuvent pas tenir la largeur de 0,8 mm ni l'isolement de 0,25 mm de la classe Power5V ; les pistes s'élargissent dès qu'elles quittent l'empreinte. Rien d'autre à changer : « Via puissance », « Largeur 5V servos » et « In2 réservée aux alimentations » s'appliquent d'elles-mêmes aux nouveaux rails une fois dans la classe Power5V.
+
+### Ordre de routage
+
 Dans cet ordre (§4, §5.2) :
 
-1. **Puissance** : VBUS → 0 Ω → IC1 → point d'étoile +5V → SW_SERVO → 5V_SERVO, au recto, en pistes larges, **sans via** sur le chemin des servos ; SW_LED ; SW_RADAR (deux vias vers le verso) ; +3V3 et 3V3_HALL. Pads thermiques des WSON : vias de 0,2–0,3 mm vers la masse.
+1. **Puissance** : VBUS → 0 Ω → IC1 (`VBUS_IN`, piste large au recto) → point d'étoile +5V → SW_SERVO au recto, puis **au moins 7 vias de 0,9 / 0,5 mm** de sa sortie vers les zones 5V_SERVO (In2 et verso), comme l'étoile de la v0.1 (étape 5.4) ; SW_LED → 5V_LED et SW_RADAR → 5V_RADAR en pistes (deux vias pour SW_RADAR, au verso) ; +3V3 et 3V3_HALL.
 2. **Nœud FB du TPS631000** : court, loin de LX1 / LX2 (§4.10).
 3. **Paire USB** : intouchée ; aucune piste ne la croise au recto.
 4. **I²S, AMP_SD, gain** (flanc droit → ampli au verso) ; **I²C** (module → IMU → extendeur → J11).
 5. **Lignes de servos, NeoPixel, UART du radar, capteurs Hall** (analogiques : à l'écart des horloges I²S), LEDs, PWR_FLT.
 6. **Commandes des rails** (extendeur → ON des switches) : lentes, n'importe quelle face.
-7. **Zones** : remplir à nouveau ; vias de couture autour des nouvelles pièces.
-8. **DRC** (Inspecter > Contrôle des règles de conception), avec les règles du projet (`Turret2.kicad_dru`) : 0 erreur, 0 connexion manquante.
+7. **Finition : vias et larmes**, une fois tout routé :
+   - **vias de puissance**, à compter à chaque passage de courant : sortie de SW_SERVO (≥ 7), 0 Ω et eFuse, entrées des switches sur l'étoile, alimentation de l'ampli au verso (3 vias, ~0,7 A crête) ; tailles et nombres dans le tableau « Avant de router » ;
+   - **vias thermiques** sous les pads thermiques : TPS22965 × 3, eFuse, pad exposé du MAX98357A (au verso) ; 0,2–0,3 mm, ouvertures de pochoir en damier (§8) ;
+   - **vias de couture de masse** : autour des nouvelles pièces, le long des bords, autour de l'ampli (classe D) et des lignes rapides (I²S, NeoPixel), et là où un remplissage de masse reste isolé (le DRC signale les îlots de cuivre isolés) ; **jamais dans la zone d'antenne**. À la main, ou avec un plugin de couture de vias (gestionnaire de plugins et de contenus) ;
+   - **larmes** (teardrops) : la v0.1 en a déjà ; les ajouter aux nouvelles pistes et vias (outil des larmes, menu Modifier), surtout aux pastilles des connecteurs et aux vias des pistes fines ;
+   - puis **remplir toutes les zones** (touche B).
+8. **DRC** (Inspecter > Contrôle des règles de conception), avec les règles du projet (`Turret2.kicad_dru`) : 0 erreur, 0 connexion manquante, aucun îlot isolé.
 9. **Sérigraphie** : « v0.2 » à la place de « Turret V0.1 » ; SW1 « DEBUG » ; noms des rails près des points de test ; broche 1 de chaque WSON, TQFN et LGA.
 
 **Point de contrôle 6** : commit. Je lance le DRC avec `kicad-cli` et je relis les connexions manquantes et la sérigraphie.
@@ -318,5 +385,6 @@ Dans cet ordre (§4, §5.2) :
 - **Symboles importés de LCSC** : changer la valeur ne change pas la référence commandée (R7, R8, et les écarts de l'étape 4.4).
 - **F8 et « Supprimer les empreintes sans symbole »** : H1, H2 et le logo sont « carte uniquement », donc gardés ; relire quand même la liste.
 - **ADDR de l'extendeur** : directement à GND ou à VCCP, jamais par une résistance [DS].
+- **Nets sans classe** : un nouveau nom qui ne suit aucun motif tombe dans la classe par défaut (0,2 mm, vias de 0,6 / 0,3 mm), sans erreur du DRC ; d'où les motifs de l'étape 4.7 et les labels « _C » de l'étape 1.3.
 - **Module ESP32 et connecteurs** : ne pas les déplacer (antenne au bord, longueur des câbles de la tourelle).
 - **Rails de la v0.1** : trois symboles +5V sur la feuille MCU, reliés par des fils ; une branche oubliée laisse un servo sur le +5V permanent. Ma vérification du point de contrôle 2 le voit.

@@ -10,7 +10,7 @@
 >
 > **Mis à jour le 22.10.2026** : R18 à 100 Ω (changée le 19.10.2026) dans le §5 et le §12 ; LEDs d'état en deep sleep (§1.1) ; total de la veille profonde aligné entre le §1 et le §1.1 ; pièces manquantes ajoutées à la liste d'achat (§3.1). Puis : capteurs Hall identifiés, **OH49E** (§4.3, datasheet relue) ; sentinelle abandonnée définitivement, faute de place (§0, §3.3, §12).
 >
-> **Revue avant gel, 22.10.2026** : relevé des composants et des nets de la v0.1 dans KiCad, et relecture des datasheets TPS2595, TPS22965, TPS631000, TCAL6416 et MAX98357A. Principaux changements : pont de retour du TPS631000 à 511 kΩ / 91 kΩ (§4.10, nouveau), pull-down sur IO26 (§5), consommation de la veille radar avec le point d'accès Wi-Fi (§1), adresse et registres de l'extendeur vérifiés (§4.9), condensateurs de la v0.1 répartis sur les rails (§2), position des switches (§0, §5.1, §8), garde-fou de carte dans le firmware (§10), renvois de section corrigés. Puis, à la demande de l'utilisateur : pull-downs des autres lignes PWM **en option** selon la place (§4.8), et résistance de 0 Ω en 2512 gardée pour le pont de mesure, donnée pour ≥ 4 A (§3.1, §8).
+> **Revue avant gel, 22.10.2026** : relevé des composants et des nets de la v0.1 dans KiCad, et relecture des datasheets TPS2595, TPS22965, TPS631000, TCAL6416 et MAX98357A. Principaux changements : pont de retour du TPS631000 à 511 kΩ / 91 kΩ (§4.10, nouveau), pull-down sur IO26 (§5), consommation de la veille radar avec le point d'accès Wi-Fi (§1), adresse et registres de l'extendeur vérifiés (§4.9), condensateurs de la v0.1 répartis sur les rails (§2), position des switches (§0, §5.1, §8), garde-fou de carte dans le firmware (§10), renvois de section corrigés. Puis, à la demande de l'utilisateur : pull-downs des autres lignes PWM **en option** selon la place (§4.8), et résistance de 0 Ω en 2512 gardée pour le pont de mesure, donnée pour ≥ 4 A (§3.1, §8). Ensuite : zones d'alimentation (§8) et **second port I²C J19**, Qwiic vertical Adafruit 4328 (§0, §3.1, §6, §11).
 
 ---
 
@@ -25,6 +25,7 @@
 | Protection d'entrée | eFuse **TPS259533** à la place du TPS259573 (même boîtier, même brochage) | sortie **écrêtée à 5,2–5,7 V** : tout le +5V reste sous 6 V, le maximum absolu des switches, du TPS631000 et de l'ampli, sans toucher au diviseur (§4.2) |
 | GPIO | **brochage refait pour le routage** (étude §5.1) ; **extendeur I²C TCAL6416 au dos**, à côté de l'IMU, pour les 4 commandes de rails | 4 lignes de moins à sortir du module ; le côté gauche du module, le plus mal placé, est presque vide ; bus groupés ; ampli face à l'ampli. Variante sans extendeur en §9 |
 | Boutons | **A et B supprimés**, **SW1 gardé**, PROG (SW2) gardé | interface par la page web ; le knob et l'OLED ne sont que des outils de debug sur le Qwiic |
+| Ports I²C | J11 (Qwiic coudé, inchangé) + **J19, second port Qwiic vertical** (Adafruit 4328) | demande de l'utilisateur (22.10.2026) ; même bus, mêmes 4 nets (§6) |
 | Face arrière | IMU (U6), ampli (U9), extendeur et SW_RADAR au verso ; SW_SERVO, SW_LED et le P-MOS des capteurs Hall au recto | le chemin de puissance des servos reste au recto ; SW_RADAR (≈ 110 mA) à côté de J5, déjà au verso |
 | Corrections v0.1 | entrées Hall et NeoPixel tirées, pull-up sur IO0, pull-down sur IO26, résistances série sur les lignes qui sortent de la carte, TVS à faible fuite, pont de retour du TPS631000 à 511 kΩ / 91 kΩ | broches flottantes, protection des GPIO, budget de veille (le pont de la v0.1 consomme 50 µA en permanence) |
 
@@ -138,6 +139,7 @@ Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état 
 | 2 (+1) | TVS 6,5 V | Vishay / Littelfuse **SMAJ6.5A** | SMA (comme D1, D5) | remplace SMAJ5.0A (§7) |
 | 1 (+1) | Résistance 0 Ω **donnée pour ≥ 4 A** | — | 2512 | pont de mesure du courant de veille, juste après D1 / D5 (§8). Les 0 Ω 2512 courantes (ex. Yageo RC2512…) ne tiennent que 2 A : vérifier le courant nominal, ou prendre une résistance de mesure métallique de 1 à 5 mΩ dans le même boîtier (4 A → 4 à 20 mV, 80 mW au plus) |
 | *option* 5 (+2) | 100 kΩ 1 % | — | 0603 | pull-downs des cinq lignes PWM sans tirage au reset (§4.8), selon la place |
+| 1 lot de 10 | Connecteur Qwiic vertical, JST SH 4 broches, pas de 1 mm, CMS | Adafruit **4328** (Kaweei CCSH-W10-04-BK-RC) | empreinte du JST BM04B-SRSS-TB | J19, second port I²C (§6) ; 1 A max, ~4,6 mm de haut |
 | 1 | Pâte basse température **Sn42Bi58** | — | seringue | brasage du verso (§8) |
 | 1 | Second pochoir (verso) | JLCPCB | — | brasage du verso |
 
@@ -409,9 +411,11 @@ Pour la variante C, 16 recherches indépendantes ont abouti au même brochage, �
 | Encodeur seesaw (Qwiic) | 0x36 | non, debug seulement |
 | Extendeur TCAL6416 (au dos, près de l'IMU) | **0x20** (ADDR au GND) [DS] | oui |
 
-- **Pull-ups** : garder une seule paire, **R15 / R16 = 2,2 kΩ vers +3V3**. 1,5 mA quand une ligne est basse ; temps de montée ≈ 0,85 × 2,2 kΩ × 50 pF ≈ 95 ns, bien sous les 300 ns du mode 400 kHz. Les modules Qwiic ont leurs propres pull-ups (souvent 10 kΩ) qui se mettent en parallèle : ≈ 1,8 kΩ, encore dans la norme (≤ 3 mA).
+**Deux ports Qwiic** : J11 (coudé, existant) et **J19 (vertical, Adafruit 4328, nouveau)**, en parallèle sur les mêmes nets, brochage Qwiic de J11 : 1 GND, 2 +3V3, 3 SDA, 4 SCL, pattes de fixation à GND. Empreinte : `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` (le plan du fabricant reprend celle du JST SH vertical). Position à décider (accès depuis l'extérieur de la tourelle, hauteur ~4,6 mm).
+
+- **Pull-ups** : garder une seule paire, **R15 / R16 = 2,2 kΩ vers +3V3**. 1,5 mA quand une ligne est basse ; temps de montée ≈ 0,85 × 2,2 kΩ × 50 pF ≈ 95 ns, bien sous les 300 ns du mode 400 kHz. Les modules Qwiic ont leurs propres pull-ups (souvent 10 kΩ) qui se mettent en parallèle : ≈ 1,8 kΩ avec un module, ≈ 1,5 kΩ (2,2 mA) avec deux, encore dans la norme (≤ 3 mA). Avec deux modules à 4,7 kΩ, on arrive à ~2,9 mA : à la limite ; couper les pull-ups de l'un d'eux s'il a un pont prévu pour ça. Câbles Qwiic courts : chaque câble ajoute de la capacité au bus.
 - **Broches** : v0.1 = IO35 / IO36 (`Wire.begin(35, 36)`) ; **v2 = SDA IO12, SCL IO11** (`Wire.begin(12, 11)`, §5). Toujours explicites, jamais les broches par défaut 8 / 9 (capteurs Hall en v0.1, HALL_LEFT et SW1 en v2).
-- **Ordre du bus** (v2) : module → IMU → extendeur (tous deux au dos) → J11. Pull-ups à n'importe quel endroit du bus, une seule paire.
+- **Ordre du bus** (v2) : module → IMU → extendeur (tous deux au dos) → J11 → J19. Pull-ups à n'importe quel endroit du bus, une seule paire.
 - **En deep sleep** : bus au repos à l'état haut, aucun courant ; l'IMU reste alimentée.
 - **Qwiic** : brancher et débrancher les modules **hors tension** (un branchement à chaud peut bloquer le bus).
 - **Nouveau** : deux pastilles de test SDA / SCL pour l'oscilloscope.
@@ -450,7 +454,8 @@ Reprend le §3 d'AMELIORATIONS_V2.md (IMU et ampli au verso, switches de puissan
 - **CT** collé à sa broche ; **pad thermique** de chaque WSON relié au GND par des vias de 0,2–0,3 mm, ouvertures de pochoir en damier.
 - **Pas de via ni de piste sous l'IMU.** Zone d'antenne de l'ESP32 libre sur toutes les couches.
 - **Sérigraphie** : broche 1 de chaque WSON, TQFN et LGA ; nom des rails commutés ; SW1 renommé « DEBUG » (marqué « USB / JTAG » sur la v0.1 : il ne sert plus au strap JTAG, IO3 est libre).
-- **Points de test** : TP sur 5V_SERVO, 5V_LED, 5V_RADAR, 3V3_HALL, SDA, SCL, IMU_INT1 (en plus de VBUS, 5V, 3V3 existants).
+- **Zones d'alimentation** : mêmes contours que la v0.1 ; la zone des servos (In2 et verso) passe sur 5V_SERVO, et ses vias quittent le point d'étoile pour la sortie de SW_SERVO (détail et image : [carte-v2-kicad.md](carte-v2-kicad.md), étape 5.4).
+- **Points de test** : TP sur 5V_LED, 5V_RADAR, 3V3_HALL, SDA, SCL, IMU_INT1 ; TP2, déjà dans la zone des servos, devient celui de 5V_SERVO ; TP1 (VBUS), TP3 (5V) et TP4 (3V3) restent.
 - **Mesure du courant de veille** : pour la carte entière, fuite des TVS comprise, PPK2 en mode source par l'adaptateur USB-C, comme dans experiments.md. En plus, une **résistance de 0 Ω en 2512** en série juste après D1 / D5, avant l'eFuse, entourée de deux pastilles : on la dessoude pour mesurer sans les TVS (PPK2 en ampèremètre). En place, elle porte les 3 à 4 A des servos : référence donnée pour ≥ 4 A (§3.1).
 - **Version sur la carte** : sérigraphier « v0.2 » (la v0.1 porte « Turret V0.1 »).
 
@@ -507,6 +512,7 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 - [ ] Bruit de commutation de l'ampli au verso : HP et Wi-Fi.
 - [ ] **Relancer l'étude des GPIO** (`Turret2_portable/tools/gpio_study/`) sur le placement v2 dès qu'il existe, avant de router.
 - [ ] Flanc droit du module dégagé (SW3, R14, C13 déplacés) et passage de ROTATE_X au-dessus de J16 (§5.2).
+- [ ] Position de J19 (second port Qwiic, vertical) : accès depuis l'extérieur, hauteur (~4,6 mm) par rapport au boîtier.
 - [ ] Après un `ESP.restart()` et après un plantage : rails bien coupés (écriture « tout coupé » au début du boot).
 
 ---

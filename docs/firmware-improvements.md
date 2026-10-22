@@ -648,3 +648,34 @@ Commit `a4eb329` poussé (correction du flash, LED verte en battement de cœur, 
 **Non vérifié** : adresse I²C du TCAL6416 (figure illisible dans l'extraction ; 0x20 attendu comme le PCAL6416A). Positions des nouvelles pièces = hypothèses : relancer l'outil sur le placement v2.
 
 **Erreurs de la session** : un premier brochage « nettoyé à la main » était moins bon que celui du recuit (36 croisements contre 22 : ordre des NeoPixel et de l'I²S) → abandonné ; « dont 4 ADC1 » écrit à tort (IO2–IO7 sont toutes ADC1), corrigé ; une commande de test écrivait une image à la racine du disque puis la supprimait : bloquée par la sécurité, rien n'a été exécuté, refait dans le dossier temporaire ; un téléchargement en parallèle (`cd X && (curl A) & (curl B)`) a lancé le second curl dans le dossier du dépôt : page « accès refusé » de Mouser enregistrée sous `lsm6dsox.pdf` à la racine, déplacée dans le dossier temporaire ; un script Python passé par heredoc a perdu ses `\` (piège connu) → réécrit dans un fichier.
+
+### 22.10.2026 — LED verte : respiration douce
+
+**Demande** : le battement de cœur de la LED verte va trop vite ; l'utilisateur veut l'effet de la LED du PPK2 (« il est parfait »), en piochant si possible dans https://github.com/nordicsemi/pc-nrfconnect-ppk. Effet précisé ensuite : **respiration douce** (fondu continu, montée et descente).
+
+**Constat** : l'effet n'est pas dans ce dépôt. L'application n'a aucune commande de LED (`src/constants.ts`) ; l'animation est dans le firmware du PPK2, fourni seulement compilé (`firmware/pca63100_ppk2_1.2.4_db16a94.hex`). Courbe refaite à l'œil.
+
+**Fait** :
+- `logic::HeartbeatLevel()` remplace `HeartbeatOn()` : luminosité 0..255, cosinus surélevé mis au carré (l'œil voit mieux les écarts dans le noir), période **4 s** (`HEARTBEAT_PERIOD_MS`), éteinte à t = 0, pleine à 2 s ;
+- LED verte en **sigma-delta** (canal 0, `Board::SetGreenLevel()`) : les timers LEDC sont tous pris par ESP32Servo. 0 et 255 repassent la broche en GPIO simple (vraiment éteinte / allumée : le sigma-delta à -128 n'est pas garanti à 0 %) ; boot fixe, repères `LabMarkers` et clignotement de la remise à zéro inchangés ;
+- `test_heartbeat` réécrit (valeurs à 0, 1, 2, 3, 4 s, montée sans retour en arrière et par pas ≤ 4 toutes les 10 ms, phase au débordement de `millis()`) ; README mis à jour.
+
+**Vérifié** : compilation `turret2` OK (RAM 25,2 %, flash 46,8 %) ; valeurs du test recalculées en Python en flottants 32 bits (pas maximal 3). **Non vérifié** : tests natifs (pas de gcc sur le PC : CI), rendu sur la carte (pas flashé).
+
+*Ajout* : flashé ensuite sur COM5 (`turret2_bringup`, version `c1fb771-dirty`) ; `status` normal (mode debug, IMU présente, défaut 4 radar muet attendu). Rendu de la respiration : à juger par l'utilisateur.
+
+### 22.10.2026 (2ᵉ entrée) — Plan v2 : corrections, capteurs Hall, revue avant gel
+
+**Demandes** : lire `docs/carte-v2-plan.md` et corriger ; identifier le radar de la v1 du projet d'origine (HLK-LD2450, même protocole que le RD-03D) ; sentinelle LD2410S abandonnée définitivement (« il n'y a plus de place ») ; ajouter les capteurs Hall ; « faire encore le tour du plan v2 avant que je le fige ».
+
+**Fait** (`docs/carte-v2-plan.md`) :
+- R18 à 100 Ω dans les §5 et §12 ; LEDs d'état en deep sleep ; total de la veille aligné ; capteurs Hall **OH49E** (liste de matériel du projet d'origine, datasheet Ouzhuo : 2,3–10 V, 4,2 mA typ. à 5 V, sortie au repos VCC / 2) ;
+- revue avant gel, à partir du relevé KiCad v0.1 (composants, nets, positions) et des datasheets : **pont de retour du TPS631000 à 511 kΩ / 91 kΩ** (R7 / R8 de la v0.1 : 56 kΩ / 10 kΩ, 50 µA permanents ; valeurs du tableau 7-5 de TI), MODE à la masse vérifié (broche 6) ; courant de repos du TPS259533 confirmé (175 / 250 µA, commun aux variantes) ; adresse du TCAL6416 confirmée (0x20) et **registre de sortie à 0xFF au démarrage** (écrire les niveaux avant de passer en sortie) ; découplage du MAX98357A confirmé (0,1 µF + 10 µF) ; tensions maximales du +5V pendant l'écrêtage ; **veille radar avec le point d'accès Wi-Fi** (pas de veille du modem en point d'accès, ESP-IDF) : ≈ 170–200 mA estimés ; pull-down 10 kΩ sur IO26 (servo du canon droit pendant un redémarrage logiciel) ; note sur INT1 du LSM6DSOX au démarrage ; C29 / C30 repris sur 5V_RADAR / 5V_LED ; positions des switches précisées (SW_RADAR au dos, comme dans l'étude) ; garde-fou de carte et variante Arduino dans le §10 ; renvois de section corrigés (§8 → §10, §6 → §8).
+
+**Non vérifié** : découplage du LSM6DSOX (datasheet ST encore non téléchargeable) ; courant réel de la veille radar et de la veille profonde (à mesurer sur la carte).
+
+**Ensuite** : pull-downs de 100 kΩ sur les cinq autres lignes PWM (IO1, IO17, IO33, IO34, IO36 : aucun tirage au reset d'après la datasheet ESP32-S3, contrairement à IO26) mis **en option**, selon la place ; la 0 Ω 2512 du pont de mesure gardée à la demande de l'utilisateur, avec une tenue ≥ 4 A (les 0 Ω 2512 courantes, ex. Yageo RC2512, sont données pour 2 A).
+
+**Puis** : guide pas à pas pour faire la v2 dans KiCad, `docs/carte-v2-kicad.md` (phases 0 à 7, points de contrôle vérifiés avec `kicad-cli`, KiCad 10.0.6 installé). Relevé de la v0.1 pour l'écrire : ERC de départ à 28 avertissements, aucun bloquant (18 symboles LCSC sans librairie, 5 écarts de symbole, 4 croix « non connecté » au bout des fils de IO39–IO42, 1 pad de l'ampli) ; membres du +5V ; nets de chaque broche de l'ESP32 ; TPS22965 absent des librairies de KiCad 10 (PCAL6416APW et AO3401A présents) ; H1, H2 et le logo « carte uniquement » ; écarts de nomenclature de la v0.1 (C27 : valeur 1 µF mais référence d'un 100 nF ; R1, R2, R8, C14, C17 : références 0402 sur des empreintes 0603) ; J2 (TC2050-IDC) relié à rien et absent du PCB.
+
+**Erreurs de la session** : le 100 nF « 5V_RADAR » ajouté le matin à la liste d'achat était de trop (C29 existe déjà à côté de J5) → retiré à la revue ; la 0 Ω 2512, ajoutée sans courant nominal, a été retirée puis remise avec la condition ≥ 4 A ; un `python -` sans interpréteur valide a bloqué une commande (arrêtée) ; l'outil de lecture ne rend pas les pages d'un gros PDF (pdftoppm absent) → page extraite seule avec pypdf, puis lue.

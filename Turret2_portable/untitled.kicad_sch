@@ -5583,7 +5583,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "0f6d82a7-7aa5-4ea9-b9cc-b58afac5287e")
+			(uuid "0f6d82a7-7aa5-4ea9-b9cc-b58afac5287f")
 		)
 		(instances
 			(project "Turret2"

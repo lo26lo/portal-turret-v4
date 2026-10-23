@@ -725,3 +725,15 @@ Commit `0509307` poussé (logo Aperture sur l'OLED et la page web ; plan de la c
 - CMS de la face B regroupés pour un pochoir partiel ;
 - connecteurs traversants au fer en dernier ;
 - pas de seringue pour le LGA ni le TQFN.
+
+### 23.10.2026 — v2 : USB-C de la carte retiré, J1 en JST-XH
+
+**Demande** : « de nouveau des problèmes avec le connecteur USB » (faux contact sur D−, d'après l'utilisateur) : retirer l'USB-C de la carte et ne garder que l'USB déporté. Puis, pour le courant de J1 : « plus simple de partir sur un connecteur plus gros ».
+
+**Constat** : D− est câblé deux fois sur l'USB-C (A7, B7) : un faux contact sur une seule soudure ne marche que dans un sens de la fiche (test : la retourner ; réparation : refaire A6, A7, B6, B7). En usage normal, la tourelle est déjà alimentée par J1 (prise de la carte accessible capot ouvert seulement, design-plan §10). Contacts JST-PH : 2 A (24 AWG au plus) ; JST-XH : 3 A (22 AWG) ; JST-VH : 10 A (16 AWG) [datasheets JST].
+
+**Fait** (`carte-v2-plan.md`, `carte-v2-kicad.md`, image) : USBC1, R1, R2 (5,1 kΩ du CC, déjà sur l'ADA6050) et D5 retirés ; **J1 en JST-XH 4 broches** (B4B-XH-A, même brochage, VBUS et GND en 22 AWG : 0,05 V à 3 A sur 15 cm) ; D1 et D2 collées à J1 ; câble de banc (ADA6050 de rechange) pour travailler hors de la tourelle ; une seule TVS (pire fuite 0,8 mA au lieu de 1,6) ; règle « Pas fin » sans USBC1 ; zones et image mises à jour. Rien à changer côté firmware.
+
+*Puis* : rendus Fusion du support (arche, coque) : de la place au-dessus de la carte. L'antenne de l'ESP32 dépasse du bord haut à gauche (zone d'exclusion de la v0.1 : x 60,1–105,5 mm, antenne + 15 mm de chaque côté) : seule la partie droite peut monter (≈ 36 mm de large). **Décision : monter seulement la partie droite** (déplacer le module, écarté). Plan §0, §8 (image `docs/img/agrandir-carte-v2.png`), §11 ; guide : étape 5.0 (forme dessinée dans Fusion, DXF importé sur Edge.Cuts, calé sur H1 / H2 ; zones à agrandir) et 5.3 (nouvelles pièces dans la place gagnée ; IMU et ampli peut-être au recto, une seule face). Hauteur disponible : à mesurer dans Fusion.
+
+*Puis* : mesure dans Fusion : **8 mm jusqu'au dessous du haut-parleur** → la partie droite monte de **5 à 6 mm** (2 à 3 mm de marge) ; carte de 77 × 41 à 77 × 47 mm ; gain ~2 cm² (+6–7 %) : quelques petites pièces (SW_LED près de J14, J19, points de test, peut-être l'IMU), probablement pas tout au recto. Guide, étape 5.0 réécrite : plus de DXF, le bord haut droit et ses arrondis se déplacent de h dans KiCad (coordonnées pour h = 6 mm), puis export STEP pour vérifier dans Fusion. Image `docs/img/agrandir-carte-v2.png` refaite à l'échelle (haut-parleur à 8 mm, bande de 6 mm).

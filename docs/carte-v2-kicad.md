@@ -20,7 +20,7 @@
 | 2 | schéma | nouvelle feuille « Rails » : 3 switches, P-MOS, extendeur ; rails branchés | grosse |
 | 3 | schéma | nouveau brochage de l'ESP32 | moyenne, **délicate** |
 | 4 | schéma | finitions : points de test, annotation, empreintes, nomenclature | moyenne |
-| 5 | PCB | mise à jour, placement, verso, étude des GPIO | grosse |
+| 5 | PCB | carte agrandie à droite, mise à jour, placement, étude des GPIO | grosse |
 | 6 | PCB | routage, DRC, sérigraphie | grosse |
 | 7 | fabrication | fichiers, contrôle final | moyenne |
 
@@ -76,6 +76,9 @@ Le schéma a trois feuilles : **racine** (`Turret2.kicad_sch` : USB-C, TVS, eFus
 | MCU | R13, R17 (1 kΩ série), R19, R20 (pull-ups), C11, C12 (100 nF), et leurs fils jusqu'à IO26 / IO34 | les broches restent libres, reprises à l'étape 3 |
 | IO | J12, J13 (boutons A et B) | |
 | MCU | J2 (TC2050-IDC) | relié à rien dans la netlist et absent du PCB ; à garder seulement si tu comptes t'en servir |
+| racine | USBC1 (USB-C), R1, R2 (5,1 kΩ du CC), D5 (seconde TVS) | décision du 23.10.2026 : seule entrée, J1 (plan §2) ; D1 (TVS) et D2 (USBLC6) restent |
+
+**J1 change d'empreinte** (JST-PH → JST-XH 4 broches, étape 4.3) : même symbole, même brochage (1 VBUS, 2 D+, 3 D−, 4 GND).
 
 Les labels JTAG_* et les croix au bout des fils de IO39–IO42 partent à l'étape 3 : les fils resteront pour l'I²S.
 
@@ -102,7 +105,7 @@ Elles se branchent sur des nets dont le nom ne change pas : on peut les poser d�
 | 10 kΩ → GND | GUN_RIGHT, côté ESP32 de sa 330 Ω | MCU | §5 |
 | *option* 100 kΩ → GND × 5 | ROTATE_X, ROTATE_Z, GUN_LEFT, WING_LEFT, WING_RIGHT | à côté des 330 Ω ; attribut DNP (« ne pas monter ») tant que la place n'est pas confirmée | §4.8 |
 | 1 kΩ série × 2 | RADAR_TX → J5.2, RADAR_RX → J5.3 | IO, près de J5 | §4.8 |
-| 0 Ω 2512 (≥ 4 A) | entre VBUS (USB-C, J1, D1, D5, TP1) et l'entrée de IC1 (broches 3, 4) | racine ; nommer le côté eFuse `VBUS_IN`, et y mettre R3 (diviseur OVLO) | §8 |
+| 0 Ω 2512 (≥ 4 A) | entre VBUS (J1, D1, D2, TP1) et l'entrée de IC1 (broches 3, 4) | racine ; nommer le côté eFuse `VBUS_IN`, et y mettre R3 (diviseur OVLO) | §8 |
 
 ### 1.4 Second port I²C (J19)
 
@@ -243,6 +246,7 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
    | 10 µF | `Turret_Capacitor_SMD:C_0805_2012Metric` (comme C15, C25) |
    | 0 Ω 2512 | `Resistor_SMD:R_2512_6332Metric` |
    | J19 (Qwiic vertical) | `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` |
+   | J1 (USB déporté, JST-XH) | `Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical` |
    | Points de test | `Turret_TestPoint:TestPoint_Pad_D1.0mm` |
 
 4. **Champs pour la nomenclature** : valeur et référence fabricant de chaque nouvelle pièce ; attribut DNP sur les pull-downs PWM optionnels si tu n'as pas tranché. Au passage, **des références de la v0.1 ne collent pas** :
@@ -268,9 +272,33 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
 
 ## Phase 5 — PCB : mise à jour et placement
 
+### 5.0 Agrandir la carte (partie droite)
+
+Seule la partie droite monte : à gauche, l'antenne de l'ESP32 dépasse du bord et sa zone d'exclusion (45 mm de large, toutes couches) doit rester libre (plan §8).
+
+![Où la carte peut monter](img/agrandir-carte-v2.png)
+
+**De combien** : le dessous du haut-parleur est à 8 mm au-dessus du bord actuel (mesuré dans Fusion) ; la partie droite monte de **h = 5 ou 6 mm** (2 à 3 mm de marge). Une simple bande rectangulaire : pas besoin de DXF, le bord se déplace dans KiCad.
+
+1. **Sur Edge.Cuts**, déplacer de h vers le haut le bord haut de la partie droite et ses deux arrondis (sélection, puis Déplacer avec un décalage exact de 0 ; −h). Avec h = 6 mm :
+
+   | Élément | v0.1 | v2 (h = 6) |
+   |---|---|---|
+   | Bord haut droit | y = 86,36, de x 107,6 à 138,6 | y = 80,36 |
+   | Arrondi de la marche | de (105,6 ; 88,36) à (107,6 ; 86,36) | de (105,6 ; 82,36) à (107,6 ; 80,36) |
+   | Arrondi du coin droit | de (138,6 ; 86,36) à (141,6 ; 89,36) | de (138,6 ; 80,36) à (141,6 ; 83,36) |
+   | Marche (verticale, x = 105,6) | de y 88,36 à 89,6 | de y 82,36 à 89,6 |
+   | Bord droit (x = 141,6) | de y 89,36 à 124 | de y 83,36 à 124 |
+
+   Puis rallonger les deux traits verticaux jusqu'aux arrondis déplacés. Le contour doit rester fermé : le DRC le vérifie.
+2. **Ne pas toucher** : le bord du bas, le côté gauche, H1 / H2, l'arrondi bas de la marche (de (103,6 ; 91,6) à (105,6 ; 89,6)), le bord haut gauche (y = 91,6) et la zone d'exclusion « Antenna ».
+3. **Agrandir les zones** jusqu'au nouveau bord : plans de masse (In1, In2, verso) et, selon ce qui y sera placé, 5V_logique ou 5V_SERVO. Une zone ne remplit que son propre contour.
+4. **Vérifier dans Fusion** avec un export STEP de la carte (Fichier > Exporter > STEP) : haut-parleur, arche, coque.
+5. L'étude des GPIO (étape 5.5) lit le nouveau contour dans le fichier.
+
 ### 5.1 Mettre à jour le PCB depuis le schéma (F8)
 
-- Cocher « Supprimer les empreintes sans symbole » : J12, J13, R13, R17, R19, R20, C11, C12 s'en vont (J2 n'a jamais été sur le PCB). H1, H2 (trous de fixation) et le logo sont marqués « carte uniquement » : ils restent. **Relire la liste dans la boîte de dialogue avant de valider.**
+- Cocher « Supprimer les empreintes sans symbole » : J12, J13, R13, R17, R19, R20, C11, C12, ainsi que USBC1, R1, R2 et D5, s'en vont (J2 n'a jamais été sur le PCB). J1 change d'empreinte : cocher aussi le remplacement des empreintes modifiées. H1, H2 (trous de fixation) et le logo sont marqués « carte uniquement » : ils restent. **Relire la liste dans la boîte de dialogue avant de valider.**
 - Les nouvelles empreintes arrivent à côté de la carte.
 
 ### 5.2 Faire de la place
@@ -282,7 +310,8 @@ Presque toutes les GPIO changent de broche : les pistes de signal de la v0.1 rel
 
 ### 5.3 Placer (§5.2, §8)
 
-1. **Au verso** (retourner l'empreinte) : U6 (IMU) et ses condensateurs ; U9 (ampli) avec C24, C25, R10, R11 ; à leur place de la v0.1, comme l'a supposé l'étude des GPIO.
+0. **D'abord la place gagnée à droite** (étape 5.0) : y loger les nouvelles pièces. Si l'IMU et l'ampli peuvent alors rester au recto, ne pas les retourner : une seule face à braser (plan §8).
+1. **Au verso** (retourner l'empreinte), si la place manque toujours : U6 (IMU) et ses condensateurs ; U9 (ampli) avec C24, C25, R10, R11 ; à leur place de la v0.1, comme l'a supposé l'étude des GPIO.
 2. **Extendeur** au verso, à côté de l'IMU ; **SW_RADAR** au verso, à côté de J5.
 3. **SW_SERVO et SW_LED** au recto, au point d'étoile du +5V, avant C9 / C18 ; CT collé à sa broche.
 4. **AO3401A** au recto, entre J17 et J18.
@@ -291,6 +320,7 @@ Presque toutes les GPIO changent de broche : les pistes de signal de la v0.1 rel
 7. **0 Ω 2512** entre D1 / D5 et IC1 ; R7 / R8 collées à la broche FB du TPS631000 (§4.10).
 8. Points de test.
 9. **J19** (second port Qwiic) : là où on y accède de l'extérieur de la tourelle ; hauteur ~4,6 mm ; au bout du bus I²C (module → IMU → extendeur → J11 → J19).
+10. **J1 en JST-XH** (plus large et plus haut que le PH) : à la place de l'ancien J1, ou dans la place libérée par l'USB-C, côté entrée de l'eFuse. **D1 et D2 collées à J1**, puis la 0 Ω, puis IC1 : le chemin VBUS le plus court possible.
 
 ### 5.4 Zones d'alimentation (îlots)
 
@@ -300,7 +330,7 @@ Sur la v0.1, la couche interne In2 porte les alimentations : VBUS, 3V3, et un +5
 
 | Zone de la v0.1 (couche) | Alimente | En v2 |
 |---|---|---|
-| VBUS (In2, bas gauche) | USB-C, J1, D1 | même contour, même net ; l'entrée de l'eFuse passe derrière la 0 Ω 2512 (`VBUS_IN`, piste large au recto) et ne touche plus la zone |
+| VBUS (In2, bas gauche) | J1, D1 (l'USB-C de la v0.1 disparaît) | même contour, même net ; l'entrée de l'eFuse passe derrière la 0 Ω 2512 (`VBUS_IN`, piste large au recto) et ne touche plus la zone |
 | 3V3 (In2, haut gauche) | module, IMU | inchangée ; 3V3_HALL en pistes (8 mA) |
 | 5V_logique (In2, centre) | ampli, AHCT, C26, entrée du TPS631000 | reste +5V ; J14 et J5 n'y sont plus reliés (5V_LED et 5V_RADAR en pistes) |
 | 5V_servos (In2) et 5V_servos_L4 (verso) | J3, J4, J7–J10, C9, C18, TP2 | **même contour, net 5V_SERVO** (propriétés de la zone) |
@@ -345,7 +375,7 @@ La v0.1 a déjà des classes de nets et des règles (`Turret2.kicad_dru`), et du
 | Thermiques | dans l'empreinte | TPS22965 : l'empreinte de IC1 a déjà ses vias thermiques ; ampli : son empreinte n'en a pas, en ajouter ~4 de 0,6 / 0,3 mm sous le pad exposé, recouvertes de vernis côté opposé pour que la soudure ne s'y perde pas | |
 | Serrée | 0,45 / 0,2 mm (déjà dans la liste du projet) | seulement si la place manque | |
 
-**Règles DRC à compléter** (`Turret2.kicad_dru`) : ajouter les références des 3 TPS22965 et de l'extendeur (connues après l'annotation, étape 4.2) aux deux règles « Pas fin ». Leurs pastilles au pas de 0,5 / 0,65 mm ne peuvent pas tenir la largeur de 0,8 mm ni l'isolement de 0,25 mm de la classe Power5V ; les pistes s'élargissent dès qu'elles quittent l'empreinte. Rien d'autre à changer : « Via puissance », « Largeur 5V servos » et « In2 réservée aux alimentations » s'appliquent d'elles-mêmes aux nouveaux rails une fois dans la classe Power5V.
+**Règles DRC à compléter** (`Turret2.kicad_dru`) : ajouter les références des 3 TPS22965 et de l'extendeur (connues après l'annotation, étape 4.2) aux deux règles « Pas fin », et en retirer USBC1, qui n'existe plus. Leurs pastilles au pas de 0,5 / 0,65 mm ne peuvent pas tenir la largeur de 0,8 mm ni l'isolement de 0,25 mm de la classe Power5V ; les pistes s'élargissent dès qu'elles quittent l'empreinte. Rien d'autre à changer : « Via puissance », « Largeur 5V servos » et « In2 réservée aux alimentations » s'appliquent d'elles-mêmes aux nouveaux rails une fois dans la classe Power5V.
 
 ### Ordre de routage
 

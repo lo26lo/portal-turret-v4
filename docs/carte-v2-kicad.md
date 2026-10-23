@@ -286,14 +286,16 @@ Seule la partie droite monte : à gauche, l'antenne de l'ESP32 dépasse du bord 
    |---|---|---|
    | Bord haut droit | y = 86,36, de x 107,6 à 138,6 | y = 80,36 |
    | Arrondi de la marche | de (105,6 ; 88,36) à (107,6 ; 86,36) | de (105,6 ; 82,36) à (107,6 ; 80,36) |
-   | Arrondi du coin droit | de (138,6 ; 86,36) à (141,6 ; 89,36) | de (138,6 ; 80,36) à (141,6 ; 83,36) |
+   | Arrondi du coin droit | de (138,605 ; 86,36) à (141,605 ; 89,36) | de (138,605 ; 80,36) à (141,605 ; 83,36) |
    | Marche (verticale, x = 105,6) | de y 88,36 à 89,6 | de y 82,36 à 89,6 |
-   | Bord droit (x = 141,6) | de y 89,36 à 124 | de y 83,36 à 124 |
+   | Bord droit (x = 141,605) | de y 89,36 à 124 | de y 83,36 à 124 |
 
-   Puis rallonger les deux traits verticaux jusqu'aux arrondis déplacés. Le contour doit rester fermé : le DRC le vérifie.
+   Puis rallonger les deux traits verticaux jusqu'aux arrondis déplacés. Le contour doit rester fermé : le DRC le vérifie. Coordonnées de la version GitHub : si la carte est ailleurs sur la feuille, se caler sur H2, en (139,065 ; 123,825).
+
+   **Trou H3** (fait le 23.10.2026) : `MountingHole_2.2mm_M2`, comme H1 / H2, en (139,065 ; 83,175), à l'aplomb de H2. Utile seulement si le support a un plot en face.
 2. **Ne pas toucher** : le bord du bas, le côté gauche, H1 / H2, l'arrondi bas de la marche (de (103,6 ; 91,6) à (105,6 ; 89,6)), le bord haut gauche (y = 91,6) et la zone d'exclusion « Antenna ».
 3. **Agrandir les zones** jusqu'au nouveau bord : plans de masse (In1, In2, verso) et, selon ce qui y sera placé, 5V_logique ou 5V_SERVO. Une zone ne remplit que son propre contour.
-4. **Vérifier dans Fusion** avec un export STEP de la carte (Fichier > Exporter > STEP) : haut-parleur, arche, coque.
+4. **Vérifier dans Fusion** avec un export STEP de la carte (Fichier > Exporter > STEP) : haut-parleur, arche, coque. Celui du contour rehaussé est dans le dépôt : `Turret2_portable/3d/Turret2_rehausse.step`.
 5. L'étude des GPIO (étape 5.5) lit le nouveau contour dans le fichier.
 
 ### 5.1 Mettre à jour le PCB depuis le schéma (F8)

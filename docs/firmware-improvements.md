@@ -770,3 +770,13 @@ Commit `0509307` poussé (logo Aperture sur l'OLED et la page web ; plan de la c
 - décodeur : 23,9 Ko en 8 blocs (le plus gros 8,7 Ko), aucune fuite.
 
 **Non vérifié** : écoute sur la carte (débranchée) : timing I2S réel, volume, `uploadfs`.
+
+*Ajout* : poussé (`f0250bd`), CI verte (run 39932353458 : compilation, tests natifs, `check_web.py`). Mémoire I²C pour les MP3 envisagée pour la v2, puis écartée : ils tiennent dans la flash (LittleFS : ~1 Mo libre).
+
+### 23.10.2026 (3ᵉ entrée) — Contour rehaussé de la v2 : modèle 3D
+
+**Fourni** : `Turret2_rehausse.step`, export KiCad de la carte au contour rehaussé (composants compris), rangé dans `Turret2_portable/3d/`.
+
+**Vérifié dans le fichier** (contour de la carte relu dans le STEP) : partie droite montée de 6 mm (bord haut droit à y = 80,36, coin droit et marche déplacés, comme le tableau du guide, étape 5.0) ; carte de 77,3 × 46,6 mm ; H1 / H2 inchangés ; un troisième trou M2, **H3**, en (139,065 ; 83,175).
+
+**Fait** : plan §0 (Contour) et §8 ; guide, étape 5.0 (coordonnées exactes du coin droit, 141,605 ; H3 ; calage sur H2 si la carte est ailleurs sur la feuille ; chemin du STEP).

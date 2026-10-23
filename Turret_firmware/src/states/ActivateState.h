@@ -12,6 +12,7 @@ class ActivateRoutine : public ace_routine::Coroutine {
 
  private:
   Turret* turret = nullptr;
+  ulong startedAt = 0;
 };
 
 class ActivateState : public BaseState {

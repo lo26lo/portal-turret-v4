@@ -54,7 +54,8 @@ tools/mock_menu.py          debug menu for the simulator (reads src/ui/MenuTree.
 tools/check_web.py          automatic check of the page and API against the simulator
 test/test_logic/            native unit tests of src/logic (pio test -e native)
 ../.github/workflows/       CI: build + checks on every push
-data/fire.mp3               LittleFS image (pio run -t uploadfs)
+data/                       LittleFS image (pio run -t uploadfs): the 55 voice lines of upstream
+                            (01_activate/ … 08_tipped/, 09/), fire.mp3
 src/
   main.cpp                  setup() = boot steps 1-10, loop()
   pins.h                    pinout imposed by the board (never reassign)
@@ -68,7 +69,8 @@ src/
   ui/Display.*              OLED 128x64 on J11 (U8g2: SSD1306, SSD1309, SH1106)
   ui/DebugUi.*              debug menu and status page: information pages, hooks to the commands
   audio/Amp.*               MAX98357A: shutdown, gain, mute
-  audio/Audio.*             I2S, gunshot sample with loop, test tone, volume
+  audio/Audio.*             I2S, gunshot sample with loop, test tone, voice lines, volume
+  audio/Mp3FrameDecoder.*   MP3 to PCM one frame at a time (Helix C API), no Arduino
   audio/AudioLoop.*         plays a sample with a loop section
   audio/GunShotAudio.h      gunshot sample (16-bit mono, 44.1 kHz, 16 420 samples)
   light/Light.*             NeoPixels: ring (9) and guns (2 + 2), power cap, test colours
@@ -104,7 +106,7 @@ PlatformIO project. In VS Code, open **this folder** (`Turret_firmware/`), not t
 ```
 pio run                       # build
 pio run -t upload             # flash over the native USB (IO19/IO20)
-pio run -t uploadfs           # LittleFS image: data/fire.mp3
+pio run -t uploadfs           # LittleFS image: data/ (voice lines); again after any change in data/
 pio device monitor            # console, 115200 baud
 ```
 
@@ -116,7 +118,7 @@ First flash of a new board: `esptool.py flash_id` must report **8 MB** (module N
 
 Pinned versions (`platformio.ini`): platform `espressif32@7.1.3` (arduino-esp32 2.0.17), FastLED 3.10.5, ESP32Servo 1.2.1, ESPAsyncWebServer 3.12.1, AsyncTCP 3.5.0, AceRoutine 1.5.1, Adafruit LSM6DS 4.7.4, U8g2 2.36.18, arduino-audio-tools and arduino-libhelix pinned to a commit. Keep the path of the project short on Windows: FastLED has very deep paths and GCC fails beyond 260 characters.
 
-Size today: about 44 % of the 3.2 MB application partition, 23 % of the RAM.
+Size today: about 46 % of the 3.2 MB application partition, 28 % of the RAM. The voice lines take 0.39 MB of the 1.5 MB LittleFS partition.
 
 **Version**: `scripts/git_version.py` writes `src/version_gen.h` before each build with `git describe --tags --dirty --always` (for example `fd63cb0-dirty`). It appears in the boot banner, in `/api/status` and on the web page. Tag a release (`git tag v0.1`) to get readable versions.
 
@@ -150,9 +152,9 @@ PWR_FLT low at any point stops the sequence and enters `Fault`.
 |---|---|---|
 | `Booting` | steps 11-13 | `Idle`, `Manual` (debug / reduced mode), `Fault` |
 | `Idle` | rests `CooldownMs` after entering, then waits for a target **inside the detection zone** of a radar that is still sending frames; refuses if the turret is not upright | `Activate` |
-| `Activate` | opens the wings, waits until both are open (Hall), extends the guns, 0.5 s | `Firing` |
+| `Activate` | says an *activate* line, opens the wings, waits until both are open (Hall), extends the guns, 0.5 s, then waits for the end of the line (3.5 s at most from the start) | `Firing` |
 | `Firing` | gunshot sound with its loop for 3 s, then lets it end | `Disengage` |
-| `Disengage` | retracts the guns, 0.5 s, closes the wings, waits, 0.5 s | `Idle` |
+| `Disengage` | says a *retire* line, retracts the guns, 0.5 s, closes the wings, waits, 0.5 s | `Idle` |
 | `Manual` | nothing: the state machine is stopped. Used by debug mode, reduced mode and every hardware test; in debug mode a demo cycle also ends here | `Booting` with the `resume` command |
 | `Fault` | power fault: servos detached, sound stopped, amplifier in shutdown, LEDs off | `Booting` after PWR_FLT has been high for 2 s |
 
@@ -208,7 +210,10 @@ MAX98357A on I2S (BCLK IO11, LRCLK IO12, DIN IO10), 44.1 kHz, 16-bit, mono (the 
 - Test tone (`tone` command).
 - Mute (button B) keeps the I2S running and only drives SD low.
 - Shutdown before any restart: SD low, then I2S stopped.
-- `data/fire.mp3` is mounted and selected as in upstream, but the MP3 player is not used.
+- **Voice lines**: the 55 MP3 files of upstream (`data/`, 22 050 Hz mono), one folder per situation, written to LittleFS by `pio run -t uploadfs`. A line is a random file of its folder, never the same one twice in a row. The firmware says *activate* when it deploys, *retire* when it folds back, and *tipped* when it is knocked over (upright for 2 s, then not upright for 0.5 s; needs `ImuUpAxis`). *search*, *pickup*, *collision*, *shutdown* and *alarm* are only played with `voice <name>` or the Tests tab for now. `Voices` turns them off. The gunshot and the test tones take over and cut a line.
+- How a line is played, without ever holding up `loop()`: `Mp3FrameDecoder` decodes one MP3 frame at a time (the C API of the Helix decoder; its C++ wrappers keep the last ~1 KB of a file undecoded), the samples are doubled to 44.1 kHz by linear interpolation, and whole DMA buffers (512 stereo frames) are handed to the I2S driver without waiting, up to ~90 ms ahead. Every write is a whole DMA buffer (the tone and the gunshot write three at a time), so a sound never ends in a half-filled buffer whose other half would replay old samples. The decoder takes ~24 KB of heap while a line plays (refused below 40 KB free). Checked on the computer with the same code: the 55 files decode to the last frame, identical to a reference decoder (SNR above 85 dB).
+- **Adding lines**: drop more `.mp3` files into a folder of `data/` (any name, up to 255 per folder) and run `uploadfs` again; the firmware counts them at boot. Use 22 050 Hz (like upstream) or 44 100 Hz, mono: other rates play at the wrong speed (16, 24 and 48 kHz about 9 % off, 32 kHz 38 %), and 8 to 12 kHz files (MPEG-2.5) are not decoded. About 1 MB of LittleFS is still free, roughly 2.5 minutes at 56 kbit/s.
+- `data/fire.mp3` stays unused: the gunshot is the sample in flash.
 
 ### Lights (`light/*`)
 
@@ -283,7 +288,7 @@ Otherwise (normal mode, or no screen): turn = volume in 5 % steps (turning up wh
 | Menu | Content |
 |---|---|
 | Information | live pages: state and faults, power (PWR_FLT, counters, reset reason), radar (targets, in the zone or not), IMU, Hall sensors (values with a bar), servos (pulse of each output), audio, network and time; **radar view** (top view: the detection zone as an arc and two lines, full scale 6 m, targets as dots, filled when in the zone); **Hall curves** (left and right: the last 5 s, with the two thresholds as dotted lines); statistics (boots, cycles, targets seen, last cycle); **log** (last four lines); **last crash** (core dump summary, or the last lines before the reset) |
-| Tests | **self-test** quick or full, and its report (below); wings (left / right / both: open, close), guns (left / right: out, in), each servo by steps, LEDs (colours, one strip, one-bit pattern), sound (tone, gunshot, volume, gain, mute), demo cycle, load test, I²C scan, release all servos |
+| Tests | **self-test** quick or full, and its report (below); wings (left / right / both: open, close), guns (left / right: out, in), each servo by steps, LEDs (colours, one strip, one-bit pattern), sound (tone, gunshot, three voice lines, volume, gain, mute), demo cycle, load test, I²C scan, release all servos |
 | Calibration | **guided setup**: seven steps, one instruction per screen (open the left wing by hand, press B…) for the Hall sensors and the IMU; or entry by entry: Hall sensors (capture open / closed for each wing, then save: thresholds at 25 % and 75 %), IMU (the turret stands upright), wing trims (5 µs steps, the wing runs at its stop point for 2 s, hold B to save) |
 | Settings | volume, LED brightness, rest time, detection distance and angle, lab markers, wing animation, logo or status page, screen flipped, contrast, screen-off delay, language |
 | WiFi | pages: turret network (name, **password**, 192.168.4.1, clients), home network (name, state, address and signal, `portal-turret.local`), networks found by the last scan (four strongest), date and time, **QR code to join the turret network** (point the phone camera at it), **QR code of the web page**; actions: scan, reconnect to the home network, forget it, WiFi on / off, factory password for the turret network (next boot). The home network password is typed on the web page, not with two buttons |
@@ -332,6 +337,7 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ImuUpAxis` | Motion | 0 | 0..6 | axis pointing up: 0 off, 1 +X, 2 -X, 3 +Y, 4 -Y, 5 +Z, 6 -Z |
 | `AmpGain` | Audio | 9 | 9..15 | amplifier gain, rounded to 9, 12 or 15 dB |
 | `Volume` | Audio | 80 | 0..100 | software volume (%) |
+| `Voices` | Audio | true | true / false | voice lines (activate, retire, tipped; `voice` command) |
 | `CooldownMs` | Detection | 5000 | 0..120000 | rest after each cycle (and after boot) before a new target is taken |
 | `DetectMaxMm` | Detection | 3000 | 300..6000 | detection distance (mm) |
 | `DetectAngle` | Detection | 45 | 5..60 | detection half angle (degrees each side of the radar axis) |
@@ -355,7 +361,9 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `OledSleepS` | Display | 300 | 0..3600 | screen off after this many seconds without activity (0 = never) |
 | `LabMarkers` | Lab | false | true / false | green LED toggles at each boot step / servo attachment instead of its status pattern (lab aid) |
 | `ApSsid` | WiFi | Portal Turret | 1..32 chars | name of the turret's network |
-| `ApPassword` | WiFi | stillalive | 8..63 chars | turret network **and** web page password |
+| `ApPassword` | WiFi | stillalive | 8..63 chars | turret network password (WPA2 needs at least 8 characters) |
+| `WebUser` | WiFi | Admin | 1..32 chars, no `:` | web page user name |
+| `WebPassword` | WiFi | 1234 | 4..63 chars | web page password (also for the firmware upload) |
 | `StaSsid` | WiFi | (empty) | 0..32 chars | home network; empty = not used |
 | `StaPassword` | WiFi | (empty) | empty or 8..63 | home network password |
 | `Timezone` | WiFi | `CET-1CEST,M3.5.0,M10.5.0/3` | POSIX TZ | time zone (Paris, with daylight saving time) |
@@ -374,9 +382,9 @@ Passwords are never sent back by the API nor printed by `get`.
 
 ## 10. Web page and API
 
-`http://192.168.4.1` (turret network) or `http://portal-turret.local` (home network). User **`turret`**, password **`ApPassword`**. The page is embedded in the firmware (gzip, about 6 kB), needs no Internet and is always the version of the firmware.
+`http://192.168.4.1` (turret network) or `http://portal-turret.local` (home network). User **`Admin`**, password **`1234`** (settings `WebUser` / `WebPassword`, applied at the next boot), separate from the WiFi password `ApPassword`. On the home network anyone can reach the page: change `WebPassword` there, since the page can also upload a firmware. The page is embedded in the firmware (gzip, about 6 kB), needs no Internet and is always the version of the firmware.
 
-The header shows the Aperture logo (inline SVG, follows the light / dark theme), also used as the tab icon (orange). Tabs: **Status** (home WiFi card, values refreshed every second, active faults, warning while the factory password is used), **Settings** (generated from the setting table, default button per field, save and reset per group), **Calibration** (Hall capture, IMU axis capture, wing trim sliders), **Tests** (wings, guns, tone, gain, mute, LED colours, any servo, I2C scan, demo, resume, free command line), **Log**, **Maintenance** (firmware upload, reboot, factory reset).
+The header shows the Aperture logo (inline SVG, follows the light / dark theme), also used as the tab icon (orange). Tabs: **Status** (home WiFi card, values refreshed every second, active faults, warning while the factory password is used), **Settings** (generated from the setting table, default button per field, save and reset per group), **Calibration** (Hall capture, IMU axis capture, wing trim sliders), **Tests** (wings, guns, tone, gain, mute, voice lines, LED colours, any servo, I2C scan, demo, resume, free command line), **Log**, **Maintenance** (firmware upload, reboot, factory reset).
 
 | Method and path | Role |
 |---|---|
@@ -429,6 +437,7 @@ USB, 115200 baud. Type `help`.
 | `trim left\|right <µs>` | runs a wing at its stop point with this trim for 2 s (not saved) |
 | `led ring\|left\|right\|all <RRGGBB\|off>` | test colours |
 | `tone <Hz> [ms]`, `gain 9\|12\|15`, `mute [on\|off]` | audio tests (gain not saved) |
+| `voice [activate\|collision\|shutdown\|pickup\|retire\|search\|tipped\|alarm\|stop]` | a random line of that folder; without a name, the folders and their file counts |
 | `wifi [on\|off\|scan\|join\|forget]`, `time` | WiFi state and control (`forget` drops the home network), local time |
 | `demo` | one activation cycle (from `Idle`) |
 | `resume` | leaves the tests: homing, then `Idle` |
@@ -457,12 +466,12 @@ It works from the turret's network and, once the turret has joined it, from the 
 From the page (either network): *Maintenance*, choose `.pio/build/turret2/firmware.bin`, *Upload*. With PlatformIO:
 
 ```
-$env:TURRET_PASSWORD = "stillalive"      # PowerShell: your ApPassword
+$env:TURRET_PASSWORD = "1234"            # PowerShell: your WebPassword (user Admin)
 pio run -e turret2_ota_home -t upload    # from the home network (portal-turret.local)
 pio run -e turret2_ota -t upload         # from the turret's network (192.168.4.1)
 ```
 
-If `portal-turret.local` does not resolve on the computer, use the IP address shown on the page: `curl -u turret:<password> -F "firmware=@.pio/build/turret2/firmware.bin" http://<ip>/update`.
+If `portal-turret.local` does not resolve on the computer, use the IP address shown on the page: `curl -u Admin:<password> -F "firmware=@.pio/build/turret2/firmware.bin" http://<ip>/update`. With another `WebUser`, change `Admin` in the upload command of `platformio.ini` too.
 
 The credentials are checked on the first block of the upload. The turret then stops (servos detached, amplifier off, I2S stopped, LEDs off) **before** accepting the data, and reboots afterwards whether the update succeeded or not.
 
@@ -487,29 +496,29 @@ Plan §8 gives the full bring-up order (one peripheral at a time). Use `turret2_
 2. **IMU**: turret standing upright, *capture*. The dominant axis becomes `ImuUpAxis`.
 3. **Wing trims**: move the slider until a wing driven at its stop point does not move, *Save trims*.
 4. **Axis offsets** (`AngleOffsetX/Z`) as on the V4.
-5. Change **`ApPassword`**.
+5. Change **`ApPassword`** and **`WebPassword`**.
 
 ## 15. Testing without the board
 
 `tools/mock_server.py` (Python 3, standard library only) serves the real page and simulates the API: moving Hall values, wings, servos, log, settings read from `Settings.cpp`, network scan and home WiFi (password `password123`), captive portal checks.
 
 ```
-python tools/mock_server.py          # then http://localhost:8080, turret / stillalive
+python tools/mock_server.py          # then http://localhost:8080, Admin / 1234
 ```
 
 Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`, `sim imu on|off`, `sim crash on|off` (fake core dump and previous-run log), `sim debug on|off` (debug mode, on by default), `sim oled on|off`.
 
 The **debug menu can be tried in the browser**: Tests → *Debug screen*, buttons A, A long, B, B long. The simulator walks through the real tree of `src/ui/MenuTree.h`; the information pages show fake values.
 
-**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; detection zone; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
+**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; detection zone; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain; voice upsampling, file choice, ID3 tag size, "tipped over" watch). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
 
-`tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan) and the JavaScript syntax with Node.js. The CI runs it too.
+`tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan, voice names of the page against the firmware, an MP3 in every voice folder of `data/`) and the JavaScript syntax with Node.js. The CI runs it too.
 
 ## 16. Known limits
 
 - Nothing has run on a board: every timing, threshold and default is a starting point.
 - The turret does not aim: the rotations are only centred.
-- `data/fire.mp3` and the MP3 decoder are compiled but unused (upstream leftover).
+- The voice lines have not been heard on a board yet: decoding is checked on the computer, the I2S timing and the loudness are not.
 - The web page uses HTTP Basic over plain HTTP: fine on a home network, not on an open one.
 - On iOS the captive portal window may not handle the password prompt: open Safari on `192.168.4.1` instead.
 - The reboot-loop counter also counts three presses of RESET within a minute.

@@ -27,6 +27,8 @@ public:
   bool IsUpright() const;
   // Wings may open: upright, or not checkable (IMU missing, axis not calibrated).
   bool CanDeploy() const;
+  // IsUpright() means something: IMU read at least once and ImuUpAxis calibrated.
+  bool CanCheckUpright() const;
 
 private:
   Adafruit_LSM6DSOX imu;

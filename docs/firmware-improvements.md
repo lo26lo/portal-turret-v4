@@ -737,3 +737,36 @@ Commit `0509307` poussé (logo Aperture sur l'OLED et la page web ; plan de la c
 *Puis* : rendus Fusion du support (arche, coque) : de la place au-dessus de la carte. L'antenne de l'ESP32 dépasse du bord haut à gauche (zone d'exclusion de la v0.1 : x 60,1–105,5 mm, antenne + 15 mm de chaque côté) : seule la partie droite peut monter (≈ 36 mm de large). **Décision : monter seulement la partie droite** (déplacer le module, écarté). Plan §0, §8 (image `docs/img/agrandir-carte-v2.png`), §11 ; guide : étape 5.0 (forme dessinée dans Fusion, DXF importé sur Edge.Cuts, calé sur H1 / H2 ; zones à agrandir) et 5.3 (nouvelles pièces dans la place gagnée ; IMU et ampli peut-être au recto, une seule face). Hauteur disponible : à mesurer dans Fusion.
 
 *Puis* : mesure dans Fusion : **8 mm jusqu'au dessous du haut-parleur** → la partie droite monte de **5 à 6 mm** (2 à 3 mm de marge) ; carte de 77 × 41 à 77 × 47 mm ; gain ~2 cm² (+6–7 %) : quelques petites pièces (SW_LED près de J14, J19, points de test, peut-être l'IMU), probablement pas tout au recto. Guide, étape 5.0 réécrite : plus de DXF, le bord haut droit et ses arrondis se déplacent de h dans KiCad (coordonnées pour h = 6 mm), puis export STEP pour vérifier dans Fusion. Image `docs/img/agrandir-carte-v2.png` refaite à l'échelle (haut-parleur à 8 mm, bande de 6 mm).
+
+### 23.10.2026 (2ᵉ entrée) — Identifiant web Admin / 1234 ; les voix de l'upstream
+
+**Demande** : « compte et password Admin / 1234 » et « rajoute tous ces sons » (dossier `data/` de joranderaaff/portal-turret-v4).
+
+**Constat** :
+- le WPA2 du point d'accès exige 8 caractères au moins : `1234` ne peut pas être le mot de passe WiFi ;
+- l'upstream a 55 répliques MP3 (22 050 Hz mono, 32 à 56 kbit/s, 0,5 à 3,2 s, petite étiquette ID3) rangées par situation : activation, retrait, recherche, renversée, ramassée ; `02_collision`, `04_shutdown` et `09/001` n'y sont jouées nulle part ;
+- l'enveloppe C++ de libhelix décode par paquets de 1 Ko : le dernier Ko d'un fichier (~0,15 s) ne sortait jamais ;
+- son allocateur boucle à l'infini quand `malloc` échoue, au lieu de rendre `null` ;
+- le pilote I2S d'arduino-audio-tools : écriture bloquante, un `i2s_write` par échantillon en mono, `availableForWrite()` constant (3072) ;
+- un son qui finit au milieu d'un tampon DMA rejoue l'autre moitié, qui contient d'anciens échantillons.
+
+**Fait** :
+- identifiant de la page web séparé : `WebUser` / `WebPassword` (usine `Admin` / `1234`, 4 à 63 caractères, au prochain démarrage), aussi pour `/update` ; `ApPassword` reste le mot de passe WiFi (`stillalive`) ;
+- `get` masque `WebPassword` ; contrôles de la page (4 caractères pour `WebPassword`, pas de `:` dans `WebUser`) ; écran QR : l'utilisateur réel ; `platformio.ini` (OTA), README, plan D7 ;
+- les 55 MP3 dans `Turret_firmware/data/` (`pio run -t uploadfs`) ;
+- `audio/Mp3FrameDecoder` : API C de Helix, une trame par appel, étiquette ID3v2 sautée, sans Arduino ;
+- `Audio` : réplique au hasard dans le dossier, jamais deux fois la même ; doublée à 44,1 kHz par interpolation ; volume ; tampons DMA entiers (512 trames stéréo) écrits sans attendre, jusqu'à ~90 ms d'avance ; mémoire vérifiée avant le décodeur (40 Ko libres) ; le tir et la tonalité coupent une réplique ;
+- branchements : activation au déploiement (le tir attend la fin de la réplique, 3,5 s au plus), retrait au repli, renversée après une chute (debout 2 s, puis plus debout 0,5 s ; il faut `ImuUpAxis`) ; arrêt en défaut ;
+- réglage `Voices` ; commande `voice [nom|stop]` ; page (Tests : liste et *Play voice*) ; menu de debug (trois répliques) ;
+- `logic/AudioLogic.h` (`Upsampler`, `PickVoiceFile`, `Id3v2Size`, `TipWatch`) et ses tests ;
+- simulateur et `check_web.py` (identifiant, secrets, voix de la page = voix du firmware, un MP3 par dossier).
+
+**Vérifié** :
+- compilation `turret2` OK (RAM 28,1 %, flash 46,0 %), sans avertissement dans `src/` ;
+- `check_web.py` : tout passe ;
+- tests natifs : 37 / 37, compilés sur ce PC avec zig / clang (pas de gcc ici) ;
+- sur le PC, avec le même `Mp3FrameDecoder` et la même chaîne (suréchantillonnage, blocs DMA, remplissage final) : les 55 répliques et `fire.mp3` décodées jusqu'à la dernière trame, aucune trame sautée ;
+- résultat identique à un décodeur de référence (dr_mp3) : rapport signal / bruit de 85 à 93 dB ;
+- décodeur : 23,9 Ko en 8 blocs (le plus gros 8,7 Ko), aucune fuite.
+
+**Non vérifié** : écoute sur la carte (débranchée) : timing I2S réel, volume, `uploadfs`.

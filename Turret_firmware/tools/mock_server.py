@@ -5,7 +5,8 @@ control/Actions.cpp) with plausible, moving values. The settings are read from
 src/settings/Settings.cpp so that the page shows the real list.
 
     python tools/mock_server.py [port]      (default 8080, run from Turret_firmware/)
-    open http://localhost:8080  -  user "turret", password "stillalive"
+    open http://localhost:8080  -  user "Admin", password "1234" (WebUser / WebPassword;
+    like the firmware, a new login applies at the next boot: "reboot" in the console)
 
 Simulation commands that do not exist on the turret (type them in Tests > console):
     sim fault on|off     PWR_FLT low / high
@@ -34,7 +35,9 @@ import mock_menu
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAGE = os.path.join(ROOT, "src", "web", "page", "index.html")
 SETTINGS_CPP = os.path.join(ROOT, "src", "settings", "Settings.cpp")
-USER = "turret"
+SECRET_KEYS = ("ApPassword", "StaPassword", "WebPassword")
+VOICES = {"activate": 8, "collision": 5, "shutdown": 8, "pickup": 10, "retire": 7, "search": 10, "tipped": 6,
+          "alarm": 1}
 SERVO_NAMES = ["rotz", "rotx", "gunl", "gunr", "wingl", "wingr"]
 FAULT_NAMES = {1: "brownout / reboot loop", 2: "eFuse", 3: "IMU missing", 4: "radar silent", 5: "Hall", 6: "LittleFS"}
 
@@ -76,7 +79,7 @@ def parse_settings():
                 entry["options"] = values[3].strip('"').split("|")
         entry["value"] = entry["default"]
         entry["reboot"] = group == "WiFi"
-        if key in ("ApPassword", "StaPassword"):
+        if key in SECRET_KEYS:
             entry["secret"] = True
         rows.append(entry)
     return rows
@@ -96,7 +99,22 @@ def setting(key):
 
 
 def password():
+    """Access point (WiFi) password."""
     return setting("ApPassword")["value"] or "stillalive"
+
+
+def read_login():
+    """Web page login as the firmware takes it at boot (TurretWebServer::Initialize)."""
+    user = setting("WebUser")["value"]
+    pw = setting("WebPassword")["value"]
+    if not user or ":" in user:
+        user = "Admin"
+    if len(pw) < 4:
+        pw = "1234"
+    return user, pw
+
+
+login = read_login()
 
 
 FAKE_NETWORKS = [
@@ -266,6 +284,10 @@ def set_value(key, text):
             return "refused: ApPassword"
         if key == "StaPassword" and text and not 8 <= len(text) <= 63:
             return "refused: StaPassword"
+        if key == "WebPassword" and not 4 <= len(text) <= 63:
+            return "refused: WebPassword"
+        if key == "WebUser" and (not 1 <= len(text) <= 32 or ":" in text):
+            return "refused: WebUser"
         entry["value"] = text[:63]
     elif entry["type"] == "bool":
         entry["value"] = text.lower() in ("true", "on", "1")
@@ -290,6 +312,7 @@ def set_value(key, text):
 
 
 def execute(line):
+    global login
     words = line.split()
     if not words:
         return ""
@@ -344,7 +367,24 @@ def execute(line):
         return f"gain {state['gain']} dB (not saved)"
     if cmd == "tone":
         return f"tone {args[0] if args else '?'} Hz, {args[1] if len(args) > 1 else 500} ms"
+    if cmd == "voice":
+        if not arg:
+            return ("voice lines " + ("on" if setting("Voices")["value"] else "off (set Voices true)") + ":"
+                    + "".join(f" {name} {count}" for name, count in VOICES.items())
+                    + "\nusage: voice <name> | voice stop")
+        if arg == "stop":
+            return "voice stopped"
+        if arg.lower() not in VOICES:
+            return f'unknown voice "{arg}" (voice lists them)'
+        if not setting("Voices")["value"]:
+            return "refused: voice lines are off (set Voices true)"
+        folder = {"activate": "01_activate", "collision": "02_collision", "shutdown": "04_shutdown",
+                  "pickup": "05_pickup", "retire": "06_retire", "search": "07_search", "tipped": "08_tipped",
+                  "alarm": "09"}[arg.lower()]
+        number = int(time.time() * 1000) % VOICES[arg.lower()] + 1
+        return f"voice {arg.lower()}: /{folder}/{number:03d}.mp3"
     if cmd == "reboot":
+        login = read_login()  # the login is read at boot, like the firmware
         return "rebooting"
     if cmd == "wifi" and arg == "scan":
         state["scanUntil"] = time.time() + 3
@@ -488,7 +528,7 @@ class Handler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization", "")
         if header.startswith("Basic "):
             user, _, pw = base64.b64decode(header[6:]).decode("utf-8", "replace").partition(":")
-            if user == USER and pw == password():
+            if (user, pw) == login:
                 return True
         self.send_response(401)
         self.send_header("WWW-Authenticate", 'Basic realm="Portal Turret"')
@@ -601,5 +641,5 @@ if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
     log(f"This is a triumph (mock). {len(settings)} settings read from Settings.cpp")
     threading.Thread(target=simulate, daemon=True).start()
-    print(f"Mock turret on http://localhost:{port}  (user {USER}, password {password()})")
+    print(f"Mock turret on http://localhost:{port}  (user {login[0]}, password {login[1]})")
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

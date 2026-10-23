@@ -281,7 +281,7 @@ String Actions::Execute(const String &line) {
     turret->board.ShowFactoryResetAccepted();
     rebootPending = true;
     rebootAt = millis() + FACTORY_RESET_REBOOT_MS;
-    return "factory reset done, restarting (access point password: stillalive)";
+    return "factory reset done, restarting (access point password: stillalive, web page: Admin / 1234)";
   }
   if (command == "mute") {
     bool muted = args == "off" ? false : (args == "on" ? true : !turret->audio.amp.IsMuted());
@@ -319,6 +319,9 @@ String Actions::Execute(const String &line) {
     }
     turret->audio.PlayTone(hz, ms);
     return "tone " + String(hz) + " Hz, " + String(ms) + " ms";
+  }
+  if (command == "voice") {
+    return VoiceCommand(args);
   }
   if (command == "wifi") {
     if (args == "on") {
@@ -591,12 +594,51 @@ String Actions::Help() {
          "  power [full|limited] | cal hall left|right open|closed | cal hall save | cal imu\n"
          "  key a|al|b|bl|cw|ccw|push|hold (debug menu) | screen | selftest [quick|report|stop] | stats\n"
          "  led ring|left|right|all <RRGGBB|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
+         "  voice [activate|collision|shutdown|pickup|retire|search|tipped|alarm|stop]\n"
          "  volume [0-100|+n|-n] (saved 2 s after the last change)\n"
          "  wifi [on|off|scan|join|forget] | time | demo | resume | reboot\n"
          "  factory-reset (everything: settings, statistics, counters, core dump; also SW1 closed + PROG held 5 s)\n"
          "Lab: sweep servo <n> <ms> | sweep tone <Hz start> <Hz end> <ms> | sweep stop\n"
          "     led pattern bit | loadtest <gap ms> | set LabMarkers true|false\n"
          "Tests stop the state machine (Manual); \"resume\" homes and goes back to Idle.";
+}
+
+// voice: the categories and their file counts; voice <name>: a random line of
+// it; voice stop.
+String Actions::VoiceCommand(const String &args) {
+  Audio &audio = turret->audio;
+  bool enabled = turret->settings.GetBool(SettingId::Voices);
+  if (args.length() == 0) {
+    String out = String("voice lines ") + (enabled ? "on" : "off (set Voices true)") + ":";
+    for (int i = 0; i < (int)Voice::Count; i++) {
+      out += String(" ") + Audio::VoiceName((Voice)i) + " " + String(audio.VoiceFileCount((Voice)i));
+    }
+    if (audio.IsVoicePlaying()) {
+      out += String("\nplaying ") + audio.CurrentVoiceFile();
+    }
+    return out + "\nusage: voice <name> | voice stop";
+  }
+  if (args == "stop") {
+    audio.StopVoice();
+    return "voice stopped";
+  }
+  Voice voice;
+  if (!Audio::VoiceFromName(args.c_str(), voice)) {
+    return "unknown voice \"" + args + "\" (voice lists them)";
+  }
+  if (audio.PlayVoice(voice)) {
+    return String("voice ") + Audio::VoiceName(voice) + ": " + audio.CurrentVoiceFile();
+  }
+  if (!enabled) {
+    return "refused: voice lines are off (set Voices true)";
+  }
+  if (audio.VoiceFileCount(voice) == 0) {
+    return String("refused: no MP3 for ") + Audio::VoiceName(voice) + " on LittleFS (pio run -t uploadfs)";
+  }
+  if (audio.IsPlaying()) {
+    return "refused: the gunshot or a tone is playing";
+  }
+  return "refused: audio not running or no memory for the decoder (log)";
 }
 
 String Actions::ServoCommand(const String &args) {
@@ -890,7 +932,9 @@ String Actions::GetCommand(const String &args) {
     case SettingType::Float: out += String(entry.value.valueFloat, 3); break;
     case SettingType::Bool: out += Bool(entry.value.valueBool); break;
     case SettingType::Str:
-      out += (i == SettingId::ApPassword || i == SettingId::StaPassword) ? "********" : entry.value.valueString;
+      out += (i == SettingId::ApPassword || i == SettingId::StaPassword || i == SettingId::WebPassword)
+                 ? "********"
+                 : entry.value.valueString;
       break;
     }
     out += "\n";
@@ -913,7 +957,7 @@ String Actions::SetCommand(const String &args) {
   bool atReboot = strcmp(entry->group, "WiFi") == 0;
   bool homeNetwork = id == SettingId::StaSsid || id == SettingId::StaPassword || id == SettingId::Timezone;
   const char *when = homeNetwork ? "(applied at the next boot, or now with: wifi join)" : "(applied at the next boot)";
-  if (id == SettingId::ApPassword || id == SettingId::StaPassword) {
+  if (id == SettingId::ApPassword || id == SettingId::StaPassword || id == SettingId::WebPassword) {
     return key + " saved " + when;
   }
   return GetCommand(key) + (atReboot ? when : "");

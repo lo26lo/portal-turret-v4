@@ -129,16 +129,18 @@ Green LED: steady during boot, then a slow breath (4 s). Red LED: steady during 
 
 ### Web page and console
 
-Connect to the WiFi network **Portal Turret** (WPA2, password `stillalive`): the phone opens the page by itself (captive portal), otherwise browse to `http://192.168.4.1` (user `turret`, same password).
+Connect to the WiFi network **Portal Turret** (WPA2, password `stillalive`): the phone opens the page by itself (captive portal), otherwise browse to `http://192.168.4.1` (user `Admin`, password `1234`: settings `WebUser` / `WebPassword`, separate from the WiFi password).
 
-**First setup**: in the *Home WiFi* card at the top of the page, press *Scan*, pick your network, type its password and press *Connect*. The turret joins it straight away (its own network stays on), sets its clock from the Internet (NTP, time zone in the `Timezone` setting, Paris by default) and can then be reached from your home network at `http://portal-turret.local` or at the IP address shown on the page. In AP + STA mode the radio has one channel: a phone on the turret's network may drop for a second when the turret joins the home network. The page shows the status and faults, lets you change every setting, calibrate the Hall sensors, the IMU axis and the wing trims, run hardware tests, read the log and upload a firmware. **Change `ApPassword`** (8 to 31 characters, applied at the next boot).
+**First setup**: in the *Home WiFi* card at the top of the page, press *Scan*, pick your network, type its password and press *Connect*. The turret joins it straight away (its own network stays on), sets its clock from the Internet (NTP, time zone in the `Timezone` setting, Paris by default) and can then be reached from your home network at `http://portal-turret.local` or at the IP address shown on the page. In AP + STA mode the radio has one channel: a phone on the turret's network may drop for a second when the turret joins the home network. The page shows the status and faults, lets you change every setting, calibrate the Hall sensors, the IMU axis and the wing trims, run hardware tests, read the log and upload a firmware. **Change `ApPassword`** (8 to 63 characters) **and `WebPassword`** (4 to 63), both applied at the next boot.
 
-The same commands are available on the USB console (type `help`): `status`, `scan`, `imu`, `hall`, `servo <n> <angle|µs|off>`, `wings open|close`, `guns extend|retract`, `led all FF0000`, `tone 1000`, `gain 12`, `mute`, `get` / `set <key> <value>`, `resume`, `reboot`…
+**Voice lines**: the 55 voice lines of upstream are in `Turret_firmware/data/`; write them to the turret once with `pio run -d Turret_firmware -t uploadfs`. The turret speaks when it deploys, when it folds back and when it is knocked over (once `ImuUpAxis` is calibrated); every line can be played from the Tests tab or with `voice <name>`.
+
+The same commands are available on the USB console (type `help`): `status`, `scan`, `imu`, `hall`, `servo <n> <angle|µs|off>`, `wings open|close`, `guns extend|retract`, `led all FF0000`, `tone 1000`, `voice activate`, `gain 12`, `mute`, `get` / `set <key> <value>`, `resume`, `reboot`…
 
 OTA from PlatformIO: join the access point, then
 
 ```
-$env:TURRET_PASSWORD = "stillalive"    # PowerShell; your ApPassword
+$env:TURRET_PASSWORD = "1234"          # PowerShell; your WebPassword (user Admin)
 pio run -d Turret_firmware -e turret2_ota -t upload
 ```
 

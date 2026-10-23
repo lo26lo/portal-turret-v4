@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-AUTH = "Basic " + base64.b64encode(b"turret:stillalive").decode()
+LOGIN = "Admin:1234"  # factory WebUser / WebPassword
 failures = []
 
 
@@ -36,9 +36,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def request(base, path, data=None, auth=True):
+    """auth: True for the factory login, a "user:password" string for another one, False for none."""
     req = urllib.request.Request(base + path, data=urllib.parse.urlencode(data).encode() if data is not None else None)
     if auth:
-        req.add_header("Authorization", AUTH)
+        login = LOGIN if auth is True else auth
+        req.add_header("Authorization", "Basic " + base64.b64encode(login.encode()).decode())
     opener = urllib.request.build_opener(NoRedirect)
     try:
         with opener.open(req, timeout=5) as r:
@@ -68,8 +70,10 @@ def main():
 
         code, _, _ = request(base, "/", auth=False)
         check("credentials required", code == 401, code)
+        code, _, _ = request(base, "/", auth="turret:stillalive")
+        check("old login (turret / access point password) refused", code == 401, code)
         code, body, _ = request(base, "/")
-        check("page served", code == 200 and "<script>" in body, code)
+        check("page served (Admin / 1234)", code == 200 and "<script>" in body, code)
 
         settings_cpp = open(os.path.join(ROOT, "src", "settings", "Settings.cpp"), encoding="utf-8").read()
         expected = len(re.findall(r'\{"\w+",\s*"[^"]*",\s*"[^"]+",\s*SettingType::', settings_cpp))
@@ -77,6 +81,8 @@ def main():
         rows = json.loads(body)
         check("all settings listed", len(rows) == expected, f"{len(rows)} of {expected}")
         check("passwords never sent", all(r["value"] == "" for r in rows if r.get("secret")))
+        secrets = {r["key"] for r in rows if r.get("secret")}
+        check("passwords marked secret", secrets == {"ApPassword", "StaPassword", "WebPassword"}, sorted(secrets))
         keys = [r["key"] for r in rows]
         check("NVS keys at most 15 characters", all(len(k) <= 15 for k in keys), [k for k in keys if len(k) > 15])
         check("keys unique", len(set(keys)) == len(keys))
@@ -85,7 +91,8 @@ def main():
         bad_choices = [r["key"] for r in choices if r["min"] != 0 or r["max"] != len(r["options"]) - 1]
         check("each choice has one option per value", not bad_choices, bad_choices)
 
-        request(base, "/api/settings", {"Volume": "150", "ApPassword": "short", "GreenLedMode": "off", "RedLedMode": "maybe"})
+        request(base, "/api/settings", {"Volume": "150", "ApPassword": "short", "GreenLedMode": "off", "RedLedMode": "maybe",
+                                        "WebPassword": "123", "WebUser": "a:b"})
         _, body, _ = request(base, "/api/settings")
         values = {r["key"]: r["value"] for r in json.loads(body)}
         check("values clamped", values.get("Volume") == 100, values.get("Volume"))
@@ -93,7 +100,26 @@ def main():
         check("unknown choice ignored", values.get("RedLedMode") == 0, values.get("RedLedMode"))
         _, log, _ = request(base, "/api/log")
         check("short password refused", "refused: ApPassword" in log)
+        check("short web password refused (4 to 63)", "refused: WebPassword" in log)
+        check("web user with ':' refused", "refused: WebUser" in log)
         check("unknown choice refused", "refused: RedLedMode" in log)
+
+        # Voice lines (audio/Audio.cpp): console command, page list, data/ folders.
+        request(base, "/api/action", {"cmd": "voice activate"})
+        _, log, _ = request(base, "/api/log")
+        check("voice command", "voice activate: /01_activate/" in log)
+        audio_cpp = open(os.path.join(ROOT, "src", "audio", "Audio.cpp"), encoding="utf-8").read()
+        table = lambda name: re.search(name + r"\[[^\]]*\] = \{(.*?)\};", audio_cpp, re.S).group(1)
+        firmware_voices = set(re.findall(r'"(\w+)"', table("VOICE_NAMES")))
+        page = open(os.path.join(ROOT, "src", "web", "page", "index.html"), encoding="utf-8").read()
+        page_voices = set(re.findall(r"<option>(\w+)</option>", re.search(r'<select id="vc">(.*?)</select>', page).group(1)))
+        check("page voices = firmware voices", len(firmware_voices) == 8 and page_voices == firmware_voices,
+              sorted(page_voices ^ firmware_voices))
+        folders = re.findall(r'"/(\w+)"', table("VOICE_FOLDERS"))
+        data = os.path.join(ROOT, "data")
+        empty = [f for f in folders if not os.path.isdir(os.path.join(data, f))
+                 or not any(n.lower().endswith(".mp3") for n in os.listdir(os.path.join(data, f)))]
+        check("every voice folder has MP3 files in data/", len(folders) == 8 and not empty, empty)
 
         code, _, _ = request(base, "/api/action", {"cmd": "wings open"})
         check("action queued", code == 202, code)

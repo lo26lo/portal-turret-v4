@@ -43,7 +43,7 @@ input[type=range]{width:100%}
 <nav id="tabs"></nav>
 <main>
 <div id="cdwarn" class="warn" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>
-<div id="pwwarn" class="warn" hidden>The WiFi / web password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
+<div id="pwwarn" class="warn" hidden>The WiFi password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
 
 <section id="t-status">
 <div class="card" id="wificard"><h2>Home WiFi</h2>
@@ -92,6 +92,7 @@ input[type=range]{width:100%}
 <div class="card"><h2>Tests</h2><small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
 <div class="row"><button data-cmd="wings open">Wings open</button><button data-cmd="wings close">Wings close</button><button data-cmd="guns extend">Guns out</button><button data-cmd="guns retract">Guns in</button></div>
 <div class="row"><button data-cmd="tone 1000 500">Tone 1 kHz</button><button data-cmd="mute">Mute / unmute</button><button data-cmd="gain 9">9 dB</button><button data-cmd="gain 12">12 dB</button><button data-cmd="gain 15">15 dB</button></div>
+<div class="row"><select id="vc"><option>activate</option><option>retire</option><option>search</option><option>tipped</option><option>pickup</option><option>collision</option><option>shutdown</option><option>alarm</option></select><button id="vcgo">Play voice</button><button data-cmd="voice stop">Stop voice</button><button data-cmd="voice">Voice files</button></div>
 <div class="row"><button data-cmd="led all FF0000">LEDs red</button><button data-cmd="led all 00FF00">green</button><button data-cmd="led all 0000FF">blue</button><button data-cmd="led all FFFFFF">white</button><button data-cmd="led off">LEDs normal</button></div>
 <div class="row"><select id="sv"><option value="rotz">rotate Z</option><option value="rotx">rotate X</option><option value="gunl">gun left</option><option value="gunr">gun right</option><option value="wingl">wing left</option><option value="wingr">wing right</option></select><input id="svv" value="90" size="5"><button id="svgo">Send</button><button id="svoff">Off</button></div>
 <div class="row"><button data-cmd="scan">I2C scan</button><button data-cmd="imu">IMU</button><button data-cmd="hall">Hall</button><button data-cmd="demo">Demo cycle</button><button class="primary" data-cmd="resume">Resume</button></div>
@@ -189,10 +190,12 @@ async function loadSettings(){
 async function saveGroup(card){
  const data={};
  card.querySelectorAll("[data-k]").forEach(i=>{const s=S.find(x=>x.key==i.dataset.k);let v=i.type=="checkbox"?(i.checked?"true":"false"):i.value;
-  if(s.secret){if(v==="")return;if(v.length<8||v.length>63){alert("Password: 8 to 63 characters");throw 0}}
+  if(s.secret){if(v==="")return;const lo=s.key=="WebPassword"?4:8;if(v.length<lo||v.length>63){alert(s.key+": "+lo+" to 63 characters");throw 0}}
+  if(s.key=="WebUser"&&(!v||v.length>32||v.includes(":"))){alert("WebUser: 1 to 32 characters, without “:”");throw 0}
   if(String(s.value)!==v)data[s.key]=v});
  if(!Object.keys(data).length)return;
  if(data.ApSsid||data.ApPassword)alert("WiFi changes apply at the next boot. Reconnect to “"+(data.ApSsid||st.wifi.ssid)+"” with the new password afterwards.");
+ if(data.WebUser||data.WebPassword)alert("The web page login changes at the next boot: the browser asks for it again then.");
  await post("/api/settings",data);setTimeout(loadSettings,500);
 }
 
@@ -227,6 +230,7 @@ $("#stref").onclick=loadSelfTest;
 $("#stfull").onclick=()=>{if(confirm("Full self-test: the servos and the wings will move. Go?"))act("selftest")};
 $$("[data-cmd]").forEach(b=>b.onclick=()=>act(b.dataset.cmd));
 $("#svgo").onclick=()=>act(`servo ${$("#sv").value} ${$("#svv").value}`);
+$("#vcgo").onclick=()=>act("voice "+$("#vc").value);
 $("#svoff").onclick=()=>act(`servo ${$("#sv").value} off`);
 $("#cmdgo").onclick=()=>{const c=$("#cmd").value.trim();if(c)act(c)};
 $("#cmd").onkeydown=e=>{if(e.key=="Enter")$("#cmdgo").click()};

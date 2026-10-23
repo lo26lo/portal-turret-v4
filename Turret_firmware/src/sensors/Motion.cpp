@@ -133,3 +133,8 @@ bool Motion::CanDeploy() const
     }
     return IsUpright();
 }
+
+bool Motion::CanCheckUpright() const
+{
+    return available && hasReading && settings != nullptr && settings->GetInt(SettingId::ImuUpAxis) != 0;
+}

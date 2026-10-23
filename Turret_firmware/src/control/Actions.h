@@ -61,6 +61,7 @@ private:
   String Help();
   String ServoCommand(const String &args);
   String LedCommand(const String &args);
+  String VoiceCommand(const String &args);
   String SetCommand(const String &args);
   String GetCommand(const String &args);
   String ImuReport();

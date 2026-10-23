@@ -50,6 +50,9 @@ const uint32_t LOOP_WATCHDOG_S = 8;
 
 Turret turret{gantry, motion, radar, audio, light, server, settings, board, stats};
 
+// Voice line when the turret is knocked over (IMU, ImuUpAxis calibrated).
+logic::TipWatch tipWatch;
+
 // A3: after a crash, the core dump summary and the last lines logged before the reset.
 void PrintCrashReport() {
   CoreDump::Begin();
@@ -148,7 +151,7 @@ void setup() {
   accessPoint.Start(settings);
   station.Start(settings); // home network + NTP, if StaSsid is set
   server.Initialize(settings, actions, station);
-  ota.Initialize(server.webServer, actions, TurretWebServer::USERNAME, server.GetPassword());
+  ota.Initialize(server.webServer, actions, server.GetUsername(), server.GetPassword());
   Board::Mark("step 10 WiFi + web");
 
   // 11 to 13: BootState (servos one by one, homing, then Idle).
@@ -287,6 +290,9 @@ void loop() {
   gantry.Update(deltaTime);
   light.Update(deltaTime);
   motion.Update(deltaTime);
+  if (tipWatch.Update(motion.CanCheckUpright(), motion.IsUpright(), currentTime)) {
+    audio.PlayVoice(Voice::Tipped);
+  }
   radar.Update(deltaTime);
   audio.Update(deltaTime);
   ota.Update(deltaTime);

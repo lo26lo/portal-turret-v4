@@ -22,6 +22,7 @@ void DisengageState::Initialize(StateMachine* stateMachine, Turret& turret) {
 
 void DisengageState::OnActivate() {
   BaseState::OnActivate();
+  turret->audio.PlayVoice(Voice::Retire);
   disengageRoutine.reset();
 }
 

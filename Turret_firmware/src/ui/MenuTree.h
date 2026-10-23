@@ -162,6 +162,9 @@ static const logic::MenuItem MENU_TREE[] = {
 
     M_CMD("Tone 1 kHz", "Tonalité 1 kHz", MenuSound, "tone 1000 500"),
     M_CMD("Gunshot", "Bruit de tir", MenuSound, "shot"),
+    M_CMD("Voice: activate", "Voix : activation", MenuSound, "voice activate"),
+    M_CMD("Voice: retire", "Voix : retrait", MenuSound, "voice retire"),
+    M_CMD("Voice: tipped", "Voix : renversée", MenuSound, "voice tipped"),
     M_ADJ("Volume %", "Volume %", MenuSound, "set Volume %d", nullptr, "Volume", 0, 100, 10),
     M_ADJ("Gain dB", "Gain dB", MenuSound, "set AmpGain %d", nullptr, "AmpGain", 9, 15, 3),
     M_CMD("Mute on / off", "Muet oui / non", MenuSound, "mute"),

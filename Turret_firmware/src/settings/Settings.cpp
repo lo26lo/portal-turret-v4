@@ -46,6 +46,8 @@ Settings::Settings()
           // MAX98357A gain: 9, 12 or 15 dB (other values rounded to the nearest)
           {"AmpGain", "Amplifier gain (dB: 9, 12, 15)", "Audio", SettingType::Int, (int32_t)9, (int32_t)9, (int32_t)15},
           {"Volume", "Volume (%)", "Audio", SettingType::Int, (int32_t)80, (int32_t)0, (int32_t)100},
+          // Voice lines of the upstream project (data/, MP3 on LittleFS): activate, retire, tipped...
+          {"Voices", "Turret voice lines", "Audio", SettingType::Bool, true},
           // A2: rest after each cycle, and detection zone of the LD2450 (range 6 m, +-60 deg; RD-03D: 8 m, +-60 deg)
           {"CooldownMs", "Rest after a cycle (ms)", "Detection", SettingType::Int, (int32_t)5000, (int32_t)0, (int32_t)120000},
           {"DetectMaxMm", "Detection distance (mm)", "Detection", SettingType::Int, (int32_t)3000, (int32_t)300, (int32_t)6000},
@@ -72,7 +74,10 @@ Settings::Settings()
           {"RedLedMode", "Red LED", "Status LEDs", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2, "Fault codes|On while a fault is active|Off"},
           // D7. Group "WiFi" = applied at the next boot. Passwords: 8..63 chars (WPA2).
           {"ApSsid", "Access point name", "WiFi", SettingType::Str, "Portal Turret"},
-          {"ApPassword", "Access point and web password (8..63)", "WiFi", SettingType::Str, "stillalive"},
+          {"ApPassword", "Access point (WiFi) password (8..63)", "WiFi", SettingType::Str, "stillalive"},
+          // Web page and firmware upload login, separate from the WiFi password (WPA2 needs 8..63).
+          {"WebUser", "Web page user name", "WiFi", SettingType::Str, "Admin"},
+          {"WebPassword", "Web page password (4..63)", "WiFi", SettingType::Str, "1234"},
           // Home network (station mode): empty name = not used. The access point stays on.
           {"StaSsid", "Home WiFi name (empty = off)", "WiFi", SettingType::Str, ""},
           {"StaPassword", "Home WiFi password", "WiFi", SettingType::Str, ""},
@@ -307,6 +312,15 @@ bool Settings::Set(SettingId id, const char *value) {
   }
   if (id == SettingId::Timezone && length == 0) {
     Log.println("Settings: Timezone cannot be empty");
+    return false;
+  }
+  // HTTP Basic: the user name ends at the first ':'.
+  if (id == SettingId::WebUser && (length == 0 || length > 32 || strchr(value, ':') != nullptr)) {
+    Log.println("Settings: WebUser is 1 to 32 characters, without ':'");
+    return false;
+  }
+  if (id == SettingId::WebPassword && (length < 4 || length >= SETTING_STRING_MAX)) {
+    Log.println("Settings: WebPassword must be 4 to 63 characters");
     return false;
   }
   strlcpy(entry->value.valueString, value, SETTING_STRING_MAX);

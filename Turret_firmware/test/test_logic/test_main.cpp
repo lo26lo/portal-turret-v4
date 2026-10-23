@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unity.h>
 
+#include "logic/AudioLogic.h"
 #include "logic/BoardLogic.h"
 #include "logic/HallLogic.h"
 #include "logic/MenuLogic.h"
@@ -180,6 +181,130 @@ void test_green_led_level() {
   TEST_ASSERT_EQUAL_UINT8(0, logic::GreenLedLevel(M::Heartbeat, 500, 1200, 100));
   TEST_ASSERT_EQUAL_UINT8(77, logic::GreenLedLevel(M::Steady, 123, 4000, 30));
   TEST_ASSERT_EQUAL_UINT8(0, logic::GreenLedLevel(M::Off, 2000, 4000, 100));
+}
+
+// ------------------------------------------------------------------ audio
+
+// Pulls every output sample of the loaded block into out; returns the count.
+static size_t Drain(logic::Upsampler &up, int16_t *out, size_t room) {
+  size_t n = 0;
+  int16_t sample;
+  while (n < room && up.Next(sample)) {
+    out[n++] = sample;
+  }
+  return n;
+}
+
+void test_upsampler() {
+  logic::Upsampler up;
+  int16_t out[8];
+  int16_t sample;
+  TEST_ASSERT_FALSE(up.Next(sample)); // nothing loaded
+  int16_t in[3] = {100, 300, -100};
+  up.Load(in, 3, 2);
+  TEST_ASSERT_EQUAL_UINT32(6, Drain(up, out, 8));
+  // Starts from 0, then halfway points between consecutive samples.
+  int16_t expected[6] = {50, 100, 200, 300, 100, -100};
+  TEST_ASSERT_EQUAL_INT16_ARRAY(expected, out, 6);
+  TEST_ASSERT_FALSE(up.Next(sample));
+  // The next frame continues from the last sample (-100): no click at the join.
+  int16_t next[1] = {-300};
+  up.Load(next, 1, 2);
+  TEST_ASSERT_EQUAL_UINT32(2, Drain(up, out, 8));
+  TEST_ASSERT_EQUAL_INT16(-200, out[0]);
+  TEST_ASSERT_EQUAL_INT16(-300, out[1]);
+  // Stopping in the middle of a sample's outputs resumes where it was.
+  up.Reset();
+  up.Load(in, 3, 2);
+  TEST_ASSERT_EQUAL_UINT32(3, Drain(up, out, 3));
+  TEST_ASSERT_EQUAL_UINT32(3, Drain(up, out + 3, 8));
+  TEST_ASSERT_EQUAL_INT16_ARRAY(expected, out, 6);
+  // Factor 1 copies; factor 0 counts as 1.
+  up.Reset();
+  up.Load(in, 3, 1);
+  TEST_ASSERT_EQUAL_UINT32(3, Drain(up, out, 8));
+  TEST_ASSERT_EQUAL_INT16(300, out[1]);
+  up.Load(in, 3, 0);
+  TEST_ASSERT_EQUAL_UINT32(3, Drain(up, out, 8));
+  // Full scale does not overflow.
+  up.Reset();
+  int16_t loud[2] = {32767, -32768};
+  up.Load(loud, 2, 2);
+  Drain(up, out, 8);
+  TEST_ASSERT_EQUAL_INT16(32767, out[1]);
+  TEST_ASSERT_EQUAL_INT16(-32768, out[3]);
+  TEST_ASSERT_EQUAL_INT16(0, out[2]); // halfway between the two
+}
+
+void test_pick_voice_file() {
+  TEST_ASSERT_EQUAL_INT(-1, logic::PickVoiceFile(0, -1, 5));
+  TEST_ASSERT_EQUAL_INT(0, logic::PickVoiceFile(1, 0, 7)); // no choice: repeats
+  TEST_ASSERT_EQUAL_INT(2, logic::PickVoiceFile(4, -1, 6)); // first time: any
+  // Never the last one again, and every other one is reachable.
+  bool seen[5] = {};
+  for (uint32_t r = 0; r < 20; r++) {
+    int pick = logic::PickVoiceFile(5, 2, r);
+    TEST_ASSERT_NOT_EQUAL(2, pick);
+    TEST_ASSERT_TRUE(pick >= 0 && pick < 5);
+    seen[pick] = true;
+  }
+  TEST_ASSERT_TRUE(seen[0] && seen[1] && seen[3] && seen[4]);
+  // A stale `last` (fewer files now) is ignored.
+  TEST_ASSERT_EQUAL_INT(1, logic::PickVoiceFile(3, 9, 4));
+}
+
+void test_id3v2_size() {
+  // Tag of the voice files: ID3v2.4, size 0x00 0x00 0x01 0x40 = 192, + 10 header.
+  const uint8_t tag[10] = {'I', 'D', '3', 4, 0, 0, 0, 0, 0x01, 0x40};
+  TEST_ASSERT_EQUAL_UINT32(202, logic::Id3v2Size(tag, 10));
+  // Footer flag adds 10 bytes; 7-bit "syncsafe" digits.
+  const uint8_t footer[10] = {'I', 'D', '3', 4, 0, 0x10, 0, 0, 0x02, 0x00};
+  TEST_ASSERT_EQUAL_UINT32(10 + 256 + 10, logic::Id3v2Size(footer, 10));
+  // An MP3 frame header, a short read or a bad size byte: no tag.
+  const uint8_t frame[10] = {0xFF, 0xF3, 0x64, 0xC4, 0, 0, 0, 0, 0, 0};
+  TEST_ASSERT_EQUAL_UINT32(0, logic::Id3v2Size(frame, 10));
+  TEST_ASSERT_EQUAL_UINT32(0, logic::Id3v2Size(tag, 9));
+  const uint8_t bad[10] = {'I', 'D', '3', 4, 0, 0, 0, 0x80, 0, 0};
+  TEST_ASSERT_EQUAL_UINT32(0, logic::Id3v2Size(bad, 10));
+}
+
+void test_upsample_factor() {
+  TEST_ASSERT_EQUAL_UINT8(2, logic::UpsampleFactor(22050, 44100)); // voice files
+  TEST_ASSERT_EQUAL_UINT8(1, logic::UpsampleFactor(44100, 44100)); // fire.mp3
+  TEST_ASSERT_EQUAL_UINT8(4, logic::UpsampleFactor(11025, 44100));
+  TEST_ASSERT_EQUAL_UINT8(1, logic::UpsampleFactor(0, 44100));     // unknown yet
+  TEST_ASSERT_EQUAL_UINT8(8, logic::UpsampleFactor(1000, 44100));  // capped
+}
+
+void test_tip_watch() {
+  logic::TipWatch w;
+  // Not checkable: never fires.
+  TEST_ASSERT_FALSE(w.Update(false, false, 0));
+  // Tipped from the start (never upright long enough): no voice.
+  TEST_ASSERT_FALSE(w.Update(true, false, 100));
+  TEST_ASSERT_FALSE(w.Update(true, false, 5000));
+  // Upright for 2 s arms it.
+  TEST_ASSERT_FALSE(w.Update(true, true, 6000));
+  TEST_ASSERT_FALSE(w.Update(true, true, 8000));
+  // A short wobble (< 500 ms) is ignored.
+  TEST_ASSERT_FALSE(w.Update(true, false, 8100));
+  TEST_ASSERT_FALSE(w.Update(true, true, 8400));
+  // A real fall: fires once after 500 ms, then stays quiet.
+  TEST_ASSERT_FALSE(w.Update(true, false, 9000));
+  TEST_ASSERT_TRUE(w.Update(true, false, 9500));
+  TEST_ASSERT_FALSE(w.Update(true, false, 9600));
+  TEST_ASSERT_FALSE(w.Update(true, false, 20000));
+  // Put back upright for 2 s re-arms it.
+  TEST_ASSERT_FALSE(w.Update(true, true, 21000));
+  TEST_ASSERT_FALSE(w.Update(true, true, 23000));
+  TEST_ASSERT_FALSE(w.Update(true, false, 23100));
+  TEST_ASSERT_TRUE(w.Update(true, false, 23600));
+  // The check becoming impossible disarms it.
+  TEST_ASSERT_FALSE(w.Update(true, true, 30000));
+  TEST_ASSERT_FALSE(w.Update(true, true, 32000));
+  TEST_ASSERT_FALSE(w.Update(false, false, 32100));
+  TEST_ASSERT_FALSE(w.Update(true, false, 33000));
+  TEST_ASSERT_FALSE(w.Update(true, false, 34000));
 }
 
 void test_reset_gesture() {
@@ -708,6 +833,11 @@ int main() {
   RUN_TEST(test_breath_level);
   RUN_TEST(test_heartbeat);
   RUN_TEST(test_green_led_level);
+  RUN_TEST(test_upsampler);
+  RUN_TEST(test_pick_voice_file);
+  RUN_TEST(test_id3v2_size);
+  RUN_TEST(test_upsample_factor);
+  RUN_TEST(test_tip_watch);
   RUN_TEST(test_amp_gain_rounding);
   return UNITY_END();
 }

@@ -10,6 +10,7 @@ void FaultState::OnActivate() {
   BaseState::OnActivate();
   turret->gantry.DetachAll(); // wings stop dead, guns and rotations go limp
   turret->audio.ShootAudio.Stop();
+  turret->audio.StopVoice();
   turret->audio.amp.Shutdown();
   turret->light.SetEnabled(false);
   turret->board.SetFault(Fault::EFuse, true);

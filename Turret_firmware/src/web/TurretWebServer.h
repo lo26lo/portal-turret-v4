@@ -9,7 +9,8 @@ class Actions;
 class Station;
 
 // Web page and JSON API (plan §10). Every route, the page included, needs
-// HTTP Basic credentials: user "turret", password ApPassword (D7).
+// HTTP Basic credentials: WebUser / WebPassword (factory Admin / 1234), separate
+// from the WiFi password ApPassword.
 // Callbacks run in the async_tcp task: they only read cached values or queue
 // command lines for loop() (Actions::Enqueue).
 class TurretWebServer
@@ -21,8 +22,8 @@ public:
     void SetScreenProvider(std::function<String()> provider) { screenProvider = provider; }
     AsyncWebServer webServer;
 
-    static const char *USERNAME;
-    // Password in use (ApPassword read at boot, default if invalid).
+    // Login in use (WebUser / WebPassword read at boot, factory values if invalid).
+    const char *GetUsername() const { return username; }
     const char *GetPassword() const { return password; }
 
 private:
@@ -31,6 +32,7 @@ private:
     Station *station;
     std::function<String()> screenProvider;
     AsyncAuthenticationMiddleware auth;
-    // Copy taken at boot: a new ApPassword applies at the next boot.
+    // Copies taken at boot: a new login applies at the next boot.
+    char username[SETTING_STRING_MAX];
     char password[SETTING_STRING_MAX];
 };

@@ -7,11 +7,10 @@
 #include "web/Station.h"
 #include "web/page_gz.h" // generated from web/page/index.html by scripts/embed_page.py
 
-const char *TurretWebServer::USERNAME = "turret";
-
 namespace {
 
-const char *DEFAULT_PASSWORD = "stillalive";
+const char *DEFAULT_USERNAME = "Admin";
+const char *DEFAULT_PASSWORD = "1234";
 
 const char* TypeName(SettingType type) {
   switch (type) {
@@ -69,7 +68,7 @@ String ToJson(Settings* settings) {
   String json = "[";
   for (int i = 0; i < SettingId::COUNT; i++) {
     const SettingsEntry& entry = settings->entries[i];
-    bool secret = i == SettingId::ApPassword || i == SettingId::StaPassword;
+    bool secret = i == SettingId::ApPassword || i == SettingId::StaPassword || i == SettingId::WebPassword;
     if (i > 0) {
       json += ',';
     }
@@ -129,14 +128,19 @@ void TurretWebServer::Initialize(Settings& settingsIn, Actions& actionsIn, Stati
   actions = &actionsIn;
   station = &stationIn;
 
-  strlcpy(password, settings->GetString(SettingId::ApPassword), sizeof(password));
-  if (strlen(password) < 8) {
+  // Settings::Set already refuses a bad login; this covers a bad NVS value.
+  strlcpy(username, settings->GetString(SettingId::WebUser), sizeof(username));
+  if (strlen(username) == 0 || strchr(username, ':') != nullptr) {
+    strlcpy(username, DEFAULT_USERNAME, sizeof(username));
+  }
+  strlcpy(password, settings->GetString(SettingId::WebPassword), sizeof(password));
+  if (strlen(password) < 4) {
     strlcpy(password, DEFAULT_PASSWORD, sizeof(password));
   }
 
   // HTTP Basic on every route (D7). Note: the middleware runs after the body
   // has been received; /update checks the credentials itself (web/Ota.cpp).
-  auth.setUsername(USERNAME);
+  auth.setUsername(username);
   auth.setPassword(password);
   auth.setRealm("Portal Turret");
   auth.setAuthType(AsyncAuthType::AUTH_BASIC);

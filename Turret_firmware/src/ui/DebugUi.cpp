@@ -426,7 +426,7 @@ void DebugUi::InfoGraphic(int16_t page, logic::MenuScreen &screen) {
     snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "Web");
     snprintf(screen.line[1], logic::SCREEN_LINE_BYTES, "%.10s", url.c_str() + 7);
     snprintf(screen.line[2], logic::SCREEN_LINE_BYTES, "%.10s", url.length() > 17 ? url.c_str() + 17 : "");
-    snprintf(screen.line[3], logic::SCREEN_LINE_BYTES, "turret");
+    snprintf(screen.line[3], logic::SCREEN_LINE_BYTES, "%.10s", turret->server.GetUsername()); // web user
     snprintf(screen.line[4], logic::SCREEN_LINE_BYTES, "A:page");
     snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", french ? "B:retour" : "B:back");
     break;

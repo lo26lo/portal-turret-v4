@@ -10,7 +10,7 @@
 >
 > **Mis à jour le 22.10.2026** : R18 à 100 Ω (changée le 19.10.2026) dans le §5 et le §12 ; LEDs d'état en deep sleep (§1.1) ; total de la veille profonde aligné entre le §1 et le §1.1 ; pièces manquantes ajoutées à la liste d'achat (§3.1). Puis : capteurs Hall identifiés, **OH49E** (§4.3, datasheet relue) ; sentinelle abandonnée définitivement, faute de place (§0, §3.3, §12).
 >
-> **Mis à jour le 28.10.2026, après le placement v2 dans KiCad** (projet maître hors dépôt) : l'étude des GPIO relancée sur le placement réel a déplacé 9 fonctions (§5, §5.3) ; **IO26 = PWR_FLT**, donc plus de pull-down sur IO26 (R34 retirée) ; I²C sur **IO36 / IO35** (`Wire.begin(36, 35)`, sans glitch au démarrage) ; extendeur **U13 en face avant** entre le module et l'IMU (§4.9, §6) ; J19 en bas à gauche, à côté de J1 (§6) ; points de test nommés par fonction (§8) ; firmware (§10) et liste de contrôle (§11) alignés.
+> **Mis à jour le 28.10.2026, après le placement v2 dans KiCad** (projet maître hors dépôt) : l'étude des GPIO relancée sur le placement réel a déplacé 9 fonctions (§5, §5.3) ; **IO26 = PWR_FLT**, donc plus de pull-down sur IO26 (R34 retirée) ; I²C sur **IO36 / IO35** (`Wire.begin(36, 35)`, sans glitch au démarrage) ; extendeur **U13 en face avant** entre le module et l'IMU (§4.9, §6) ; pont de mesure 0 Ω 2512 supprimé (§8) ; J19 en bas à gauche, à côté de J1 (§6) ; points de test nommés par fonction (§8) ; firmware (§10) et liste de contrôle (§11) alignés.
 >
 > **Revue avant gel, 22.10.2026** : relevé des composants et des nets de la v0.1 dans KiCad, et relecture des datasheets TPS2595, TPS22965, TPS631000, TCAL6416 et MAX98357A. Principaux changements : pont de retour du TPS631000 à 511 kΩ / 91 kΩ (§4.10, nouveau), pull-down sur IO26 (§5), consommation de la veille radar avec le point d'accès Wi-Fi (§1), adresse et registres de l'extendeur vérifiés (§4.9), condensateurs de la v0.1 répartis sur les rails (§2), position des switches (§0, §5.1, §8), garde-fou de carte dans le firmware (§10), renvois de section corrigés. Puis, à la demande de l'utilisateur : pull-downs des autres lignes PWM **en option** selon la place (§4.8), et résistance de 0 Ω en 2512 gardée pour le pont de mesure, donnée pour ≥ 4 A (§3.1, §8). Ensuite : zones d'alimentation (§8) et **second port I²C J19**, Qwiic vertical Adafruit 4328 (§0, §3.1, §6, §11).
 >
@@ -81,7 +81,7 @@ Exemple d'usage : veille radar le jour, veille profonde la nuit (heure NTP), ré
 ## 2. Architecture d'alimentation v2
 
 ```
-J1 (USB déporté, JST-XH) ──┬─ D1 TVS (§7) ──► 0 Ω 2512 (§8) ──► IC1 eFuse TPS259533 ──► +5V (sortie ≤ 5,7 V, limite ≈ 3,9 A)
+J1 (USB déporté, JST-XH) ──┬─ D1 TVS (§7) ──► IC1 eFuse TPS259533 ──► +5V (sortie ≤ 5,7 V, limite ≈ 3,9 A)
                            └─ D2 USBLC6 (D+, D−)              R3 1 MΩ / R4 249 kΩ : OVLO 5,67–6,37 V (garde-fou)
 
  +5V ───┬── SW_SERVO  TPS22965, CT 4,7 nF ─► 5V_SERVO ─► C9, C18 (2 × 220 µF) ─► J7–J10 servos
@@ -147,7 +147,6 @@ Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état 
 | 1 (+1) | TVS 6,5 V | Vishay / Littelfuse **SMAJ6.5A** | SMA (comme D1) | remplace SMAJ5.0A (§7) ; D5 disparaît avec l'USB-C |
 | 1 (+2) | Embase JST-XH 4 broches verticale | JST **B4B-XH-A** | traversant, pas de 2,5 mm | J1, entrée USB déportée (§2) |
 | 2 (+2) | Boîtier JST-XH 4 voies et contacts à sertir | JST **XHP-4** + contacts SXH (série adaptée au 22 AWG **[à vérifier]**) | — | câble de la prise déportée et câble de banc |
-| 1 (+1) | Résistance 0 Ω **donnée pour ≥ 4 A** | — | 2512 | pont de mesure du courant de veille, juste après D1 (§8). Les 0 Ω 2512 courantes (ex. Yageo RC2512…) ne tiennent que 2 A : vérifier le courant nominal, ou prendre une résistance de mesure métallique de 1 à 5 mΩ dans le même boîtier (4 A → 4 à 20 mV, 80 mW au plus) |
 | *option* 5 (+2) | 100 kΩ 1 % | — | 0603 | pull-downs des cinq lignes PWM sans tirage au reset (§4.8), selon la place |
 | 1 lot de 10 | Connecteur Qwiic vertical, JST SH 4 broches, pas de 1 mm, CMS | Adafruit **4328** (Kaweei CCSH-W10-04-BK-RC) | empreinte du JST BM04B-SRSS-TB | J19, second port I²C (§6) ; 1 A max, ~4,6 mm de haut |
 | 1 | Pâte basse température **Sn42Bi58** | — | seringue | brasage du verso (§8) |
@@ -493,7 +492,7 @@ Reprend le §3 d'AMELIORATIONS_V2.md (IMU et ampli au verso, switches de puissan
 - **Sérigraphie** : broche 1 de chaque WSON, TQFN et LGA ; nom des rails commutés ; SW1 renommé « DEBUG » (marqué « USB / JTAG » sur la v0.1 : il ne sert plus au strap JTAG, IO3 est libre).
 - **Zones d'alimentation** : mêmes contours que la v0.1 ; la zone des servos (In2 et verso) passe sur 5V_SERVO, et ses vias quittent le point d'étoile pour la sortie de SW_SERVO (détail et image : [carte-v2-kicad.md](carte-v2-kicad.md), étape 5.4).
 - **Points de test**, nommés par fonction en sérigraphie : TP1 « USB VBUS », TP2 « 5V SERVO », TP3 « 5V MAIN » (recto), TP4 « 3V3 MAIN », TP11 « 5V LED », TP12 « 5V RADAR », TP13 « 3V3 HALL », TP16 « IMU INT » (au dos, près de leur source), et un groupe « SPARE GPIO » au dos, en deux colonnes, hors du passage du câble de J16 : TP10 / TP5–TP9 « GPIO1 »–« GPIO6 », TP14 « I2C SDA », TP15 « I2C SCL », TP4 « 3V3 MAIN ».
-- **Mesure du courant de veille** : pour la carte entière, fuite des TVS comprise, PPK2 en mode source par l'adaptateur USB-C, comme dans experiments.md. En plus, une **résistance de 0 Ω en 2512** en série juste après D1, avant l'eFuse, entourée de deux pastilles : on la dessoude pour mesurer sans les TVS (PPK2 en ampèremètre). En place, elle porte les 3 à 4 A des servos : référence donnée pour ≥ 4 A (§3.1).
+- **Mesure du courant de veille** : pour la carte entière, fuite des TVS comprise, PPK2 en mode source par l'adaptateur USB-C, comme dans experiments.md. La **résistance de 0 Ω en 2512** prévue juste après D1 pour mesurer sans les TVS a été **supprimée** (R44, 28.10.2026) : trop de place pour aucun rôle électrique ; VBUS va directement de J1 / D1 à l'eFuse. La fuite de D1 se mesure sur la v0.1.
 - **Version sur la carte** : sérigraphier « v0.2 » (la v0.1 porte « Turret V0.1 »).
 - **Pochoir de la face B avec la face A déjà peuplée** :
   - **support (jig)** : la carte repose par ses bords et par des plots dans les zones libres de la face A. Hauteur supérieure au plus haut composant de la face A (C26 : 7,7 mm sur la v0.1, donc ~9 mm). Pièce imprimée en 3D avec des poches, ou cadre de chutes de PCB.
@@ -579,7 +578,7 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 | Brochage v1 conservé hors ampli (§2.6) | **brochage entièrement refait** | 150 → 22 croisements, 1057 → 939 mm de piste dans le modèle (§5.1) |
 | Capteurs Hall non traités | coupés par AO3401A | OH49E : 4,2 mA typ. chacun en permanence sinon |
 | LEDs d'état « ~3 mA chacune » | rouge ~2 mA (R12 680 Ω) ; verte 3 à 13 mA (R18 100 Ω depuis le 19.10.2026) | calcul sous 3,3 V sur R12 / R18 |
-| — | résistances série, pull-up IO0, TVS, points de test, pont de mesure, pont du TPS631000 à 511 kΩ / 91 kΩ | protection, mesure et veille |
+| — | résistances série, pull-up IO0, TVS, points de test, pont du TPS631000 à 511 kΩ / 91 kΩ | protection, mesure et veille |
 
 ---
 

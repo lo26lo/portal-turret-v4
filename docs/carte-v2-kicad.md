@@ -105,7 +105,7 @@ Elles se branchent sur des nets dont le nom ne change pas : on peut les poser d�
 | ~~10 kΩ → GND~~ | ~~GUN_RIGHT~~ : retirée le 28.10.2026 (R34), GUN_RIGHT n'est plus sur IO26 | MCU | §5 |
 | *option* 100 kΩ → GND × 5 | ROTATE_X, ROTATE_Z, GUN_LEFT, WING_LEFT, WING_RIGHT | à côté des 330 Ω ; attribut DNP (« ne pas monter ») tant que la place n'est pas confirmée | §4.8 |
 | 1 kΩ série × 2 | RADAR_TX → J5.2, RADAR_RX → J5.3 | IO, près de J5 | §4.8 |
-| 0 Ω 2512 (≥ 4 A) | entre VBUS (J1, D1, D2, TP1) et l'entrée de IC1 (broches 3, 4) | racine ; nommer le côté eFuse `VBUS_IN`, et y mettre R3 (diviseur OVLO) | §8 |
+| ~~0 Ω 2512 (≥ 4 A)~~ | **supprimée le 28.10.2026 (R44)** : VBUS va directement à l'entrée de IC1, plus de net `VBUS_IN` | — | §8 |
 
 ### 1.4 Second port I²C (J19)
 
@@ -245,7 +245,6 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
    | AO3401A | `Package_TO_SOT_SMD:SOT-23` |
    | R et C 0603 | comme la v0.1 : `Turret_Resistor_SMD:R_0603_1608Metric`, `Turret_Capacitor_SMD:C_0603_1608Metric` |
    | 10 µF | `Turret_Capacitor_SMD:C_0805_2012Metric` (comme C15, C25) |
-   | 0 Ω 2512 | `Resistor_SMD:R_2512_6332Metric` |
    | J19 (Qwiic vertical) | `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` |
    | J1 (USB déporté, JST-XH) | `Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical` |
    | Points de test | `Turret_TestPoint:TestPoint_Pad_D1.0mm` |
@@ -262,7 +261,7 @@ Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_Tes
    | Motif | Classe | Nets concernés |
    |---|---|---|
    | `5V_*` | Power5V | 5V_SERVO, 5V_LED, 5V_RADAR |
-   | `VBUS*` (remplace `VBUS`) | Power5V | VBUS, VBUS_IN |
+   | `VBUS*` (remplace `VBUS`) | Power5V | VBUS |
    | `3V3_*` | Power3V3 | 3V3_HALL |
 
    Les côtés connecteur des résistances série (« _C », étape 1.3) suivent déjà les motifs existants (`*GUN_*`, `*RADAR_*`, `*NEOPIXEL*`…). Je vérifie la classe de chaque net dans la netlist au point de contrôle.
@@ -320,10 +319,10 @@ Presque toutes les GPIO changent de broche : les pistes de signal de la v0.1 rel
 4. **AO3401A** au recto, entre J17 et J18.
 5. **Dégager le flanc droit du module** : SW3, R14, C13 ailleurs (R14 / C13 près de la broche EN).
 6. Résistances série et pull-downs **près des connecteurs** ; 330 Ω des NeoPixel près de IC2.
-7. **0 Ω 2512** entre D1 / D5 et IC1 ; R7 / R8 collées à la broche FB du TPS631000 (§4.10).
+7. ~~0 Ω 2512~~ (supprimée) ; R7 / R8 collées à la broche FB du TPS631000 (§4.10).
 8. Points de test.
 9. **J19** (second port Qwiic) : là où on y accède de l'extérieur de la tourelle ; hauteur ~4,6 mm ; au bout du bus I²C (module → U13 → IMU → R15 / R16 → J11 → J19). Placé en bas à gauche, à côté de J1.
-10. **J1 en JST-XH** (plus large et plus haut que le PH) : à la place de l'ancien J1, ou dans la place libérée par l'USB-C, côté entrée de l'eFuse. **D1 et D2 collées à J1**, puis la 0 Ω, puis IC1 : le chemin VBUS le plus court possible.
+10. **J1 en JST-XH** (plus large et plus haut que le PH) : à la place de l'ancien J1, ou dans la place libérée par l'USB-C, côté entrée de l'eFuse. **D1 et D2 collées à J1**, puis IC1 : le chemin VBUS le plus court possible.
 
 ### 5.4 Zones d'alimentation (îlots)
 
@@ -333,7 +332,7 @@ Sur la v0.1, la couche interne In2 porte les alimentations : VBUS, 3V3, et un +5
 
 | Zone de la v0.1 (couche) | Alimente | En v2 |
 |---|---|---|
-| VBUS (In2, bas gauche) | J1, D1 (l'USB-C de la v0.1 disparaît) | même contour, même net ; l'entrée de l'eFuse passe derrière la 0 Ω 2512 (`VBUS_IN`, piste large au recto) et ne touche plus la zone |
+| VBUS (In2, bas gauche) | J1, D1 (l'USB-C de la v0.1 disparaît) | même contour, même net ; l'entrée de l'eFuse est reliée par une piste large au recto (la 0 Ω 2512 et `VBUS_IN` ont été supprimées le 28.10.2026) |
 | 3V3 (In2, haut gauche) | module, IMU | inchangée ; 3V3_HALL en pistes (8 mA) |
 | 5V_logique (In2, centre) | ampli, AHCT, C26, entrée du TPS631000 | reste +5V ; J14 et J5 n'y sont plus reliés (5V_LED et 5V_RADAR en pistes) |
 | 5V_servos (In2) et 5V_servos_L4 (verso) | J3, J4, J7–J10, C9, C18, TP2 | **même contour, net 5V_SERVO** (propriétés de la zone) |
@@ -357,7 +356,7 @@ La v0.1 a déjà des classes de nets et des règles (`Turret2.kicad_dru`), et du
 
 | Net | Courant | Classe | Largeur visée | Remarque |
 |---|---|---|---|---|
-| VBUS → 0 Ω → VBUS_IN → eFuse | ≤ 3,9 A (limite de l'eFuse) | Power5V | **2,0 mm** au recto (1,4 mm au minimum) ; 0,2 mm sur les seules broches de IC1 | 4 A en couche externe : 2,0 mm ; la v0.1 a déjà du VBUS en 2,0 mm |
+| VBUS → eFuse | ≤ 3,9 A (limite de l'eFuse) | Power5V | **2,0 mm** au recto (1,4 mm au minimum) ; 0,2 mm sur les seules broches de IC1 | 4 A en couche externe : 2,0 mm ; la v0.1 a déjà du VBUS en 2,0 mm |
 | +5V : étoile → entrées des switches | ≤ 3,9 A | Power5V | zone 5V_etoile (recto) | comme la v0.1 |
 | Sortie de SW_SERVO → vias | ≤ 3,9 A | Power5V | cuivre plein d'au moins 2 mm dès les broches 7–8 | puis ≥ 7 vias (ci-dessous) |
 | 5V_SERVO | pointes ~3 A | Power5V | zones In2 + verso, comme la v0.1 ; au recto, 2,0 mm près des connecteurs (règle « Largeur 5V servos ») | en couche interne, 4 A demanderaient une piste de 5,3 mm : d'où les zones |
@@ -384,14 +383,14 @@ La v0.1 a déjà des classes de nets et des règles (`Turret2.kicad_dru`), et du
 
 Dans cet ordre (§4, §5.2) :
 
-1. **Puissance** : VBUS → 0 Ω → IC1 (`VBUS_IN`, piste large au recto) → point d'étoile +5V → SW_SERVO au recto, puis **au moins 7 vias de 0,9 / 0,5 mm** de sa sortie vers les zones 5V_SERVO (In2 et verso), comme l'étoile de la v0.1 (étape 5.4) ; SW_LED → 5V_LED et SW_RADAR → 5V_RADAR en pistes (deux vias pour SW_RADAR, au verso) ; +3V3 et 3V3_HALL.
+1. **Puissance** : VBUS → IC1 (piste large au recto) → point d'étoile +5V → SW_SERVO au recto, puis **au moins 7 vias de 0,9 / 0,5 mm** de sa sortie vers les zones 5V_SERVO (In2 et verso), comme l'étoile de la v0.1 (étape 5.4) ; SW_LED → 5V_LED et SW_RADAR → 5V_RADAR en pistes (deux vias pour SW_RADAR, au verso) ; +3V3 et 3V3_HALL.
 2. **Nœud FB du TPS631000** : court, loin de LX1 / LX2 (§4.10).
 3. **Paire USB** : intouchée ; aucune piste ne la croise au recto.
 4. **I²S, AMP_SD, gain** (flanc droit → ampli au verso) ; **I²C** (module → IMU → extendeur → J11).
 5. **Lignes de servos, NeoPixel, UART du radar, capteurs Hall** (analogiques : à l'écart des horloges I²S), LEDs, PWR_FLT.
 6. **Commandes des rails** (extendeur → ON des switches) : lentes, n'importe quelle face.
 7. **Finition : vias et larmes**, une fois tout routé :
-   - **vias de puissance**, à compter à chaque passage de courant : sortie de SW_SERVO (≥ 7), 0 Ω et eFuse, entrées des switches sur l'étoile, alimentation de l'ampli au verso (3 vias, ~0,7 A crête) ; tailles et nombres dans le tableau « Avant de router » ;
+   - **vias de puissance**, à compter à chaque passage de courant : sortie de SW_SERVO (≥ 7), eFuse, entrées des switches sur l'étoile, alimentation de l'ampli au verso (3 vias, ~0,7 A crête) ; tailles et nombres dans le tableau « Avant de router » ;
    - **vias thermiques** sous les pads thermiques : TPS22965 × 3, eFuse, pad exposé du MAX98357A (au verso) ; 0,2–0,3 mm, ouvertures de pochoir en damier (§8) ;
    - **vias de couture de masse** : autour des nouvelles pièces, le long des bords, autour de l'ampli (classe D) et des lignes rapides (I²S, NeoPixel), et là où un remplissage de masse reste isolé (le DRC signale les îlots de cuivre isolés) ; **jamais dans la zone d'antenne**. À la main, ou avec un plugin de couture de vias (gestionnaire de plugins et de contenus) ;
    - **larmes** (teardrops) : la v0.1 en a déjà ; les ajouter aux nouvelles pistes et vias (outil des larmes, menu Modifier), surtout aux pastilles des connecteurs et aux vias des pistes fines ;

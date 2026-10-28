@@ -102,7 +102,7 @@ Elles se branchent sur des nets dont le nom ne change pas : on peut les poser d�
 | 100 kΩ → GND × 3 | NEOPIXEL_CENTER, NEOPIXEL_LEFT, NEOPIXEL_RIGHT | MCU, entrées 1A–3A de IC2 | §4.6 |
 | 330 Ω série × 3 | sorties de IC2 : 1Y → J14.2, 2Y → J3.3, 3Y → J4.3 | MCU, à la sortie de IC2 | §4.6 |
 | 330 Ω série × 6 | GUN_LEFT → J3.2, GUN_RIGHT → J4.2, WING_LEFT → J7.3, WING_RIGHT → J8.3, ROTATE_Z → J9.3, ROTATE_X → J10.3 | MCU, près des connecteurs | §4.8 |
-| 10 kΩ → GND | GUN_RIGHT, côté ESP32 de sa 330 Ω | MCU | §5 |
+| ~~10 kΩ → GND~~ | ~~GUN_RIGHT~~ : retirée le 28.10.2026 (R34), GUN_RIGHT n'est plus sur IO26 | MCU | §5 |
 | *option* 100 kΩ → GND × 5 | ROTATE_X, ROTATE_Z, GUN_LEFT, WING_LEFT, WING_RIGHT | à côté des 330 Ω ; attribut DNP (« ne pas monter ») tant que la place n'est pas confirmée | §4.8 |
 | 1 kΩ série × 2 | RADAR_TX → J5.2, RADAR_RX → J5.3 | IO, près de J5 | §4.8 |
 | 0 Ω 2512 (≥ 4 A) | entre VBUS (J1, D1, D2, TP1) et l'entrée de IC1 (broches 3, 4) | racine ; nommer le côté eFuse `VBUS_IN`, et y mettre R3 (diviseur OVLO) | §8 |
@@ -206,14 +206,15 @@ Mêmes noms qu'aujourd'hui (l'autre bout de chaque net ne bouge pas) ; type : **
 
 | Broche du module | GPIO | Label | Type | | Broche du module | GPIO | Label | Type |
 |---|---|---|---|---|---|---|---|---|
-| 5 | IO1 | ROTATE_X | L | | 25 | IO21 | PWR_FLT | G |
-| 6–11 | IO2–IO7 | libres (3.3) | — | | 26 | IO26 | GUN_RIGHT | L |
+| 5 | IO1 | libre (3.3) | — | | 25 | IO21 | WING_RIGHT | L |
+| 6–10 | IO2–IO6 | libres (3.3) | — | | 26 | IO26 | PWR_FLT | G |
+| 11 | IO7 | DEBUG_SW (SW1) | L | | | | | |
 | 12 | IO8 | HALL_LEFT | G | | 27 | IO47 | FaultLed (LED rouge, R12) | L |
-| 13 | IO9 | JTAG_SEL (SW1) | L | | 28 | IO33 | GUN_LEFT | L |
+| 13 | IO9 | RADAR_TX | G | | 28 | IO33 | GUN_LEFT | L |
 | 14 | IO10 | HALL_RIGHT | G | | 29 | IO34 | WING_LEFT | L |
-| 15 | IO11 | SCL | G | | 30 | IO48 | RADAR_RX | G |
-| 16 | IO12 | SDA | G | | 31 | IO35 | RADAR_TX | G |
-| 17 | IO13 | ESP32Debug (LED verte, R18) | L | | 32 | IO36 | WING_RIGHT | L |
+| 15 | IO11 | RADAR_RX | G | | 30 | IO48 | GUN_RIGHT | L |
+| 16 | IO12 | ROTATE_X | L | | 31 | IO35 | SCL | G |
+| 17 | IO13 | ESP32Debug (LED verte, R18) | L | | 32 | IO36 | SDA | G |
 | 18 | IO14 | NEOPIXEL_RIGHT | L | | 33 | IO37 | AMP_SD | L |
 | 19 | IO15 | IMU_INT1 | L | | 34 | IO38 | AMP_GAIN | L |
 | 20 | IO16 | NEOPIXEL_LEFT | L | | 35 | IO39 | DIN | L |
@@ -221,11 +222,11 @@ Mêmes noms qu'aujourd'hui (l'autre bout de chaque net ne bouge pas) ; type : **
 | 22 | IO18 | NEOPIXEL_CENTER | L | | 37 | IO41 | BCLK | L |
 | | | | | | 38 | IO42 | LRCLK | L |
 
-*Facultatif* : renommer JTAG_SEL en DEBUG_SW, aux deux bouts (SW1 et IO9) : SW1 ne sert plus au JTAG.
+*Révisé le 28.10.2026* : tableau mis au brochage final (étude relancée sur le placement réel, plan §5.3). JTAG_SEL est renommé DEBUG_SW, aux deux bouts (SW1 et IO7) : SW1 ne sert plus au JTAG.
 
-### 3.3 Broches libres IO2–IO7
+### 3.3 Broches libres IO1–IO6
 
-Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_TestPoint:TestPoint_Pad_D1.0mm`), sinon une croix « non connecté ». IO2 : pastille de la future touche tactile de réveil.
+Un point de test sur chacune (symbole et empreinte comme TP1–TP4 : `Turret_TestPoint:TestPoint_Pad_D1.0mm`), valeur « GPIO1 »…« GPIO6 » (TP10, TP5–TP9). IO2 : pastille de la future touche tactile de réveil.
 
 **Point de contrôle 3** : ERC (les 4 croix de IO39–IO42 ont disparu), commit. Je vérifie par la netlist : chaque fonction sur **une seule** broche de U7, la bonne ; plus rien sur les anciennes broches ; aucune broche de U7 partagée entre deux nets.
 
@@ -314,14 +315,14 @@ Presque toutes les GPIO changent de broche : les pistes de signal de la v0.1 rel
 
 0. **D'abord la place gagnée à droite** (étape 5.0) : y loger les nouvelles pièces. Si l'IMU et l'ampli peuvent alors rester au recto, ne pas les retourner : une seule face à braser (plan §8).
 1. **Au verso** (retourner l'empreinte), si la place manque toujours : U6 (IMU) et ses condensateurs ; U9 (ampli) avec C24, C25, R10, R11 ; à leur place de la v0.1, comme l'a supposé l'étude des GPIO.
-2. **Extendeur** au verso, à côté de l'IMU ; **SW_RADAR** au verso, à côté de J5.
+2. **Extendeur** (U13) — placé finalement **au recto**, entre le module et l'IMU (28.10.2026) ; **SW_RADAR** au verso, à côté de J5.
 3. **SW_SERVO et SW_LED** au recto, au point d'étoile du +5V, avant C9 / C18 ; CT collé à sa broche.
 4. **AO3401A** au recto, entre J17 et J18.
 5. **Dégager le flanc droit du module** : SW3, R14, C13 ailleurs (R14 / C13 près de la broche EN).
 6. Résistances série et pull-downs **près des connecteurs** ; 330 Ω des NeoPixel près de IC2.
 7. **0 Ω 2512** entre D1 / D5 et IC1 ; R7 / R8 collées à la broche FB du TPS631000 (§4.10).
 8. Points de test.
-9. **J19** (second port Qwiic) : là où on y accède de l'extérieur de la tourelle ; hauteur ~4,6 mm ; au bout du bus I²C (module → IMU → extendeur → J11 → J19).
+9. **J19** (second port Qwiic) : là où on y accède de l'extérieur de la tourelle ; hauteur ~4,6 mm ; au bout du bus I²C (module → U13 → IMU → R15 / R16 → J11 → J19). Placé en bas à gauche, à côté de J1.
 10. **J1 en JST-XH** (plus large et plus haut que le PH) : à la place de l'ancien J1, ou dans la place libérée par l'USB-C, côté entrée de l'eFuse. **D1 et D2 collées à J1**, puis la 0 Ω, puis IC1 : le chemin VBUS le plus court possible.
 
 ### 5.4 Zones d'alimentation (îlots)

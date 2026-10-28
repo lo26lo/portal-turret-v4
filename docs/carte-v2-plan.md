@@ -10,6 +10,8 @@
 >
 > **Mis à jour le 22.10.2026** : R18 à 100 Ω (changée le 19.10.2026) dans le §5 et le §12 ; LEDs d'état en deep sleep (§1.1) ; total de la veille profonde aligné entre le §1 et le §1.1 ; pièces manquantes ajoutées à la liste d'achat (§3.1). Puis : capteurs Hall identifiés, **OH49E** (§4.3, datasheet relue) ; sentinelle abandonnée définitivement, faute de place (§0, §3.3, §12).
 >
+> **Mis à jour le 28.10.2026, après le placement v2 dans KiCad** (projet maître hors dépôt) : l'étude des GPIO relancée sur le placement réel a déplacé 9 fonctions (§5, §5.3) ; **IO26 = PWR_FLT**, donc plus de pull-down sur IO26 (R34 retirée) ; I²C sur **IO36 / IO35** (`Wire.begin(36, 35)`, sans glitch au démarrage) ; extendeur **U13 en face avant** entre le module et l'IMU (§4.9, §6) ; J19 en bas à gauche, à côté de J1 (§6) ; points de test nommés par fonction (§8) ; firmware (§10) et liste de contrôle (§11) alignés.
+>
 > **Revue avant gel, 22.10.2026** : relevé des composants et des nets de la v0.1 dans KiCad, et relecture des datasheets TPS2595, TPS22965, TPS631000, TCAL6416 et MAX98357A. Principaux changements : pont de retour du TPS631000 à 511 kΩ / 91 kΩ (§4.10, nouveau), pull-down sur IO26 (§5), consommation de la veille radar avec le point d'accès Wi-Fi (§1), adresse et registres de l'extendeur vérifiés (§4.9), condensateurs de la v0.1 répartis sur les rails (§2), position des switches (§0, §5.1, §8), garde-fou de carte dans le firmware (§10), renvois de section corrigés. Puis, à la demande de l'utilisateur : pull-downs des autres lignes PWM **en option** selon la place (§4.8), et résistance de 0 Ω en 2512 gardée pour le pont de mesure, donnée pour ≥ 4 A (§3.1, §8). Ensuite : zones d'alimentation (§8) et **second port I²C J19**, Qwiic vertical Adafruit 4328 (§0, §3.1, §6, §11).
 >
 > **Mis à jour le 23.10.2026** : **USB-C de la carte retiré** (USBC1, R1, R2, D5) après des faux contacts répétés ; seule entrée, l'USB déporté **J1, passé en JST-XH 4 broches** (3 A par contact, 22 AWG) (§0, §1.1, §2, §3, §7, §8, §11). Puis : **carte agrandie vers le haut, partie droite seulement** (zone d'antenne inchangée) ; « tout au recto » à décider au placement (§0, §8, §11).
@@ -25,13 +27,13 @@
 | Radar | **RD-03D seul** (Ai-Thinker, déjà monté), **pas de radar sentinelle** | choix de l'utilisateur (21.10.2026), **définitif le 22.10.2026 : pas de place pour un second module** ; le LD2410S n'est pas acheté |
 | Coupure des rails | 3 × **TPS22965** (servos, anneau LED, radar) + 1 × **AO3401A** (capteurs Hall) | 6 A pour les servos ; ON compatible 3,3 V ; coupés au reset grâce aux pull-downs |
 | Protection d'entrée | eFuse **TPS259533** à la place du TPS259573 (même boîtier, même brochage) | sortie **écrêtée à 5,2–5,7 V** : tout le +5V reste sous 6 V, le maximum absolu des switches, du TPS631000 et de l'ampli, sans toucher au diviseur (§4.2) |
-| GPIO | **brochage refait pour le routage** (étude §5.1) ; **extendeur I²C TCAL6416 au dos**, à côté de l'IMU, pour les 4 commandes de rails | 4 lignes de moins à sortir du module ; le côté gauche du module, le plus mal placé, est presque vide ; bus groupés ; ampli face à l'ampli. Variante sans extendeur en §9 |
+| GPIO | **brochage refait pour le routage** (étude §5.1) ; **extendeur I²C TCAL6416 en face avant**, entre le module et l'IMU, pour les 4 commandes de rails | 4 lignes de moins à sortir du module ; le côté gauche du module, le plus mal placé, est presque vide ; bus groupés ; ampli face à l'ampli. Variante sans extendeur en §9 |
 | Boutons | **A et B supprimés**, **SW1 gardé**, PROG (SW2) gardé | interface par la page web ; le knob et l'OLED ne sont que des outils de debug sur le Qwiic |
 | Ports I²C | J11 (Qwiic coudé, inchangé) + **J19, second port Qwiic vertical** (Adafruit 4328) | demande de l'utilisateur (22.10.2026) ; même bus, mêmes 4 nets (§6) |
 | Entrée USB | **USB-C de la carte (USBC1) retiré** avec R1, R2 (5,1 kΩ du CC) et D5 ; seule entrée : l'USB déporté **J1, passé en JST-XH 4 broches** (3 A par contact, VBUS et GND en 22 AWG) | décision du 23.10.2026 : faux contacts répétés sur l'USB-C (D−) ; J1 porte déjà tout le courant en usage normal, et ses pointes (~3 A) dépassaient les 2 A du JST-PH ; plus de risque de deux sources en parallèle ; place libérée près de l'eFuse (§2) |
 | Contour | **la partie droite monte de 5 à 6 mm**, à droite de la zone d'antenne seulement (36 mm de large ; le dessous du haut-parleur est à 8 mm du bord actuel, mesuré dans Fusion : 6 mm laissent 2 mm de marge) ; carte de 77 × 41 à 77 × 47 mm ; bord du bas, trous H1 / H2, côtés et zone d'antenne inchangés (§8). **Fait** : h = 6 mm, 77,3 × 46,6 mm, troisième trou M2 **H3** en haut à droite ; modèle 3D `Turret2_portable/3d/Turret2_rehausse.step` | décision du 23.10.2026 : de la place sous la coque au-dessus de la carte ; l'antenne de l'ESP32 interdit de monter à gauche ; déplacer le module pour monter partout a été écarté |
 | Face arrière | IMU (U6), ampli (U9), extendeur et SW_RADAR au verso ; SW_SERVO, SW_LED et le P-MOS des capteurs Hall au recto **(à revoir avec la carte agrandie : si la place suffit, tout au recto)** | le chemin de puissance des servos reste au recto ; SW_RADAR (≈ 110 mA) à côté de J5, déjà au verso ; le verso venait du manque de place au recto |
-| Corrections v0.1 | entrées Hall et NeoPixel tirées, pull-up sur IO0, pull-down sur IO26, résistances série sur les lignes qui sortent de la carte, TVS à faible fuite, pont de retour du TPS631000 à 511 kΩ / 91 kΩ | broches flottantes, protection des GPIO, budget de veille (le pont de la v0.1 consomme 50 µA en permanence) |
+| Corrections v0.1 | entrées Hall et NeoPixel tirées, pull-up sur IO0, résistances série sur les lignes qui sortent de la carte, TVS à faible fuite, pont de retour du TPS631000 à 511 kΩ / 91 kΩ | broches flottantes, protection des GPIO, budget de veille (le pont de la v0.1 consomme 50 µA en permanence) |
 
 ---
 
@@ -91,7 +93,7 @@ J1 (USB déporté, JST-XH) ──┬─ D1 TVS (§7) ──► 0 Ω 2512 (§8) �
         └── U1 TPS631000 ─► +3V3 ─┬─ ESP32-S3, LSM6DSOX, extendeur TCAL6416, pull-ups I²C, J11 Qwiic (debug)
                                   └─ AO3401A (HALL_EN_N) ─► 3V3_HALL ─► C31, C32 ─► J17, J18
 
-Commandes des rails : SERVO_EN, LED_EN, RADAR_EN, HALL_EN_N = sorties P00–P03 de l'extendeur (I²C), au dos.
+Commandes des rails : SERVO_EN, LED_EN, RADAR_EN, HALL_EN_N = sorties P00–P03 de l'extendeur (I²C, U13), en face avant.
 U1 TPS631000 : pont de retour R7 / R8 à 511 kΩ / 91 kΩ en v2 (§4.10).
 ```
 
@@ -113,7 +115,7 @@ La limite de l'eFuse est **≈ 3,9 A** (R5 = 523 Ω ; déduit des points de la d
 
 **Ordre de mise sous tension et de coupure** (firmware, §10) :
 
-- Coupure : arrêter le PWM des servos et passer leurs broches à l'état bas → LEDs à noir puis lignes de données à l'état bas → `SERVO_EN`, `LED_EN` bas → UART du radar arrêté, sa broche TX (IO35) en entrée → `RADAR_EN` bas → `HALL_EN_N` haut → ampli : SD (IO37) bas avant d'arrêter l'I²S.
+- Coupure : arrêter le PWM des servos et passer leurs broches à l'état bas → LEDs à noir puis lignes de données à l'état bas → `SERVO_EN`, `LED_EN` bas → UART du radar arrêté, sa broche TX (IO9) en entrée → `RADAR_EN` bas → `HALL_EN_N` haut → ampli : SD (IO37) bas avant d'arrêter l'I²S.
 - Allumage : dans l'ordre inverse, un switch à la fois.
 
 Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état haut vers un module non alimenté le **rétro-alimente** par ses diodes de protection (servo, LED, radar).
@@ -137,7 +139,7 @@ Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état 
 | 3 (+2) | 100 nF 25 V X7R | — | 0603 | VBIAS des switches (5V_RADAR et 5V_LED reprennent C29 et C30, §2) |
 | 4 (+2) | 10 µF 25 V X7R | — | 0805 ou 1206 | sortie 5V_LED, 5V_RADAR ; 10 µF du MAX98357A s'il ne suit pas ; 10 µF sur VDD du LSM6DSOX si la datasheet ST le confirme (§4.5) |
 | 12 (+5) | 100 kΩ 1 % | — | 0603 | pull-downs : 3 × EN, 3 × entrées AHCT, 2 × Hall ; pull-up : grille Hall ; réserve |
-| 2 (+2) | 10 kΩ 1 % | — | 0603 | pull-up de IO0 (recommandé par Espressif) ; pull-down de IO26 (§5) |
+| 2 (+1) | 10 kΩ 1 % | — | 0603 | pull-up de IO0 (recommandé par Espressif) ; le pull-down de IO26 n'existe plus (IO26 = PWR_FLT, §5) |
 | 1 (+2) | 511 kΩ 1 % | — | 0603 | R7, haut du pont de retour du TPS631000 (§4.10) |
 | 1 (+2) | 91 kΩ 1 % | — | 0603 | R8, bas du pont de retour du TPS631000 (§4.10) |
 | 9 (+3) | 330 Ω | — | 0603 | série : 6 PWM servos, 3 données NeoPixel |
@@ -248,21 +250,21 @@ Brochage (WSON-8, vue de dessus) [DS] : 1, 2 = VIN ; 3 = ON ; 4 = VBIAS ; 5 = GN
 - EN : 10 kΩ + 1 µF (R14, C13) = valeurs recommandées par Espressif ✓.
 - 3V3 : 10 µF + 100 nF au ras de la broche 3 ✓ (C15, C16).
 - **IO0** : ajouter **10 kΩ vers +3V3**. Espressif : « It is recommended to place a pull-up resistor at the GPIO0 pin » (*Schematic Checklist*, section *Strapping Pins*). La v0.1 n'a que le pull-up interne, de **45 kΩ** [DS, datasheet ESP32-S3], actif au reset ; il suffit en pratique (boots normaux sur les deux cartes), la résistance externe n'est qu'une marge contre les parasites au moment du reset. « Do not add high capacitors at GPIO0, or the chip may enter download mode » : pas de condensateur d'anti-rebond sur PROG.
-- Glitchs au démarrage : IO1–IO14, IO17, IO18 font une impulsion basse d'environ 60 µs à la mise sous tension (Espressif). En v2, ça concerne surtout **SCL / SDA (IO11, IO12)** : récupération du bus I²C au boot (§10). Sans effet sur les PWM et les NeoPixel, dont les rails sont coupés à ce moment-là.
+- Glitchs au démarrage : IO1–IO14, IO17, IO18 font une impulsion basse d'environ 60 µs à la mise sous tension (Espressif). En v2, l'I²C est sur IO35 / IO36, **hors de cette liste** ; ça ne concerne que ROTATE_X (IO12), RADAR_TX (IO9) et les NeoPixel, dont les rails sont coupés à ce moment-là : sans effet. La récupération du bus I²C au boot reste utile (module Qwiic bloqué, §10).
 
 ### 4.8 Lignes qui sortent de la carte
 
 | Ligne | Ajout | Raison |
 |---|---|---|
-| PWM servos (IO1, IO17, IO26, IO33, IO34, IO36) | 330 Ω en série, **près du connecteur** | un +5V touchant la broche de signal (sur tous les connecteurs de servos, le +5V est voisin du signal : J7–J10 broches 2 et 3, J3 / J4 broches 1 et 2) ne détruit plus la GPIO (courant limité à quelques mA) ; moins de rétro-alimentation quand le rail est coupé |
-| UART du radar (RX IO48, TX IO35) | 1 kΩ en série, **près de J5** | le radar coupé n'est plus alimenté par sa ligne RX à l'état haut (≤ 3,3 mA) ; protection ESD |
+| PWM servos (IO12, IO17, IO21, IO33, IO34, IO48) | 330 Ω en série, **près du connecteur** | un +5V touchant la broche de signal (sur tous les connecteurs de servos, le +5V est voisin du signal : J7–J10 broches 2 et 3, J3 / J4 broches 1 et 2) ne détruit plus la GPIO (courant limité à quelques mA) ; moins de rétro-alimentation quand le rail est coupé |
+| UART du radar (RX IO11, TX IO9) | 1 kΩ en série, **près de J5** | le radar coupé n'est plus alimenté par sa ligne RX à l'état haut (≤ 3,3 mA) ; protection ESD |
 | Hall (IO8, IO10) | 100 kΩ vers GND, près de J17 / J18 | capteur débranché ou coupé → lecture ≈ 0, détectée par l'auto-test (sur la v0.1, une entrée en l'air passe l'auto-test, vu le 21.10.2026). Option : RC 1 kΩ / 10 nF contre le bruit des moteurs |
 
 Les résistances série vont **près des connecteurs**, pas au pied du module : la limitation de courant est la même, et le pourtour du module est la zone la plus chargée de la carte.
 
-**Option, selon la place : 100 kΩ → GND sur IO1, IO17, IO33, IO34 et IO36**, à côté de leur 330 Ω. Ces broches n'ont aucun tirage au reset (IE seulement, tableau des broches de la datasheet ESP32-S3 [DS]) : pendant un redémarrage, leurs lignes flottent au lieu d'être basses, alors que le rail des servos peut rester allumé après un redémarrage logiciel (§4.9). La v0.1 vit ainsi à chaque démarrage, servos alimentés, sans souci constaté : ce n'est pas indispensable. IO26 est à part : son pull-up interne actif au reset impose un 10 kΩ, lui obligatoire (§5).
+**Option, selon la place : 100 kΩ → GND sur IO12, IO17, IO21, IO33, IO34 et IO48**, à côté de leur 330 Ω. Ces broches n'ont aucun tirage au reset (IE ou rien, tableau des broches de la datasheet ESP32-S3 [DS]) : pendant un redémarrage, leurs lignes flottent au lieu d'être basses, alors que le rail des servos peut rester allumé après un redémarrage logiciel (§4.9). La v0.1 vit ainsi à chaque démarrage, servos alimentés, sans souci constaté : ce n'est pas indispensable. Depuis le 28.10.2026, plus aucun servo n'est sur IO26 (pull-up interne au reset) : le 10 kΩ obligatoire de la version précédente a disparu.
 
-### 4.9 TCAL6416 — extendeur de GPIO (au dos, à côté de l'IMU)
+### 4.9 TCAL6416 — extendeur de GPIO (U13, face avant, entre le module et l'IMU)
 
 Brochage TSSOP-24 [DS] : 1 INT, 2 VCCI, 3 RESET, 4–11 P00–P07, 12 GND, 13–20 P10–P17, 21 ADDR, 22 SCL, 23 SDA, 24 VCCP.
 
@@ -309,18 +311,18 @@ Côtés du module (antenne en haut, au bord de la carte) : **gauche** IO0–IO11
 | GPIO | Côté | v0.1 | **v2** | Sens | Reset | RTC | Tactile | Composants v2 | Remarques |
 |---|---|---|---|---|---|---|---|---|---|
 | IO0 | gauche | PROG (SW2) | PROG (SW2) | entrée | IE, WPU | oui | — | **+ 10 kΩ → 3V3** | strap de boot ; lu seulement après le boot (geste SW1 + PROG) |
-| IO1 | gauche | GUN_LEFT | **ROTATE_X** | PWM | IE | oui | oui | 330 Ω série près de J10 ; option 100 kΩ → GND (§4.8) | via au pied du module, puis au dos au-dessus de J16 (couloir y ≈ 91,5–93,6 mm) |
-| IO2 | gauche | GUN_RIGHT | **libre** | — | IE | oui | oui | pastille | réserve : **touche tactile de réveil** |
-| IO3 | gauche | SW1 | **libre** | — | IE | oui | oui | pastille de test | strap JTAG : rien qui tire la broche au reset ; ne jamais graver `STRAP_JTAG_SEL` |
-| IO4 | gauche | WING_LEFT | **libre** | — | — | oui | oui | pastille de test | réserve ADC1 / tactile |
-| IO5 | gauche | WING_RIGHT | **libre** | — | — | oui | oui | pastille de test | réserve ADC1 / tactile |
-| IO6 | gauche | ROTATE_X | **libre** | — | — | oui | oui | pastille de test | réserve ADC1 / tactile |
-| IO7 | gauche | ROTATE_Z | **libre** | — | — | oui | oui | pastille de test | réserve ADC1 / tactile |
+| IO1 | gauche | GUN_LEFT | **libre** | — | IE | oui | oui | pastille de test (TP10 « GPIO1 », au dos) | réserve ADC1 / tactile |
+| IO2 | gauche | GUN_RIGHT | **libre** | — | IE | oui | oui | pastille de test (TP5 « GPIO2 ») | réserve : **touche tactile de réveil** |
+| IO3 | gauche | SW1 | **libre** | — | IE | oui | oui | pastille de test (TP6 « GPIO3 ») | strap JTAG : rien qui tire la broche au reset ; ne jamais graver `STRAP_JTAG_SEL` |
+| IO4 | gauche | WING_LEFT | **libre** | — | — | oui | oui | pastille de test (TP7 « GPIO4 ») | réserve ADC1 / tactile |
+| IO5 | gauche | WING_RIGHT | **libre** | — | — | oui | oui | pastille de test (TP8 « GPIO5 ») | réserve ADC1 / tactile |
+| IO6 | gauche | ROTATE_X | **libre** | — | — | oui | oui | pastille de test (TP9 « GPIO6 ») | réserve ADC1 / tactile |
+| IO7 | gauche | ROTATE_Z | **SW1 (DEBUG_SW)** | entrée | — | oui | oui | R9 10 kΩ → 3V3 (suit SW1) | SW1 fermé = 330 µA |
 | IO8 | gauche | HALL_LEFT | HALL_LEFT | ADC1 | — | oui | oui | 100 kΩ → GND près de J17 | au dos sous le module |
-| IO9 | gauche | HALL_RIGHT | **SW1** | entrée | IE | oui | oui | R9 10 kΩ → 3V3 (suit SW1) | SW1 fermé = 330 µA |
+| IO9 | gauche | HALL_RIGHT | **RADAR_TX** | sortie | IE | oui | oui | 1 kΩ série près de J5 | passer en entrée avant de couper le radar ; glitch au démarrage sans effet (radar coupé) |
 | IO10 | gauche | I²S DIN | **HALL_RIGHT** | ADC1 | IE | oui | oui | 100 kΩ → GND près de J18 | au dos sous le module |
-| IO11 | gauche | I²S BCLK | **SCL** | I²C | IE | oui | oui | R15 2,2 kΩ → 3V3 | glitch bas ~60 µs au démarrage : récupération du bus au boot (§10) |
-| IO12 | bas | I²S LRCLK | **SDA** | I²C | IE | oui | oui | R16 2,2 kΩ → 3V3 | idem |
+| IO11 | gauche | I²S BCLK | **RADAR_RX** | entrée | IE | oui | oui | 1 kΩ série près de J5 | |
+| IO12 | bas | I²S LRCLK | **ROTATE_X** | PWM | IE | oui | oui | 330 Ω série près de J10 ; option 100 kΩ → GND (§4.8) | glitch au démarrage sans effet (rail des servos coupé) |
 | IO13 | bas | AMP_SD | **LED verte** | sortie | IE | oui | oui | R18 100 Ω, D4 juste en dessous | |
 | IO14 | bas | NEOPIXEL_CENTER | **NEOPIXEL_RIGHT** | sortie | IE | oui | oui | 100 kΩ → GND à l'entrée de l'AHCT | au dos, sous l'USB |
 | IO15 | bas | NEOPIXEL_LEFT | **IMU_INT1** | entrée | — | oui | — | — (INT1 en push-pull) | **réveil EXT1** (ANY_HIGH) ; broche XTAL_32K_P (pas de quartz 32 kHz) ; aucun pull-up : INT1 doit être bas ou en l'air au démarrage de l'IMU (§4.5) |
@@ -329,14 +331,14 @@ Côtés du module (antenne en haut, au bord de la carte) : **gauche** IO0–IO11
 | IO18 | bas | RADAR_TX | **NEOPIXEL_CENTER** | sortie | IE | oui | — | 100 kΩ → GND à l'entrée de l'AHCT | |
 | IO19 | bas | USB D– | USB D– | — | — | oui | — | USBLC6 | ne jamais utiliser ; **aucune piste ne croise la paire USB en face avant** |
 | IO20 | bas | USB D+ | USB D+ | — | — | oui | — | USBLC6 | ne jamais utiliser |
-| IO21 | bas | AMP_GAIN | **PWR_FLT** | entrée | — | oui | — | R6 10 kΩ → 3V3 | interruption directe ; descend droit vers IC1 |
-| IO26 | bas | bouton A | **GUN_RIGHT** | PWM | IE, **WPU** | non | — | 330 Ω série près de J4 ; **10 kΩ → GND** | au démarrage normal, le rail des servos est coupé ; après un redémarrage logiciel, il peut rester allumé jusqu'à l'écriture « tout coupé » (§4.9). Le 10 kΩ l'emporte alors sur le pull-up interne (~45 kΩ) et garde la ligne basse (≈ 0,6 V) au lieu d'un niveau haut permanent sur le servo du canon droit |
+| IO21 | bas | AMP_GAIN | **WING_RIGHT** | PWM | — | oui | — | 330 Ω série près de J8 ; option 100 kΩ → GND (§4.8) | |
+| IO26 | bas | bouton A | **PWR_FLT** | entrée | IE, **WPU** | non | — | R6 10 kΩ → 3V3 | interruption directe ; descend vers IC1. Le pull-up interne au reset va dans le sens du pull-up externe : plus de pull-down (R34 retirée le 28.10.2026) |
 | IO47 | bas | AMP_GAIN_100K | **LED rouge** | sortie | IE | non | — | R12 680 Ω, D3 (à rapprocher de IO47) | |
 | IO33 | bas | LED verte | **GUN_LEFT** | PWM | IE | non | — | 330 Ω série près de J3 ; option 100 kΩ → GND (§4.8) | face avant |
 | IO34 | bas | bouton B | **WING_LEFT** | PWM | IE | non | — | 330 Ω série près de J7 ; option 100 kΩ → GND (§4.8) | face avant |
-| IO48 | bas | LED rouge | **RADAR_RX** | entrée | IE | non | — | 1 kΩ série près de J5 | face avant |
-| IO35 | droite | SDA | **RADAR_TX** | sortie | IE | non | — | 1 kΩ série près de J5 | face avant ; passer en entrée avant de couper le radar |
-| IO36 | droite | SCL | **WING_RIGHT** | PWM | IE | non | — | 330 Ω série près de J8 ; option 100 kΩ → GND (§4.8) | face avant |
+| IO48 | bas | LED rouge | **GUN_RIGHT** | PWM | IE | non | — | 330 Ω série près de J4 ; option 100 kΩ → GND (§4.8) | face avant |
+| IO35 | droite | SDA | **SCL** | I²C | IE | non | — | R15 2,2 kΩ → 3V3 | pas de glitch au démarrage ; vers U13 (extendeur) en face avant |
+| IO36 | droite | SCL | **SDA** | I²C | IE | non | — | R16 2,2 kΩ → 3V3 | idem |
 | IO37 | droite | IMU_INT1 | **AMP_SD** | sortie | IE | non | — | R10 2 kΩ série | pas de pull-down externe (100 kΩ interne à l'ampli) ; **ampli coupé (IO37 bas) avant tout `i2s.end()`** |
 | IO38 | droite | PWR_FLT | **AMP_GAIN** | drain ouvert | IE | non | — | — | **jamais à l'état haut** |
 | IO39 | droite | libre | **I²S DIN** | sortie | IE | non | — | — | via au pied du module, puis au dos vers l'ampli |
@@ -348,11 +350,11 @@ Côtés du module (antenne en haut, au bord de la carte) : **gauche** IO0–IO11
 | IO45 | droite | non connecté | non connecté | — | IE, WPD | oui | — | — | strap : ne jamais utiliser |
 | IO46 | droite | non connecté | non connecté | — | IE, WPD | oui | — | — | strap : ne jamais utiliser |
 
-**Extendeur TCAL6416 (au dos, à côté de l'IMU)** : P00 `SERVO_EN`, P01 `LED_EN`, P02 `RADAR_EN`, P03 `HALL_EN_N` ; P04–P17 libres (§4.9).
+**Extendeur TCAL6416 (U13, face avant, entre le module et l'IMU)** : P00 `SERVO_EN`, P01 `LED_EN`, P02 `RADAR_EN`, P03 `HALL_EN_N` ; P04–P17 libres (§4.9).
 
 **Réveil du deep sleep** : EXT1 sur IO15 (IMU, ANY_HIGH) ; minuterie RTC ; option tactile sur IO2.
 
-**Contraintes respectées** : capteurs Hall sur l'ADC1 ; IMU_INT1 et la touche de réserve sur des broches RTC (et tactile pour la touche) ; lignes de gain et `AMP_SD` sur des broches sans pull-up au reset (et sans glitch au démarrage pour le gain) ; aucune commande active à l'état haut sur IO26 ; IO0, IO19, IO20, IO43–IO46 inchangées.
+**Contraintes respectées** : capteurs Hall sur l'ADC1 ; IMU_INT1 et la touche de réserve sur des broches RTC (et tactile pour la touche) ; lignes de gain et `AMP_SD` sur des broches sans pull-up au reset (et sans glitch au démarrage pour le gain) ; aucune commande sur IO26 (pull-up au reset), qui reçoit l'entrée PWR_FLT, déjà tirée vers le haut ; IO0, IO19, IO20, IO43–IO46 inchangées.
 
 ### 5.1 Pourquoi ce brochage : l'étude de routage
 
@@ -388,26 +390,45 @@ Pour la variante C, 16 recherches indépendantes ont abouti au même brochage, �
 
 **Le brochage côté par côté** :
 
+> **Révision du 28.10.2026** : les bullets ci-dessous décrivent la variante C (plan du 21.10). Le brochage final, issu de l'étude relancée sur le placement réel, est décrit au §5.3.
+
 - **Côté droit**, face aux destinations : les **6 lignes de l'ampli** (IO37–IO42, broches « calmes » obligatoires pour le gain), puis le radar TX et l'aile droite, en face avant.
 - **Bas, à droite de l'USB** : les destinations du quart inférieur droit en éventail sur la face avant, **sans croisement** (canons, aile gauche, radar RX), plus PWR_FLT qui descend droit vers l'eFuse et la LED rouge.
 - **Bas, à gauche de l'USB** : I²C, LED verte, NeoPixel, IMU_INT1, ROTATE_Z. Elles plongent au dos juste sous le module et passent sous la paire USB.
 - **Côté gauche**, le plus mal placé : seulement les **capteurs Hall** (l'ADC1 n'existe que là), SW1 (qui est à gauche), SCL, ROTATE_X et **6 broches libres** (IO2–IO7 : toutes ADC1, tactiles et RTC ; IO3 est un strap).
-- **Extendeur** : les 4 commandes de rails ne sortent plus du module ; elles partent de l'extendeur, au dos, près des switches.
+- **Extendeur** : les 4 commandes de rails ne sortent plus du module ; elles partent de l'extendeur (finalement en face avant, §5.3).
 
 **Les croisements restants** sont au dos, surtout ceux des capteurs Hall (imposés à gauche) avec l'I²C et les NeoPixel. Au routage : passer les lignes Hall au ras du bord bas du module, et remonter I²C et NeoPixel en face avant dès qu'elles ont passé l'USB.
 
 ### 5.2 Règles de placement qui vont avec ce brochage
 
-1. **Dégager le flanc droit du module** : sur la v0.1, SW3 (RESET), R14 et C13 sont juste devant IO35–IO42 (x ≈ 92–94 mm). Ces 8 broches servent toutes en v2. Mettre R14 / C13 près de la broche EN (en haut à droite) et SW3 ailleurs, sur la ligne EN (signal lent).
-2. **J16 au dos sous le module** : ROTATE_X passe au-dessus (couloir de ~2 mm entre la zone d'antenne et J16). Si ce couloir manque, décaler J16 juste à droite du module : le couloir sous le module se libère.
+1. **[fait]** **Dégager le flanc droit du module** : sur la v0.1, SW3 (RESET), R14 et C13 sont juste devant IO35–IO42 (x ≈ 92–94 mm). Ces 8 broches servent toutes en v2. Mettre R14 / C13 près de la broche EN (en haut à droite) et SW3 ailleurs, sur la ligne EN (signal lent).
+2. **[sans objet depuis le 28.10.2026 : ROTATE_X est sur IO12]** **J16 au dos sous le module** : ROTATE_X passe au-dessus (couloir de ~2 mm entre la zone d'antenne et J16). Si ce couloir manque, décaler J16 juste à droite du module : le couloir sous le module se libère.
 3. **Vias de sortie au pied du module**, comme sur la v0.1 : pour les lignes qui partent au dos, entre la rangée de pastilles et le pad central, ou juste à l'extérieur.
 4. **Résistances série près des connecteurs** (§4.8), pas au pied du module.
 5. **AHCT** : choisir l'attribution des portes au routage (§4.6).
-6. **Extendeur au dos, à côté de l'IMU** : le bus I²C va du module à l'IMU, puis à l'extendeur, puis à J11 ; sa broche RESET va à EN.
+6. **Extendeur (U13) en face avant, entre le module et l'IMU** : le bus I²C va du module à U13, puis à l'IMU, puis à R15 / R16 et J11, et J19 ; sa broche RESET va à EN.
 7. **Paire USB** : jamais croisée en face avant ; les lignes de IO12–IO18 passent dessous, au dos.
 8. **Lignes Hall** (analogiques) à l'écart des horloges I²S : de préférence sur des faces différentes là où elles se croisent.
-9. **Relancer l'étude** dès que le placement v2 existe dans KiCad (`TURRET_PCB=…`, voir le README de l'outil) : les positions des nouvelles pièces ne sont ici que des hypothèses.
+9. **[fait le 28.10.2026, §5.3]** **Relancer l'étude** dès que le placement v2 existe dans KiCad (`TURRET_PCB=…`, voir le README de l'outil) : les positions des nouvelles pièces ne sont ici que des hypothèses.
 
+
+### 5.3 Brochage final, sur le placement réel (28.10.2026)
+
+L'étude a été relancée sur le placement v2 de KiCad (positions réelles des pastilles et des pièces, faces réelles ; script local du projet maître, dérivé de l'outil du dépôt). Le modèle de coût a changé : ses chiffres ne se comparent pas au tableau du §5.1. Changements par rapport à la variante C :
+
+| Fonction | Variante C | **Final** | Pourquoi |
+|---|---|---|---|
+| ROTATE_X | IO1 | **IO12** | sort par le bas, vers J10 ; plus de couloir au-dessus de J16 |
+| SDA / SCL | IO12 / IO11 | **IO36 / IO35** | côté droit, face à U13 et à l'IMU ; pas de glitch au démarrage |
+| RADAR_TX / RADAR_RX | IO35 / IO48 | **IO9 / IO11** | libère le côté droit pour l'I²C |
+| DEBUG_SW (SW1) | IO9 | **IO7** | SW1 est à gauche |
+| GUN_RIGHT | IO26 | **IO48** | éventail du quart inférieur droit, face avant |
+| WING_RIGHT | IO36 | **IO21** | idem |
+| PWR_FLT | IO21 | **IO26** | entrée tirée vers le haut : le pull-up interne de IO26 au reset ne gêne plus ; R34 retirée |
+| Broches libres | IO2–IO7 | **IO1–IO6** | toutes ADC1, tactiles et RTC ; pastilles GPIO1–GPIO6 |
+
+Inchangés : Hall (IO8, IO10), LEDs (IO13, IO47), NeoPixel (IO14, IO16, IO18), IMU_INT1 (IO15), ROTATE_Z (IO17), GUN_LEFT (IO33), WING_LEFT (IO34), ampli (IO37–IO42). Une dernière recherche avec une pénalité supplémentaire sur les croisements n'a rien trouvé de mieux (41 croisements, 38 vias dans le nouveau modèle).
 ---
 
 ## 6. Bus I²C
@@ -417,16 +438,16 @@ Pour la variante C, 16 recherches indépendantes ont abouti au même brochage, �
 | LSM6DSOX (U6) | 0x6A | oui |
 | OLED SSD1306 / SSD1309 (Qwiic) | 0x3C | non, debug seulement |
 | Encodeur seesaw (Qwiic) | 0x36 | non, debug seulement |
-| Extendeur TCAL6416 (au dos, près de l'IMU) | **0x20** (ADDR au GND) [DS] | oui |
+| Extendeur TCAL6416 (U13, face avant, entre le module et l'IMU) | **0x20** (ADDR au GND) [DS] | oui |
 
-**Deux ports Qwiic** : J11 (coudé, existant) et **J19 (vertical, Adafruit 4328, nouveau)**, en parallèle sur les mêmes nets, brochage Qwiic de J11 : 1 GND, 2 +3V3, 3 SDA, 4 SCL, pattes de fixation à GND. Empreinte : `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` (le plan du fabricant reprend celle du JST SH vertical). Position à décider (accès depuis l'extérieur de la tourelle, hauteur ~4,6 mm).
+**Deux ports Qwiic** : J11 (coudé, existant) et **J19 (vertical, Adafruit 4328, nouveau)**, en parallèle sur les mêmes nets, brochage Qwiic de J11 : 1 GND, 2 +3V3, 3 SDA, 4 SCL, pattes de fixation à GND. Empreinte : `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` (le plan du fabricant reprend celle du JST SH vertical). Position : **en bas à gauche, à côté de J1**, reliée au bus par un détour au verso (accès depuis l'extérieur de la tourelle et hauteur ~4,6 mm à vérifier dans le boîtier, §11).
 
 - **Pull-ups** : garder une seule paire, **R15 / R16 = 2,2 kΩ vers +3V3**. 1,5 mA quand une ligne est basse ; temps de montée ≈ 0,85 × 2,2 kΩ × 50 pF ≈ 95 ns, bien sous les 300 ns du mode 400 kHz. Les modules Qwiic ont leurs propres pull-ups (souvent 10 kΩ) qui se mettent en parallèle : ≈ 1,8 kΩ avec un module, ≈ 1,5 kΩ (2,2 mA) avec deux, encore dans la norme (≤ 3 mA). Avec deux modules à 4,7 kΩ, on arrive à ~2,9 mA : à la limite ; couper les pull-ups de l'un d'eux s'il a un pont prévu pour ça. Câbles Qwiic courts : chaque câble ajoute de la capacité au bus.
-- **Broches** : v0.1 = IO35 / IO36 (`Wire.begin(35, 36)`) ; **v2 = SDA IO12, SCL IO11** (`Wire.begin(12, 11)`, §5). Toujours explicites, jamais les broches par défaut 8 / 9 (capteurs Hall en v0.1, HALL_LEFT et SW1 en v2).
-- **Ordre du bus** (v2) : module → IMU → extendeur (tous deux au dos) → J11 → J19. Pull-ups à n'importe quel endroit du bus, une seule paire.
+- **Broches** : v0.1 = IO35 / IO36 (`Wire.begin(35, 36)`) ; **v2 = SDA IO36, SCL IO35** (`Wire.begin(36, 35)`, §5 ; attention, SDA et SCL sont inversées par rapport à la v0.1). Toujours explicites, jamais les broches par défaut 8 / 9 (capteurs Hall en v0.1, HALL_LEFT et SW1 en v2).
+- **Ordre du bus** (v2) : module → U13 (extendeur, face avant) → U6 (IMU) → R15 / R16 → J11 → J19. Pull-ups à n'importe quel endroit du bus, une seule paire.
 - **En deep sleep** : bus au repos à l'état haut, aucun courant ; l'IMU reste alimentée.
 - **Qwiic** : brancher et débrancher les modules **hors tension** (un branchement à chaud peut bloquer le bus).
-- **Nouveau** : deux pastilles de test SDA / SCL pour l'oscilloscope.
+- **Nouveau** : deux pastilles de test pour l'oscilloscope, TP14 « I2C SDA » et TP15 « I2C SCL » (au dos, §8).
 
 ---
 
@@ -439,8 +460,8 @@ Pour la variante C, 16 recherches indépendantes ont abouti au même brochage, �
 | IO0 | pull-up interne seulement | démarrage en mode téléchargement sur un parasite | 10 kΩ → 3V3 |
 | ON des switches | — | « do not leave floating » | 100 kΩ → GND |
 | SD_MODE de l'ampli | 2 kΩ série + 100 kΩ interne | aucun | inchangé |
-| IO26, IO34 (boutons retirés) | pull-ups 10 kΩ R19, R20 | — | R19, R20 retirées ; IO26 → GUN_RIGHT, IO34 → WING_LEFT (§5) |
-| Broches libres v2 (IO2–IO7) | — | entrées flottantes | pastilles de test ; le firmware les configure en entrée avec pull-down interne |
+| IO26, IO34 (boutons retirés) | pull-ups 10 kΩ R19, R20 | — | R19, R20 retirées ; IO26 → PWR_FLT, IO34 → WING_LEFT (§5) |
+| Broches libres v2 (IO1–IO6) | — | entrées flottantes | pastilles de test ; le firmware les configure en entrée avec pull-down interne |
 | IO45, IO46 | non connectées, WPD interne | aucun | inchangé |
 | LSM6DSOX INT2, OCS_Aux, SDO_Aux | non connectées, tirages internes | aucun | inchangé |
 | MAX98357A NC (5, 6, 12, 13) | non connectées | aucun | inchangé |
@@ -448,8 +469,8 @@ Pour la variante C, 16 recherches indépendantes ont abouti au même brochage, �
 | Diode TVS D1 (D5 retirée avec l'USB-C) | **SMAJ5.0A** : VR 5,0 V, IR ≤ 800 µA, VC 9,2 V | fuite permanente jusqu'à 0,8 mA | **SMAJ6.5A** : VR 6,5 V, IR ≤ 500 µA **à 6,5 V** (donc très faible à 5 V), VC 11,2 V < 20 V max de l'eFuse [DS]. **Mesurer d'abord** la fuite réelle sur la v0.1 |
 | Pull-ups I²C | 2,2 kΩ | aucun | inchangé |
 | Lignes PWM, UART, données LED vers les connecteurs | directes | GPIO détruite par un faux contact avec le +5V ; rétro-alimentation | résistances série (§4.8) |
-| IO26 (pull-up interne au reset) | bouton A, pull-up R19 | en v2, servo du canon droit à l'état haut pendant un redémarrage logiciel, rail allumé | 10 kΩ → GND (§5) |
-| Autres lignes PWM (IO1, IO17, IO33, IO34, IO36) | flottantes au reset (IE seulement [DS]) | aucun constaté sur la v0.1 | option, selon la place : 100 kΩ → GND (§4.8) |
+| IO26 (pull-up interne au reset) | bouton A, pull-up R19 | aucun en v2 : IO26 = PWR_FLT, entrée déjà tirée vers le haut par R6 | rien de plus (le 10 kΩ → GND prévu quand IO26 portait GUN_RIGHT a été retiré le 28.10.2026) |
+| Lignes PWM (IO12, IO17, IO21, IO33, IO34, IO48) | flottantes au reset (IE seulement [DS]) | aucun constaté sur la v0.1 | option, selon la place : 100 kΩ → GND (§4.8) |
 | VBUS de l'USB-C et de J1 (USB déporté) | reliés directement | deux sources branchées en même temps se renvoient du courant | **réglé** : l'USB-C de la carte est retiré, J1 est la seule entrée (§2) |
 
 ---
@@ -471,7 +492,7 @@ Reprend le §3 d'AMELIORATIONS_V2.md (IMU et ampli au verso, switches de puissan
 - **Pas de via ni de piste sous l'IMU.** Zone d'antenne de l'ESP32 libre sur toutes les couches.
 - **Sérigraphie** : broche 1 de chaque WSON, TQFN et LGA ; nom des rails commutés ; SW1 renommé « DEBUG » (marqué « USB / JTAG » sur la v0.1 : il ne sert plus au strap JTAG, IO3 est libre).
 - **Zones d'alimentation** : mêmes contours que la v0.1 ; la zone des servos (In2 et verso) passe sur 5V_SERVO, et ses vias quittent le point d'étoile pour la sortie de SW_SERVO (détail et image : [carte-v2-kicad.md](carte-v2-kicad.md), étape 5.4).
-- **Points de test** : TP sur 5V_LED, 5V_RADAR, 3V3_HALL, SDA, SCL, IMU_INT1 ; TP2, déjà dans la zone des servos, devient celui de 5V_SERVO ; TP1 (VBUS), TP3 (5V) et TP4 (3V3) restent.
+- **Points de test**, nommés par fonction en sérigraphie : TP1 « USB VBUS », TP2 « 5V SERVO », TP3 « 5V MAIN » (recto), TP4 « 3V3 MAIN », TP11 « 5V LED », TP12 « 5V RADAR », TP13 « 3V3 HALL », TP16 « IMU INT » (au dos, près de leur source), et un groupe « SPARE GPIO » au dos, en deux colonnes, hors du passage du câble de J16 : TP10 / TP5–TP9 « GPIO1 »–« GPIO6 », TP14 « I2C SDA », TP15 « I2C SCL », TP4 « 3V3 MAIN ».
 - **Mesure du courant de veille** : pour la carte entière, fuite des TVS comprise, PPK2 en mode source par l'adaptateur USB-C, comme dans experiments.md. En plus, une **résistance de 0 Ω en 2512** en série juste après D1, avant l'eFuse, entourée de deux pastilles : on la dessoude pour mesurer sans les TVS (PPK2 en ampèremètre). En place, elle porte les 3 à 4 A des servos : référence donnée pour ≥ 4 A (§3.1).
 - **Version sur la carte** : sérigraphier « v0.2 » (la v0.1 porte « Turret V0.1 »).
 - **Pochoir de la face B avec la face A déjà peuplée** :
@@ -503,9 +524,9 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 
 ## 10. Firmware à prévoir
 
-1. **`pins.h` conditionnel** (`TURRET2_V2`) avec le brochage du §5 : presque toutes les broches changent ; plus de boutons A / B. La v0.1 garde son brochage. Changer aussi la **variante Arduino** (`variants/turret2/pins_arduino.h` déclare SDA 35 / SCL 36) : une variante v2 avec SDA 12 / SCL 11, ou des broches toujours explicites.
-2. **Pilote de l'extendeur** (TCAL6416, 0x20) : écrire « tout coupé » (P00–P02 bas, P03 haut, **puis** configuration en sorties : le registre de sortie vaut 0xFF au démarrage, §4.9) **au tout début du boot**, juste après `Wire.begin(12, 11)` et une **récupération du bus I²C** (9 coups d'horloge si SDA est bloquée : IO11 / IO12 font un glitch au démarrage) ; même écriture dans la séquence d'arrêt avant un redémarrage volontaire.
-3. **Garde-fou de carte** : le firmware v2 cherche l'extendeur (0x20 sur IO12 / IO11) **avant de toucher à toute autre broche**. S'il ne répond pas, ce n'est pas une carte v2 (sur une v0.1, IO11 / IO12 sont l'horloge I²S de l'ampli, coupé, et rien ne répond) : ne rien piloter et le signaler sur l'USB. Utile avec deux versions de carte et l'OTA : un firmware v2 sur une v0.1 piloterait sinon les servos sur les mauvaises broches, et IO47 (gain de l'ampli en v0.1) à l'état haut. Dans l'autre sens, un firmware v0.1 sur une carte v2 ne peut pas allumer les rails (extendeur jamais configuré).
+1. **`pins.h` conditionnel** (`TURRET2_V2`) avec le brochage du §5 : presque toutes les broches changent ; plus de boutons A / B. La v0.1 garde son brochage. Changer aussi la **variante Arduino** (`variants/turret2/pins_arduino.h` déclare SDA 35 / SCL 36) : une variante v2 avec SDA 36 / SCL 35 (inversées par rapport à la v0.1), ou des broches toujours explicites.
+2. **Pilote de l'extendeur** (TCAL6416, 0x20) : écrire « tout coupé » (P00–P02 bas, P03 haut, **puis** configuration en sorties : le registre de sortie vaut 0xFF au démarrage, §4.9) **au tout début du boot**, juste après `Wire.begin(36, 35)` et une **récupération du bus I²C** (9 coups d'horloge si SDA est bloquée, par exemple par un module Qwiic ; IO35 / IO36 ne font pas de glitch au démarrage) ; même écriture dans la séquence d'arrêt avant un redémarrage volontaire.
+3. **Garde-fou de carte** : le firmware v2 cherche l'extendeur (0x20, SDA IO36 / SCL IO35) **avant de toucher à toute autre broche**. S'il ne répond pas, ce n'est pas une carte v2 (sur une v0.1, IO35 / IO36 sont bien le bus I²C, mais SDA et SCL inversées et sans rien à 0x20 : rien ne répond) : ne rien piloter et le signaler sur l'USB. Utile avec deux versions de carte et l'OTA : un firmware v2 sur une v0.1 piloterait sinon les servos sur les mauvaises broches, et IO47 (gain de l'ampli en v0.1) à l'état haut. Dans l'autre sens, un firmware v0.1 sur une carte v2 ne peut pas allumer les rails (extendeur jamais configuré).
 4. **Module d'alimentation** : séquences du §2, switches un par un via l'extendeur, lignes de signal à l'état bas avant de couper un rail.
 5. **Veille radar et veille profonde** (§1) : entrée après N minutes sans cible, ou à heure fixe ; réveil EXT1 (IMU sur IO15), minuterie, option tactile sur IO2. En veille radar, préférer le Wi-Fi coupé ou en station (pas de veille du modem en point d'accès).
 6. **IMU** : matrice de passage des axes (accéléromètre **et** gyroscope) pour le montage au verso ; interruption de réveil verrouillée sur INT1. IO15 jamais en sortie ni tirée vers le haut (§4.5) ; en deep sleep, un pull-down RTC est possible.
@@ -514,7 +535,8 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 9. **Règles de sécurité de la v0.1 à transposer** (documentation et `CLAUDE.md`, pour la v2 seulement) :
    - « ampli coupé avant tout `i2s.end()` » porte sur **IO37** (v0.1 : IO13) ;
    - « jamais à l'état haut » porte sur **IO38 et IO40** (v0.1 : IO21 et IO47) ;
-   - le bus I²C se démarre avec `Wire.begin(12, 11)` (v0.1 : 35, 36).
+   - le bus I²C se démarre avec `Wire.begin(36, 35)` (v0.1 : 35, 36) ;
+   - IO26 est l'entrée PWR_FLT (v0.1 : bouton A), IO48 le servo du canon droit (v0.1 : LED rouge).
 
 ---
 
@@ -535,9 +557,9 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 - [ ] Axes de l'IMU après retournement : vérifiés sur les 3 axes, dans les 2 sens.
 - [ ] Brasage du verso : tenue du recto pendant la seconde passe.
 - [ ] Bruit de commutation de l'ampli au verso : HP et Wi-Fi.
-- [ ] **Relancer l'étude des GPIO** (`Turret2_portable/tools/gpio_study/`) sur le placement v2 dès qu'il existe, avant de router.
-- [ ] Flanc droit du module dégagé (SW3, R14, C13 déplacés) et passage de ROTATE_X au-dessus de J16 (§5.2).
-- [ ] Position de J19 (second port Qwiic, vertical) : accès depuis l'extérieur, hauteur (~4,6 mm) par rapport au boîtier.
+- [x] **Relancer l'étude des GPIO** (28.10.2026, §5.3) (`Turret2_portable/tools/gpio_study/`) sur le placement v2 dès qu'il existe, avant de router.
+- [x] Flanc droit du module dégagé (SW3, R14, C13 déplacés) ; ROTATE_X sur IO12, plus de passage au-dessus de J16 (§5.2, §5.3, 28.10.2026).
+- [ ] J19 (second port Qwiic, vertical) placé en bas à gauche, à côté de J1 : vérifier l'accès depuis l'extérieur et la hauteur (~4,6 mm) par rapport au boîtier.
 - [x] Carte agrandie : hauteur disponible au-dessus de la partie droite : 8 mm jusqu'au haut-parleur (Fusion, 23.10.2026) → la partie droite monte de 5 à 6 mm (§8).
 - [ ] Carte agrandie : vérifier dans Fusion avec un export STEP de la v2 (haut-parleur, arche, coque) ; décision « tout au recto » ou verso au placement (§8).
 - [ ] Après un `ESP.restart()` et après un plantage : rails bien coupés (écriture « tout coupé » au début du boot).
@@ -552,12 +574,12 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 | R6 249 kΩ → 274 kΩ (§2.2) | **TPS259533**, R4 inchangé | la résistance concernée est **R4** ; 274 kΩ couperait dès 5,25 V au pire |
 | 2N7002 + `LED_OE_N` (§2.3) | /OE au GND + pull-downs sur les entrées | plus simple, même protection |
 | 100 kΩ sur `AMP_SD` (§2.5) | rien | pull-down interne de l'ampli |
-| `LED_EN` sur IO26 (§2.7) | IO26 = GUN_RIGHT (PWM, sans risque) ; `LED_EN` sur l'extendeur | pull-up de IO26 au reset |
-| Extendeur en variante (§2.9), réveil par son INT sur IO3 | **adopté**, au dos près de l'IMU, pour les 4 commandes ; IMU_INT1 reste en direct sur IO15 | brochage refait pour le routage (§5.1) ; plus de sentinelle, donc l'INT de l'extendeur ne sert pas au réveil |
+| `LED_EN` sur IO26 (§2.7) | IO26 = PWR_FLT (entrée tirée vers le haut, depuis le 28.10.2026) ; `LED_EN` sur l'extendeur | pull-up de IO26 au reset |
+| Extendeur en variante (§2.9), réveil par son INT sur IO3 | **adopté**, en face avant entre le module et l'IMU (au dos dans le plan du 21.10), pour les 4 commandes ; IMU_INT1 reste en direct sur IO15 | brochage refait pour le routage (§5.1) ; plus de sentinelle, donc l'INT de l'extendeur ne sert pas au réveil |
 | Brochage v1 conservé hors ampli (§2.6) | **brochage entièrement refait** | 150 → 22 croisements, 1057 → 939 mm de piste dans le modèle (§5.1) |
 | Capteurs Hall non traités | coupés par AO3401A | OH49E : 4,2 mA typ. chacun en permanence sinon |
 | LEDs d'état « ~3 mA chacune » | rouge ~2 mA (R12 680 Ω) ; verte 3 à 13 mA (R18 100 Ω depuis le 19.10.2026) | calcul sous 3,3 V sur R12 / R18 |
-| — | résistances série, pull-up IO0, pull-down IO26, TVS, points de test, pont de mesure, pont du TPS631000 à 511 kΩ / 91 kΩ | protection, mesure et veille |
+| — | résistances série, pull-up IO0, TVS, points de test, pont de mesure, pont du TPS631000 à 511 kΩ / 91 kΩ | protection, mesure et veille |
 
 ---
 

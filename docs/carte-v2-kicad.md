@@ -379,6 +379,33 @@ La v0.1 a déjà des classes de nets et des règles (`Turret2.kicad_dru`), et du
 
 **Règles DRC à compléter** (`Turret2.kicad_dru`) : ajouter les références des 3 TPS22965 et de l'extendeur (connues après l'annotation, étape 4.2) aux deux règles « Pas fin », et en retirer USBC1, qui n'existe plus. Leurs pastilles au pas de 0,5 / 0,65 mm ne peuvent pas tenir la largeur de 0,8 mm ni l'isolement de 0,25 mm de la classe Power5V ; les pistes s'élargissent dès qu'elles quittent l'empreinte. Rien d'autre à changer : « Via puissance », « Largeur 5V servos » et « In2 réservée aux alimentations » s'appliquent d'elles-mêmes aux nouveaux rails une fois dans la classe Power5V.
 
+### Découplage : quel condensateur pour quelle broche
+
+Sur le schéma, un condensateur de découplage n'est relié qu'aux nets d'alimentation et GND : rien n'y dit à quelle broche il appartient, et KiCad l'accepte même s'il ne rejoint son circuit que par une zone, à l'autre bout de la carte. **Règle** : le pad d'alimentation va **par une piste directe** à la broche ci-dessous (même couche, sans via ni plan), sauf là où une zone est voulue (VBUS, sortie 3,3 V de U1, 5V_SERVO) ; le pad GND a sa via collée.
+
+| Condensateur | Valeur | Net | Broche à découpler | Note |
+|---|---|---|---|---|
+| C1 | 100 nF | VBUS | **IC1 IN (3, 4)** | entrée de l'eFuse ; zone VBUS |
+| C2 | 47 nF | DVDT | **IC1 DVDT (1)** | rampe de démarrage, collé à la broche |
+| C3, C4 | 22 µF + 100 nF | +5V | **U1 VIN (4)** | 100 nF au plus près, puis 22 µF |
+| C5, C6, C7 | 22 µF | +3V3 | **U1 VOUT (1)** | boucle courte avec le GND de U1 (7) |
+| C8 | 100 nF | +5V | **IC2 VCC (14)** | AHCT |
+| C9, C18 | 220 µF | 5V_SERVO | **U10 VOUT (7, 8)** / zone | réservoir des servos |
+| C10, C19–C23 | 100 nF | 5V_SERVO | **J4.1, J3.1, J7.2, J9.2, J8.2, J10.2** | un par connecteur de servo, au verso |
+| C13 | 1 µF | EN | **U7 EN (45)** | filtre du reset |
+| C14, C17, C27 | 100 nF, 100 nF, 1 µF | +3V3 | **U6 VDDIO (5), VDD (8)** | IMU, les trois en rangée sous l'IMU ; CS (12) aussi au +3V3 |
+| C15, C16 | 10 µF + 100 nF | +3V3 | **U7 3V3 (3)** | module ESP32 |
+| C24, C25, C26 | 100 nF, 10 µF, 100 µF | +5V | **U9 VDD (7, 8)** | ampli au verso ; C26 au recto, par vias |
+| C33 / C36 / C40 | 1 µF | +5V | **VIN (1, 2)** de U10 / U11 / U12 | entrée de chaque switch |
+| C34 / C37 / C41 | 100 nF | +5V | **VBIAS (4)** de U10 / U11 / U12 | |
+| C35 / C38 / C42 | 4,7 nF / 1 nF / 1 nF | CT | **CT (6)** de U10 / U11 / U12 | rampe, collé à la broche |
+| C39 / C43 | 10 µF | 5V_LED / 5V_RADAR | **VOUT (7, 8)** de U11 / U12 | sortie de switch |
+| C29 / C30 | 100 nF | 5V_RADAR / 5V_LED | **J5.1 / J14.1** | au connecteur |
+| C31 / C32 | 100 nF | 3V3_HALL | **J17.1 / J18.1** | au connecteur |
+| C44 / C45 | 100 nF | +3V3 | **U13 VCCI (2) / VCCP (24)** | extendeur |
+
+Contrôle automatique : `Turret2_portable/tools/check_decap/check_decap.py <Turret2.kicad_pcb>` (Python de KiCad). Pour chaque condensateur : piste directe ou zone vers la bonne broche, via GND proche. À relancer à chaque point de contrôle du routage.
+
 ### Ordre de routage
 
 Dans cet ordre (§4, §5.2) :
@@ -386,7 +413,7 @@ Dans cet ordre (§4, §5.2) :
 1. **Puissance** : VBUS → IC1 (piste large au recto) → point d'étoile +5V → SW_SERVO au recto, puis **au moins 7 vias de 0,9 / 0,5 mm** de sa sortie vers les zones 5V_SERVO (In2 et verso), comme l'étoile de la v0.1 (étape 5.4) ; SW_LED → 5V_LED et SW_RADAR → 5V_RADAR en pistes (deux vias pour SW_RADAR, au verso) ; +3V3 et 3V3_HALL.
 2. **Nœud FB du TPS631000** : court, loin de LX1 / LX2 (§4.10).
 3. **Paire USB** : intouchée ; aucune piste ne la croise au recto.
-4. **I²S, AMP_SD, gain** (flanc droit → ampli au verso) ; **I²C** (module → IMU → extendeur → J11).
+4. **I²S, AMP_SD, gain** (flanc droit → ampli au verso) ; **I²C** (module → U13 → IMU → R15 / R16 → J11 → J19).
 5. **Lignes de servos, NeoPixel, UART du radar, capteurs Hall** (analogiques : à l'écart des horloges I²S), LEDs, PWR_FLT.
 6. **Commandes des rails** (extendeur → ON des switches) : lentes, n'importe quelle face.
 7. **Finition : vias et larmes**, une fois tout routé :

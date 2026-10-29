@@ -10,7 +10,7 @@
 >
 > **Mis à jour le 22.10.2026** : R18 à 100 Ω (changée le 19.10.2026) dans le §5 et le §12 ; LEDs d'état en deep sleep (§1.1) ; total de la veille profonde aligné entre le §1 et le §1.1 ; pièces manquantes ajoutées à la liste d'achat (§3.1). Puis : capteurs Hall identifiés, **OH49E** (§4.3, datasheet relue) ; sentinelle abandonnée définitivement, faute de place (§0, §3.3, §12).
 >
-> **Mis à jour le 28.10.2026, après le placement v2 dans KiCad** (projet maître hors dépôt) : l'étude des GPIO relancée sur le placement réel a déplacé 9 fonctions (§5, §5.3) ; **IO26 = PWR_FLT**, donc plus de pull-down sur IO26 (R34 retirée) ; I²C sur **IO36 / IO35** (`Wire.begin(36, 35)`, sans glitch au démarrage) ; extendeur **U13 en face avant** entre le module et l'IMU (§4.9, §6) ; pont de mesure 0 Ω 2512 supprimé (§8) ; J19 en bas à gauche, à côté de J1 (§6) ; points de test nommés par fonction (§8) ; firmware (§10) et liste de contrôle (§11) alignés.
+> **Mis à jour le 28.10.2026, après le placement v2 dans KiCad** (projet maître hors dépôt) : l'étude des GPIO relancée sur le placement réel a déplacé 9 fonctions (§5, §5.3) ; **IO26 = PWR_FLT**, donc plus de pull-down sur IO26 (R34 retirée) ; I²C sur **IO35 (SDA) / IO36 (SCL)**, comme la v0.1 (`Wire.begin(35, 36)`, sans glitch au démarrage ; inversées le 29.10.2026 pour ne pas croiser avant U13) ; extendeur **U13 en face avant** entre le module et l'IMU (§4.9, §6) ; pont de mesure 0 Ω 2512 supprimé (§8) ; J19 en bas à gauche, à côté de J1 (§6) ; points de test nommés par fonction (§8) ; firmware (§10) et liste de contrôle (§11) alignés.
 >
 > **Revue avant gel, 22.10.2026** : relevé des composants et des nets de la v0.1 dans KiCad, et relecture des datasheets TPS2595, TPS22965, TPS631000, TCAL6416 et MAX98357A. Principaux changements : pont de retour du TPS631000 à 511 kΩ / 91 kΩ (§4.10, nouveau), pull-down sur IO26 (§5), consommation de la veille radar avec le point d'accès Wi-Fi (§1), adresse et registres de l'extendeur vérifiés (§4.9), condensateurs de la v0.1 répartis sur les rails (§2), position des switches (§0, §5.1, §8), garde-fou de carte dans le firmware (§10), renvois de section corrigés. Puis, à la demande de l'utilisateur : pull-downs des autres lignes PWM **en option** selon la place (§4.8), et résistance de 0 Ω en 2512 gardée pour le pont de mesure, donnée pour ≥ 4 A (§3.1, §8). Ensuite : zones d'alimentation (§8) et **second port I²C J19**, Qwiic vertical Adafruit 4328 (§0, §3.1, §6, §11).
 >
@@ -336,8 +336,8 @@ Côtés du module (antenne en haut, au bord de la carte) : **gauche** IO0–IO11
 | IO33 | bas | LED verte | **GUN_LEFT** | PWM | IE | non | — | 330 Ω série près de J3 ; option 100 kΩ → GND (§4.8) | face avant |
 | IO34 | bas | bouton B | **WING_LEFT** | PWM | IE | non | — | 330 Ω série près de J7 ; option 100 kΩ → GND (§4.8) | face avant |
 | IO48 | bas | LED rouge | **GUN_RIGHT** | PWM | IE | non | — | 330 Ω série près de J4 ; option 100 kΩ → GND (§4.8) | face avant |
-| IO35 | droite | SDA | **SCL** | I²C | IE | non | — | R15 2,2 kΩ → 3V3 | pas de glitch au démarrage ; vers U13 (extendeur) en face avant |
-| IO36 | droite | SCL | **SDA** | I²C | IE | non | — | R16 2,2 kΩ → 3V3 | idem |
+| IO35 | droite | SDA | **SDA** | I²C | IE | non | — | R16 2,2 kΩ → 3V3 | pas de glitch au démarrage ; vers U13 (extendeur) en face avant |
+| IO36 | droite | SCL | **SCL** | I²C | IE | non | — | R15 2,2 kΩ → 3V3 | idem |
 | IO37 | droite | IMU_INT1 | **AMP_SD** | sortie | IE | non | — | R10 2 kΩ série | pas de pull-down externe (100 kΩ interne à l'ampli) ; **ampli coupé (IO37 bas) avant tout `i2s.end()`** |
 | IO38 | droite | PWR_FLT | **AMP_GAIN** | drain ouvert | IE | non | — | — | **jamais à l'état haut** |
 | IO39 | droite | libre | **I²S DIN** | sortie | IE | non | — | — | via au pied du module, puis au dos vers l'ampli |
@@ -419,7 +419,7 @@ L'étude a été relancée sur le placement v2 de KiCad (positions réelles des 
 | Fonction | Variante C | **Final** | Pourquoi |
 |---|---|---|---|
 | ROTATE_X | IO1 | **IO12** | sort par le bas, vers J10 ; plus de couloir au-dessus de J16 |
-| SDA / SCL | IO12 / IO11 | **IO36 / IO35** | côté droit, face à U13 et à l'IMU ; pas de glitch au démarrage |
+| SDA / SCL | IO12 / IO11 | **IO35 / IO36** | côté droit, face à U13 et à l'IMU ; pas de glitch au démarrage ; même brochage que la v0.1 (d'abord IO36 / IO35, inversées le 29.10.2026 : sur U13, SCL est au-dessus de SDA, les lignes se croisaient) |
 | RADAR_TX / RADAR_RX | IO35 / IO48 | **IO9 / IO11** | libère le côté droit pour l'I²C |
 | DEBUG_SW (SW1) | IO9 | **IO7** | SW1 est à gauche |
 | GUN_RIGHT | IO26 | **IO48** | éventail du quart inférieur droit, face avant |
@@ -442,7 +442,7 @@ Inchangés : Hall (IO8, IO10), LEDs (IO13, IO47), NeoPixel (IO14, IO16, IO18), I
 **Deux ports Qwiic** : J11 (coudé, existant) et **J19 (vertical, Adafruit 4328, nouveau)**, en parallèle sur les mêmes nets, brochage Qwiic de J11 : 1 GND, 2 +3V3, 3 SDA, 4 SCL, pattes de fixation à GND. Empreinte : `Connector_JST:JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical` (le plan du fabricant reprend celle du JST SH vertical). Position : **en bas à gauche, à côté de J1**, reliée au bus par un détour au verso (accès depuis l'extérieur de la tourelle et hauteur ~4,6 mm à vérifier dans le boîtier, §11).
 
 - **Pull-ups** : garder une seule paire, **R15 / R16 = 2,2 kΩ vers +3V3**. 1,5 mA quand une ligne est basse ; temps de montée ≈ 0,85 × 2,2 kΩ × 50 pF ≈ 95 ns, bien sous les 300 ns du mode 400 kHz. Les modules Qwiic ont leurs propres pull-ups (souvent 10 kΩ) qui se mettent en parallèle : ≈ 1,8 kΩ avec un module, ≈ 1,5 kΩ (2,2 mA) avec deux, encore dans la norme (≤ 3 mA). Avec deux modules à 4,7 kΩ, on arrive à ~2,9 mA : à la limite ; couper les pull-ups de l'un d'eux s'il a un pont prévu pour ça. Câbles Qwiic courts : chaque câble ajoute de la capacité au bus.
-- **Broches** : v0.1 = IO35 / IO36 (`Wire.begin(35, 36)`) ; **v2 = SDA IO36, SCL IO35** (`Wire.begin(36, 35)`, §5 ; attention, SDA et SCL sont inversées par rapport à la v0.1). Toujours explicites, jamais les broches par défaut 8 / 9 (capteurs Hall en v0.1, HALL_LEFT et SW1 en v2).
+- **Broches** : v0.1 = IO35 / IO36 (`Wire.begin(35, 36)`) ; **v2 = SDA IO35, SCL IO36**, comme la v0.1 (`Wire.begin(35, 36)`, §5). Toujours explicites, jamais les broches par défaut 8 / 9 (capteurs Hall en v0.1, HALL_LEFT et SW1 en v2).
 - **Ordre du bus** (v2) : module → U13 (extendeur, face avant) → U6 (IMU) → R15 / R16 → J11 → J19. Pull-ups à n'importe quel endroit du bus, une seule paire.
 - **En deep sleep** : bus au repos à l'état haut, aucun courant ; l'IMU reste alimentée.
 - **Qwiic** : brancher et débrancher les modules **hors tension** (un branchement à chaud peut bloquer le bus).
@@ -523,9 +523,9 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 
 ## 10. Firmware à prévoir
 
-1. **`pins.h` conditionnel** (`TURRET2_V2`) avec le brochage du §5 : presque toutes les broches changent ; plus de boutons A / B. La v0.1 garde son brochage. Changer aussi la **variante Arduino** (`variants/turret2/pins_arduino.h` déclare SDA 35 / SCL 36) : une variante v2 avec SDA 36 / SCL 35 (inversées par rapport à la v0.1), ou des broches toujours explicites.
-2. **Pilote de l'extendeur** (TCAL6416, 0x20) : écrire « tout coupé » (P00–P02 bas, P03 haut, **puis** configuration en sorties : le registre de sortie vaut 0xFF au démarrage, §4.9) **au tout début du boot**, juste après `Wire.begin(36, 35)` et une **récupération du bus I²C** (9 coups d'horloge si SDA est bloquée, par exemple par un module Qwiic ; IO35 / IO36 ne font pas de glitch au démarrage) ; même écriture dans la séquence d'arrêt avant un redémarrage volontaire.
-3. **Garde-fou de carte** : le firmware v2 cherche l'extendeur (0x20, SDA IO36 / SCL IO35) **avant de toucher à toute autre broche**. S'il ne répond pas, ce n'est pas une carte v2 (sur une v0.1, IO35 / IO36 sont bien le bus I²C, mais SDA et SCL inversées et sans rien à 0x20 : rien ne répond) : ne rien piloter et le signaler sur l'USB. Utile avec deux versions de carte et l'OTA : un firmware v2 sur une v0.1 piloterait sinon les servos sur les mauvaises broches, et IO47 (gain de l'ampli en v0.1) à l'état haut. Dans l'autre sens, un firmware v0.1 sur une carte v2 ne peut pas allumer les rails (extendeur jamais configuré).
+1. **`pins.h` conditionnel** (`TURRET2_V2`) avec le brochage du §5 : presque toutes les broches changent ; plus de boutons A / B. La v0.1 garde son brochage. La **variante Arduino** (`variants/turret2/pins_arduino.h`, SDA 35 / SCL 36) reste valable pour l'I²C : même brochage sur les deux cartes.
+2. **Pilote de l'extendeur** (TCAL6416, 0x20) : écrire « tout coupé » (P00–P02 bas, P03 haut, **puis** configuration en sorties : le registre de sortie vaut 0xFF au démarrage, §4.9) **au tout début du boot**, juste après `Wire.begin(35, 36)` et une **récupération du bus I²C** (9 coups d'horloge si SDA est bloquée, par exemple par un module Qwiic ; IO35 / IO36 ne font pas de glitch au démarrage) ; même écriture dans la séquence d'arrêt avant un redémarrage volontaire.
+3. **Garde-fou de carte** : le firmware v2 cherche l'extendeur (0x20, SDA IO35 / SCL IO36) **avant de toucher à toute autre broche**. S'il ne répond pas, ce n'est pas une carte v2 (sur une v0.1, IO35 / IO36 sont aussi le bus I²C, mais rien n'y répond à 0x20) : ne rien piloter et le signaler sur l'USB. Utile avec deux versions de carte et l'OTA : un firmware v2 sur une v0.1 piloterait sinon les servos sur les mauvaises broches, et IO47 (gain de l'ampli en v0.1) à l'état haut. Dans l'autre sens, un firmware v0.1 sur une carte v2 voit l'IMU mais ne peut pas allumer les rails (extendeur jamais configuré).
 4. **Module d'alimentation** : séquences du §2, switches un par un via l'extendeur, lignes de signal à l'état bas avant de couper un rail.
 5. **Veille radar et veille profonde** (§1) : entrée après N minutes sans cible, ou à heure fixe ; réveil EXT1 (IMU sur IO15), minuterie, option tactile sur IO2. En veille radar, préférer le Wi-Fi coupé ou en station (pas de veille du modem en point d'accès).
 6. **IMU** : matrice de passage des axes (accéléromètre **et** gyroscope) pour le montage au verso ; interruption de réveil verrouillée sur INT1. IO15 jamais en sortie ni tirée vers le haut (§4.5) ; en deep sleep, un pull-down RTC est possible.
@@ -534,7 +534,7 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 9. **Règles de sécurité de la v0.1 à transposer** (documentation et `CLAUDE.md`, pour la v2 seulement) :
    - « ampli coupé avant tout `i2s.end()` » porte sur **IO37** (v0.1 : IO13) ;
    - « jamais à l'état haut » porte sur **IO38 et IO40** (v0.1 : IO21 et IO47) ;
-   - le bus I²C se démarre avec `Wire.begin(36, 35)` (v0.1 : 35, 36) ;
+   - le bus I²C se démarre avec `Wire.begin(35, 36)`, comme en v0.1 ;
    - IO26 est l'entrée PWR_FLT (v0.1 : bouton A), IO48 le servo du canon droit (v0.1 : LED rouge).
 
 ---

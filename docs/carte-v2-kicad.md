@@ -213,8 +213,8 @@ Mêmes noms qu'aujourd'hui (l'autre bout de chaque net ne bouge pas) ; type : **
 | 13 | IO9 | RADAR_TX | G | | 28 | IO33 | GUN_LEFT | L |
 | 14 | IO10 | HALL_RIGHT | G | | 29 | IO34 | WING_LEFT | L |
 | 15 | IO11 | RADAR_RX | G | | 30 | IO48 | GUN_RIGHT | L |
-| 16 | IO12 | ROTATE_X | L | | 31 | IO35 | SCL | G |
-| 17 | IO13 | ESP32Debug (LED verte, R18) | L | | 32 | IO36 | SDA | G |
+| 16 | IO12 | ROTATE_X | L | | 31 | IO35 | SDA | G |
+| 17 | IO13 | ESP32Debug (LED verte, R18) | L | | 32 | IO36 | SCL | G |
 | 18 | IO14 | NEOPIXEL_RIGHT | L | | 33 | IO37 | AMP_SD | L |
 | 19 | IO15 | IMU_INT1 | L | | 34 | IO38 | AMP_GAIN | L |
 | 20 | IO16 | NEOPIXEL_LEFT | L | | 35 | IO39 | DIN | L |

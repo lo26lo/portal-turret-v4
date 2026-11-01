@@ -8,13 +8,84 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 
 1. `git checkout main && git pull`, ouvrir **`Turret_firmware/`** comme dossier dans VS Code (PlatformIO ne détecte `platformio.ini` qu'à la racine du dossier ouvert).
 2. Lire « État actuel » ci-dessous, puis le premier lot du tableau « Avancement » qui n'est pas *fait*, et sa fiche dans « Catalogue ».
-3. Relire les règles matérielles de [firmware-plan.md](firmware-plan.md) §2 et de [../Turret_firmware/README.md](../Turret_firmware/README.md) §13 avant de toucher au code (IO21 / IO47 jamais à l'état haut, ampli coupé avant tout arrêt de l'I²S, pas d'eFuse ESP32 brûlé…).
+3. Relire les règles matérielles de [firmware-plan.md](firmware-plan.md) §2 et de [../Turret_firmware/README.md](../Turret_firmware/README.md) §13 avant de toucher au code (IO21 / IO47 jamais à l'état haut, ampli coupé avant tout arrêt de l'I²S, pas d'eFuse ESP32 brûlé…). **Ces règles valent pour la carte v0.1** ; sur la carte v2, les broches changent (« jamais à l'état haut » : IO40 / IO41 ; ampli : IO42) : voir « Brochage de la carte v2 » ci-dessous et [carte-v2-etat.md](carte-v2-etat.md) §4.
 4. À la fin de chaque session : mettre à jour « État actuel », « Avancement », « Erreurs » et ajouter une entrée dans « Sessions », **dans le même commit** que le travail. Reporter aussi dans le journal local si on l'utilise.
 5. Outils : deux postes Windows utilisés, sans compilateur C++ hôte (les tests natifs ne tournent que dans la CI). Le port COM de la carte change d'un poste à l'autre : le retrouver avec `pio device list` (VID:PID 303A:1001, MAC 10:51:db:5a:17:ec), puis `pio run -e turret2_bringup -t upload --upload-port COMx`.
    - poste du 17.10.2026 : PlatformIO hors du PATH → `%USERPROFILE%\.platformio\penv\Scripts\pio.exe`, et son `python.exe` pour pyserial ; carte sur **COM3** ;
    - poste du 19.10.2026 : `pio` dans le PATH (`C:\DATA\python3\Scripts\pio.exe`, cœur PlatformIO dans `C:\DATA\platformio`), pyserial dans `C:\DATA\python3\python.exe` ; carte sur **COM5**.
+6. KiCad (poste du 17.10.2026) :
+   - `kicad-cli` : `C:\Program Files\KiCad\10.0\bin\kicad-cli.exe` ;
+   - le **MCP KiCad** de Claude Desktop (`C:\DATA\KiCAD-MCP-Server\dist\index.js`, lancé par `C:\portable\node-v20.18.3-win-x64\node.exe`) est aussi déclaré dans **Claude Code** depuis le 23.10.2026 (`claude mcp add kicad --scope user`, test « Connected ») ;
+   - il n'est visible que dans une **nouvelle** conversation (`/mcp` pour vérifier). Pour le retirer : `claude mcp remove kicad -s user`.
+7. Fusion (même poste) :
+   - le **MCP Fusion** (extension Autodesk de Claude Desktop, simple relais) est déclaré dans Claude Code en HTTP direct, `http://127.0.0.1:27182/mcp` (`claude mcp add --transport http fusion --scope user`, test « Connected » le 23.10.2026) ;
+   - **Fusion doit être ouvert**, avec son serveur MCP actif, pour que l'outil réponde ;
+   - visible dans une nouvelle conversation ; pour le retirer : `claude mcp remove fusion -s user`.
 
-## État actuel — 22.10.2026
+## État actuel — 01.11.2026
+
+- **Carte v2 routée** (projet maître hors dépôt, `Desktop\Turret2_v2_6c\`) : **6 couches**, DRC 0 erreur / 0 non connecté, **pas encore commandée**. État réel, règles, écarts avec le plan : [carte-v2-etat.md](carte-v2-etat.md). Ouvertures de pochoir sur H1, H2 et H3 (recto et verso) ajoutées le 01.11.2026.
+- **Le brochage de l'ESP32 a changé au routage** : le tableau du §5 de [carte-v2-plan.md](carte-v2-plan.md) est périmé, la référence est **le tableau ci-dessous** (relevé dans le PCB le 01.11.2026). La mesure du courant et de la tension sur IO4 / IO5 (entrée du 24.10.2026) **n'est pas implantée**.
+- **Carte fille des canons v2** faite (`Desktop\Turret2_carte_fille\`) : C1 100 µF polymère + C2 100 nF au ras de J2, même taille et mêmes connecteurs ; place vérifiée dans Fusion ([carte-v2-etat.md](carte-v2-etat.md) §10). Rien à changer côté firmware.
+- **Firmware** : inchangé depuis l'état du 23.10.2026 ci-dessous ; il ne vise que la v0.1. **Ne pas le flasher sur une carte v2** : il pilote des PWM sur IO1–IO7, et IO7 est relié à SW1 (sortie haute + SW1 fermé = court-circuit vers GND).
+- **Prochaine action firmware v2** (lot F2) : `pins.h` et variante Arduino v2 d'après le tableau ci-dessous ; pilote de l'extendeur (écriture « tout coupé » au tout début du boot) ; garde-fou de carte (extendeur à 0x20 sur IO35 / IO36, absent de la v0.1) ; séquences d'allumage et de coupure des rails ; veille (plan v2 §1, §10).
+
+### Brochage de la carte v2 (pour le firmware)
+
+Relevé des nets de U7 dans `Turret2.kicad_pcb` le 01.11.2026, comparé à la v0.1 (README racine) :
+
+| Fonction | v0.1 | **v2** | Remarque v2 |
+|---|---|---|---|
+| Servo canon gauche (GUN_LEFT) | IO1 | **IO33** | 330 Ω série (R28) |
+| Servo canon droit (GUN_RIGHT) | IO2 | **IO48** | 330 Ω (R29) |
+| Aile gauche (WING_LEFT) | IO4 | **IO26** | 330 Ω (R30) ; **R34 10 kΩ → GND** contre le pull-up interne au reset |
+| Aile droite (WING_RIGHT) | IO5 | **IO34** | 330 Ω (R31) |
+| Rotation X | IO6 | **IO15** | 330 Ω (R33) |
+| Rotation Z | IO7 | **IO16** | 330 Ω (R32) |
+| Hall gauche / droit | IO8 / IO9 | **IO8 / IO9** | inchangés ; 100 kΩ → GND (R40, R41) ; alimentés par 3V3_HALL (commuté) |
+| I²S DIN / BCLK / LRCLK | IO10 / IO11 / IO12 | **IO39 / IO38 / IO37** | |
+| AMP_SD (ampli en marche) | IO13 | **IO42** | R10 2 kΩ ; **ampli coupé (IO42 bas) avant tout `i2s.end()`** |
+| AMP_GAIN / AMP_GAIN_100K | IO21 / IO47 | **IO40 / IO41** | **jamais à l'état haut** (drain ouvert ou entrée) |
+| NeoPixel anneau (CENTER) | IO14 | **IO12** | IC2 3A → R27 330 Ω → J14 ; 100 kΩ → GND (R24) |
+| NeoPixel canon gauche | IO15 | **IO17** | IC2 1A → R25 → J3 ; R22 |
+| NeoPixel canon droit | IO16 | **IO18** | IC2 2A → R26 → J4 ; R23 |
+| Radar : ESP32 reçoit (RX) | IO17 | **IO11** | 1 kΩ (R43) |
+| Radar : ESP32 émet (TX) | IO18 | **IO10** | 1 kΩ (R42) ; passer en entrée avant de couper le radar |
+| I²C SDA / SCL | IO35 / IO36 | **IO35 / IO36** | inchangés : `Wire.begin(35, 36)` ; IMU 0x6A, **extendeur 0x20** |
+| IMU INT1 | IO37 | **IO14** | broche RTC : réveil EXT1 possible |
+| PWR_FLT (eFuse) | IO38 | **IO21** | R6 10 kΩ → 3V3 |
+| LED verte | IO33 | **IO13** | R18 100 Ω |
+| LED rouge | IO48 | **IO47** | R12 680 Ω (IO47 n'est plus une broche de gain) |
+| SW1 (DEBUG) | IO3 | **IO7** | R9 10 kΩ → 3V3, SW1 vers GND |
+| PROG | IO0 | IO0 | R21 10 kΩ → 3V3 |
+| Boutons A / B | IO26 / IO34 | **supprimés** | |
+| Libres | IO39–IO42 | **IO1–IO6** | points de test TP10, TP5–TP9 au verso ; IO3 est un strap |
+| Commandes des rails | — | **extendeur TCAL6416 (0x20)** | P00 SERVO_EN, P01 LED_EN, P02 RADAR_EN, P03 HALL_EN_N (actif bas) ; RESET = EN de l'ESP32 |
+
+Inchangés : USB D− / D+ (IO19 / IO20), UART0 (IO43 / IO44, J16), IO45 / IO46 non connectées. L'IMU est **au recto** comme sur la v0.1 : pas de changement d'axes.
+
+## État au 23.10.2026
+
+- **23.10.2026** (deuxième carte, COM3) :
+  - **Firmware** : `31830a7` flashé, avec `uploadfs` et les 55 répliques. Ensuite, compilés mais **pas flashés** (non commités, CI pas encore passée) :
+    - correctif des servos relâchés aussitôt attachés (temps non signés, cause des « pas de 5° ») ;
+    - rampe de vitesse `ServoRamp` sur alimentation faible ;
+    - raison de chaque relâchement dans le journal ;
+    - commande **`pins`** (registres de IO33 et de l'USB).
+  - **Incident répété** pendant les essais d'un SG90 sur J9 (câble épissé) : **LED verte éteinte et USB perdu** (« échec de demande de descripteur »).
+    - L'ESP32 tourne encore : Wi-Fi et page web accessibles le 22.10.2026.
+    - **Un appui sur PROG rallume la LED** : le routage de IO33 vers le sigma-delta a été perdu.
+    - Connecteur USB-C ressoudé une fois ; l'utilisateur le ressoude à nouveau.
+    - Le jour où ça revient : lancer **`pins` par la page web avant de débrancher**.
+  - **Servo** : il suit les petits pas, et les grands sauts calent sur l'USB du PC (alimentation trop faible, voir entrées 5 à 7 du 23.10.2026).
+  - **Carte fille des canons** étudiée : [carte-v2-plan.md](carte-v2-plan.md) §13, aucun condensateur, **J2 a le signal au milieu** (à vérifier sur les canons).
+  - **Prochaine action** :
+    1. carte de retour sur l'USB : flasher, lancer `pins` (état normal), refaire l'essai du servo avec la console, `pins` si l'incident revient ;
+    2. ajouter un condensateur au ras du servo de test, et sur J2 des cartes filles ;
+    3. pousser (firmware + plan §13) une fois la CI vérifiée ;
+    4. ensuite, la liste du 22.10.2026 ci-dessous.
+
+## État au 22.10.2026
 
 - **22.10.2026** :
   - **LEDs d'état** : la verte respire en douceur (sigma-delta, commit `d72c334`, flashée et vue sur la carte). Puis réglages *Status LEDs* sur la page web : mode de la verte (respiration, battement, fixe, éteinte), sa période et sa luminosité, mode de la rouge (codes de défaut, allumée tant qu'un défaut est actif, éteinte), en listes déroulantes. Compilés et vérifiés avec `tools/check_web.py`, **pas encore flashés**.
@@ -53,7 +124,8 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
 | IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27, CI verte |
 | IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commits `83544a4` puis `8a88267` (tâche d'affichage + dix idées d'écran) ; passé avant I3 à la demande de l'utilisateur ; `check_web.py` 40/40 ; **CI verte** (run 37303638236) avec 24 tests natifs ; 19.10.2026 : blocage au boot corrigé, écran 0,96" vu fonctionner (mode normal) ; menus du mode debug pas encore essayés sur l'écran |
 | HW | Mise en service de la première carte (plan §8, étapes A à J) | en cours | 17.10.2026 : flash + premier démarrage OK (étape B) ; radar sans trame ; détail par étape dans plan §8. 21.10.2026 : deuxième carte (composants transférés), même résultat, IMU saine |
-| V2 | Carte v2 : veille sous 1 mA (rails commutés), corrections de la v0.1, brochage refait pour le routage | plan écrit | 21.10.2026 : [carte-v2-plan.md](carte-v2-plan.md) (RD-03D seul, eFuse TPS259533, 3 × TPS22965, AO3401A, extendeur TCAL6416 au dos) ; outil `Turret2_portable/tools/gpio_study/` ; rien de fabriqué |
+| V2 | Carte v2 : veille sous 1 mA (rails commutés), corrections de la v0.1, brochage refait pour le routage | **routée, pas commandée** | 21.10.2026 : [carte-v2-plan.md](carte-v2-plan.md) (RD-03D seul, eFuse TPS259533, 3 × TPS22965, AO3401A, extendeur TCAL6416) ; 01.11.2026 : routée en 6 couches, DRC propre, brochage final dans « État actuel » et [carte-v2-etat.md](carte-v2-etat.md) ; carte fille des canons v2 faite |
+| F2 | Firmware pour la carte v2 : `pins.h` et variante v2, pilote de l'extendeur, rails, garde-fou de carte, veille | à faire | d'après le brochage de « État actuel » (01.11.2026) et le plan v2 §10 ; la mesure du §2.1 du plan n'existe pas sur la carte |
 | I5 | au choix : A5, B5–B10, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur ; B9 (veille sentinelle) et B10 (vitesse des cibles) ajoutées le 19.10.2026 ; B10 va naturellement avec I3 (visée B1, vue radar C1) |
 | IQ | Modules Qwiic sur J11 : Q1 encodeur rotatif, Q2 remise à zéro par SW1 + PROG (sans module), Q3 touche capacitive MPR121, Q4–Q7 en option | en cours | Q1 et Q2 écrits le 19.10.2026 ; **Q2 vérifié sur la carte** ; Q1 : commande `volume` vérifiée, encodeur pas encore reçu ; Q3 à la réception du MPR121 (commandé ou à commander : ADA1982 + ruban cuivre PRT-13827) |
 
@@ -218,6 +290,7 @@ Jugés inutiles : PIR (le radar fait mieux), ampli STEMMA (MAX98357A sur la cart
 | 19.10.2026 | Défauts sur l'écran | un défaut qui **apparaît** est affiché 5 s en plein écran (`logic::FaultAlert`, `logic::RenderFaultAlert` : un défaut par ligne avec son nom, code de la LED rouge en bas), dans les deux modes, avant le menu, l'animation et l'œil ; il réveille l'écran ; une touche le ferme plus tôt (mode debug) ; un défaut qui disparaît puis revient est annoncé de nouveau ; ensuite **seule la LED rouge** le signale (l'œil n'a plus de ligne « Défauts » permanente). Restent inchangées : la page d'état (`OledFace` à non) et la page « État » du menu, qui listent les défauts actifs | demande de l'utilisateur : « la LED rouge clignote pour le défaut, mais l'écran doit afficher le problème 5 secondes et passer à la suite » ; le défaut 4 (radar pas encore soudé) restait affiché en permanence |
 | 26.09.2026 | Lot IL | L1 : `LabMarkers` (Bool, groupe Lab, appliqué aussitôt), `Board::Mark(label)` statique (bascule + ligne de journal), repères aux étapes 4 à 10, à chaque attache (`Gantry`) et à la fin du boot ; L2 : balayage servo en triangle, 1 consigne / 20 ms ; balayage de fréquence linéaire dans le générateur de tonalité (`PlayChirp`) ; L3 : `SetBitPattern` (luminosité 255 exacte car `FASTLED_SCALE8_FIXED` = 1, dithering coupé, luminosité restaurée) ; L4 : écart d'attache imposé en RAM (`Gantry::SetStaggerOverride`, 0 → 1 ms « tous ensemble »), ailes en `TestStop` ; L5 : ligne de journal avant le délestage ; balayage et `loadtest` annulés par `Fault` et `resume` | sans annulation, un balayage ou un `loadtest` redemanderait des servos pendant un défaut d'alimentation |
 | 26.09.2026 | D2 | `.github/workflows/firmware.yml` : sur push / PR touchant `Turret_firmware/` ; PlatformIO 6.1.18 figé, cache `~/.platformio` + `libdeps` ; contrôle de la casse des `#include` ; build `turret2` + `turret2_bringup` ; `tools/check_web.py` (simulateur + `node --check`). Tests natifs ajoutés à la CI avec D1 (lot I2) | le runner est sous Linux, sensible à la casse (le fichier `FIringState.cpp` montre que le dépôt a déjà des noms atypiques) |
+| 01.11.2026 | Brochage de la carte v2 | **brochage final relevé dans le PCB routé** (tableau de « État actuel ») ; il remplace le §5 de carte-v2-plan.md | lot C du routage (ordre des GPIO revu pour supprimer les croisements) ; I²C revenu sur IO35 / IO36, ampli sur IO37–IO42, IO1–IO6 libres |
 
 ## Erreurs, impasses et pièges
 
@@ -726,6 +799,30 @@ Commit `0509307` poussé (logo Aperture sur l'OLED et la page web ; plan de la c
 - connecteurs traversants au fer en dernier ;
 - pas de seringue pour le LGA ni le TQFN.
 
+### 22.10.2026 (6ᵉ entrée) — Deuxième carte : l'USB n'est plus reconnu après l'essai d'un servo
+
+**Constaté par l'utilisateur** : carte alimentée par l'USB-C du PC à travers un testeur USB HiDANCE, haut-parleur branché (le son marche). Au branchement d'un micro-servo (câble épissé sur un connecteur 3 broches), la LED verte arrête de clignoter. Ensuite, le PC ne reconnaît plus la carte, même branchée en direct. Elle tourne toujours : point d'accès Wi-Fi et page web accessibles.
+
+**Relevé sur le PC** (journal Kernel-PnP) :
+- 21:27:46 : un seul appareil vu, « VID_0000 PID_0002, échec de demande de descripteur », avec le testeur ;
+- ensuite, plus aucun appareil au branchement, et aucun port COM.
+
+L'USB marchait encore le 21.10.2026 (COM3, deux flashs) et apparemment le 22.10.2026 sur l'autre poste (COM5).
+
+**Hypothèses** :
+- ESP32 vivant, défaut limité au chemin USB : soudure du connecteur USB-C (levier du testeur), câble « charge seulement », D2 USBLC6, broches USB de l'ESP32 ;
+- servo peu probable pour l'USB, mais il a pu faire redémarrer la carte (chute de tension, LED verte fixe pendant le boot).
+
+**Tests proposés** :
+- autre câble et autre port ;
+- passage par **J1** (USB en parallèle du connecteur USB-C) ;
+- loupe sur le connecteur USB-C ;
+- mode diode sur D2 ;
+- mode téléchargement (PROG + RESET) ;
+- `reset-reason` et `flt` par la ligne de commande de la page web.
+
+Mises à jour toujours possibles par OTA Wi-Fi. En cours chez l'utilisateur.
+
 ### 23.10.2026 — v2 : USB-C de la carte retiré, J1 en JST-XH
 
 **Demande** : « de nouveau des problèmes avec le connecteur USB » (faux contact sur D−, d'après l'utilisateur) : retirer l'USB-C de la carte et ne garder que l'USB déporté. Puis, pour le courant de J1 : « plus simple de partir sur un connecteur plus gros ».
@@ -780,3 +877,192 @@ Commit `0509307` poussé (logo Aperture sur l'OLED et la page web ; plan de la c
 **Vérifié dans le fichier** (contour de la carte relu dans le STEP) : partie droite montée de 6 mm (bord haut droit à y = 80,36, coin droit et marche déplacés, comme le tableau du guide, étape 5.0) ; carte de 77,3 × 46,6 mm ; H1 / H2 inchangés ; un troisième trou M2, **H3**, en (139,065 ; 83,175).
 
 **Fait** : plan §0 (Contour) et §8 ; guide, étape 5.0 (coordonnées exactes du coin droit, 141,605 ; H3 ; calage sur H2 si la carte est ailleurs sur la feuille ; chemin du STEP).
+
+### 23.10.2026 (4ᵉ entrée) — Deuxième carte : USB-C ressoudé, firmware `31830a7` flashé
+
+**Contexte** : l'utilisateur a ressoudé le connecteur USB-C. La carte est de nouveau vue sur COM3 (premier poste), ce qui confirme la piste de la soudure (entrée du 22.10.2026).
+
+**Fait** :
+- synchronisation avec GitHub (`31830a7`) ;
+- compilation `turret2_bringup` : RAM 28,1 %, flash 49,6 % ;
+- `upload` puis `uploadfs` (LittleFS avec les 55 répliques) : SUCCESS, redémarrage automatique.
+
+**Vérifié par la console** :
+- version `31830a7-dirty` (seul ce fichier n'est pas commité) ;
+- POWERON, 2 démarrages suspects d'affilée, **0 brownout, 0 défaut d'alimentation**, PWR_FLT haut ;
+- `stats` : 18 démarrages au total ;
+- SW1 fermé (mode debug) ;
+- `voice` : 8 + 5 + 8 + 10 + 7 + 10 + 6 + 1 = **55 répliques trouvées**.
+
+**Non vérifié** : écoute (haut-parleur débranché) ; essai du servo avec la console ouverte.
+
+### 23.10.2026 (5ᵉ entrée) — SG90 sur Z : il cale sur les grands sauts avec l'USB du PC
+
+**Essai** : SG90 sur J9 (ROTATE_Z), carte sur l'USB du PC (COM3), mode debug, console ouverte.
+
+**Résultats** :
+- sauts de 45° ou plus (975 / 1925 µs, puis 500 → 2400 µs) : le servo **clique sans tourner** ;
+- balayage lent (`sweep servo rotz 4000`) : il tourne ;
+- **pas de 20°** toutes les 0,8 s : **il suit** (observé par l'utilisateur) ;
+- **aucun redémarrage** pendant tous ces essais : uptime continu, 0 brownout, PWR_FLT haut.
+
+**Conclusion** :
+- démarrage brutal ≈ 0,5–0,7 A, trop pour le port USB du PC (avec la carte et le Wi-Fi) : le 5 V s'effondre et l'électronique du SG90 décroche ;
+- l'ESP32 tient grâce au TPS631000 (buck-boost) ;
+- servo, carte et câblage OK.
+
+**À confirmer** : grands sauts sur un chargeur 5 V ≥ 2 A, commande par la page web.
+
+**Idée** : rampe de vitesse des servos en mode debug, pour limiter le courant de démarrage (à proposer).
+
+### 23.10.2026 (6ᵉ entrée) — Rampe de vitesse des servos sur une alimentation faible
+
+**Demande** : faire la rampe proposée après l'essai du SG90 (5ᵉ entrée).
+
+**Fait** :
+- `logic/ServoLogic.h` : `RampStep()` (pas maximal = vitesse × temps écoulé, au moins 1 µs, pas de dépassement) ;
+- `motion/ServoChannel` :
+  - mémorise la dernière impulsion envoyée (`sentUs`, gardée après un relâchement) ;
+  - avec une rampe, `SetMicroseconds()` ne fait que fixer la cible, et `Update()` avance d'un pas toutes les 20 ms ;
+  - `AttachNow()` repart de la dernière impulsion connue ;
+  - chaque relâchement est journalisé (`Servo … released`) ;
+- `motion/Gantry` : rampe appliquée aux **seuls servos à position** (rotations X / Z, canons), jamais aux ailes continues, dont l'arrêt sur le seuil Hall serait retardé. Active tant que `board.IsServoLimited()` (mode debug sans `power full`), donc rien ne change en mode normal ;
+- réglage **`ServoRamp`** (groupe Power, µs/s, 1000 par défaut ≈ 95°/s, 0 = sans rampe), visible sur la page web ;
+- test natif `test_servo_ramp` ; README (politique des servos, tableau des réglages).
+
+**Vérifié** :
+- compilation `turret2_bringup` : RAM 28,2 %, flash 49,6 % ;
+- `check_web.py` : tout passe ;
+- valeurs du test recalculées en Python (11 vérifications, course complète en 95 pas).
+
+**Non vérifié** :
+- tests natifs (pas de compilateur sur ce poste : CI) ;
+- carte pas encore flashée, l'utilisateur testait par le web ;
+- cause des rattachements de Z à chaque commande, vus le 23.10.2026 (« attaching » à chaque commande) : le nouveau journal des relâchements doit la montrer.
+
+### 23.10.2026 (7ᵉ entrée) — Servos relâchés aussitôt attachés ; LED verte et USB perdus pendant l'essai du servo
+
+**Journal des relâchements (nouveau)** : `servo rotz 2400` donne `Servo rotate Z released (idle, ServoIdleMs)` juste après l'attachement, alors que `ServoIdleMs` vaut 5000.
+
+**Cause : bug du firmware, antérieur à la rampe.**
+- `Gantry::Update()` lit `now` au début de la boucle ;
+- `AttachNow()`, appelé ensuite, note `lastActivityAt = millis()`, un peu plus tard ;
+- `now - lastActivityAt` en `ulong` boucle alors à ~49 jours, et le servo est relâché dans la même boucle.
+
+Conséquences : « pas de 5° » à chaque commande (quelques impulsions seulement) et « (attaching) » à chaque commande. Même défaut sur `Gun::Update()` (maintien de 500 ms des canons) et dans la nouvelle rampe.
+
+**Corrigé** : différences de temps signées (`(long)(now - t) >= (long)limite`) dans `Gantry::ReleaseIdleRotation`, `Gun::Update` et `ServoChannel::Update`. Chaque relâchement est journalisé avec sa cause : `idle, ServoIdleMs`, `gun hold time`, `one servo at a time`, `servo off command`, `wing stop`, `detach all`…
+
+**Incident, comme le 22.10.2026** : pendant ces essais, la LED verte s'est éteinte et COM3 a disparu. À 17:58:14, Windows voit un appareil se reconnecter puis « échec de demande de descripteur ». **Un appui sur PROG a rallumé la LED verte**, ce qui donne une piste :
+- le geste de remise à zéro repasse IO33 en GPIO simple (`pinMatrixOutDetach` + `digitalWrite`), puis la respiration la remet sur le sigma-delta ;
+- le routage de la broche (registre `GPIO_FUNC33_OUT_SEL`) avait donc été perdu, alors que le firmware la croyait toujours modulée ;
+- ni notre code ni ESP32Servo ne touchent à IO33 : piste d'une perturbation (bruit du moteur, câble épissé, alimentation par le connecteur USB-C ressoudé) qui affecterait aussi le bloc USB.
+
+**Ajouté** : commande **`pins`**, qui lit les registres :
+- de IO33 : routage, sortie, niveau, état du sigma-delta ;
+- des broches USB 19 / 20 dans l'IO_MUX ;
+- du bloc USB-Serial/JTAG : pad, pull-up D+, compteur de trames USB sur 20 ms.
+
+À lancer par la page web avant et après l'incident, pour voir ce qui change.
+
+**Vérifié** : compilation OK (RAM 28,2 %, flash 49,6 %), `check_web.py` OK.
+
+**Non flashé** : la carte n'est plus joignable par USB, et l'utilisateur ressoude le connecteur USB-C.
+
+### 23.10.2026 (8ᵉ entrée) — Carte fille des canons étudiée
+
+**Demande** : « étudier la carte fille que j'ai oubliée ; je pense juste rajouter des condos ».
+
+**Fait** :
+- `Fork/gerber/DaughterBoard.zip` extrait dans le dossier temporaire, sans toucher à `Fork/` ;
+- nets relevés dans les attributs X2 des Gerber, sérigraphie rendue en image (`docs/img/carte-fille-canon-v1.png`) ;
+- `docs/carte-v2-plan.md` : nouveau **§13**, plus un point à valider au §11.
+
+**Constats** :
+- carte passive, 13,3 × 19,7 mm, **aucun condensateur** ;
+- J1 = câble (5V · Srv · LED · Gnd, comme J3 / J4) ;
+- J5 / J4 = les deux LEDs en chaîne ;
+- **J2 (servo) = Gnd · Srv · 5V, signal au milieu**, alors qu'une prise de servo standard a le +5 V au milieu : à vérifier sur les canons.
+
+**Proposé** :
+- réservoir 100–220 µF + 100 nF au ras de J2, 100 nF par LED ;
+- 330 Ω série sur les données (près de la 1ʳᵉ LED) et sur le PWM ;
+- J2 au brochage standard en v2 ;
+- en v2, CT de SW_SERVO à 10 nF si les réservoirs sont ajoutés ;
+- immédiatement sur la v1 : condensateur soudé sur 5V / Gnd de J2.
+
+### 23.10.2026 (9ᵉ entrée) — PCB de la v2 repartant de zéro (dossier `Desktop\TurretV2`, hors dépôt)
+
+**Demande** : dans le nouveau projet KiCad `TurretV2` (copie du projet maître), tout supprimer du PCB sauf le placement de l'ESP32, refaire le contour avec `Turret2_contour_rehausse.dxf` (et le STEP), et mettre les 3 trous.
+
+**Fait** (script dans le dossier temporaire, KiCad fermé) :
+- **sauvegarde** de l'original : `TurretV2\Turret2-backups\Turret2.kicad_pcb.avant-nettoyage-2026-10-23` ;
+- **retirés** : 87 empreintes, 941 pistes, 222 vias, 329 zones, 3 éléments générés, l'ancien contour (6 droites, 6 arcs), 2 cercles et 1 texte ;
+- **gardés** : réglages de la carte (couches, règles, classes de nets, paramètres de tracé), polices intégrées, **U7 à (82,85 ; 96,8)**, H1 (67,342 ; 123,825) et H2 (139,065 ; 123,825) ;
+- **H3** : `MountingHole_2.2mm_M2` « carte seulement », copie de H2 avec de nouveaux UUID, en **(139,065 ; 83,175)** ;
+- **contour** : 6 droites et 6 arcs lus dans le DXF (Y inversé, arcs en début / milieu / fin), extrémités recollées : un seul écart, de 5 µm (138,600 contre 138,605 au coin haut droit) ;
+- carte de 77,3 × 46,6 mm, bord haut droit à y = 80,36, comme le relevé du STEP du 23.10.2026 (3ᵉ entrée).
+
+**Vérifié avec `kicad-cli`** :
+- le fichier s'ouvre ;
+- DRC : aucune erreur de contour ; 2 avertissements « sérigraphie coupée par le bord » (l'antenne du module dépasse, comme sur la v0.1) ; 31 connexions manquantes (pastilles de U7 sans pistes) ;
+- rendu 3D conforme.
+
+**À savoir** :
+- le schéma n'a pas été touché : « Mettre à jour le PCB depuis le schéma » remettra toutes les empreintes à placer ;
+- H1, H2, H3 sont « carte seulement » : vérifier qu'ils ne sont pas supprimés à la mise à jour ;
+- plans de masse et zones d'alimentation à recréer sur le nouveau contour.
+
+### 24.10.2026 — Servos tenus confirmés, plage du SG90, LED verte intermittente
+
+**Firmware flashé** (`31830a7-dirty`, COM3) : correctif des servos relâchés aussitôt, rampe, raison des relâchements, commande `pins`. **Vérifié sur la carte** :
+- Z est attaché une seule fois puis tenu entre les commandes (plus de « (attaching) » à chaque commande, aucun relâchement intempestif) ;
+- relâché après `ServoIdleMs` (5 s) ;
+- mouvement complet en douceur avec la rampe (1000 µs/s, mode debug).
+
+**Plage du SG90 sur Z**, cherchée en partant du centre (1450 µs, vérifié visuellement par l'utilisateur) :
+- côté bas, sans forcer jusqu'à **500 µs** ;
+- côté haut, sans forcer jusqu'à **2200 µs** ; **force dès 2250 µs** (butée mécanique avant la limite de 2400 µs du firmware).
+
+Le premier essai (1450 → 2400 µs) poussait donc contre la butée. Dans la tourelle, Z reste près du centre.
+
+**LED verte** :
+- très faible au rebranchement (mode respiration), puis éteinte en mode fixe, alors que `pins` montrait **IO33 en sortie GPIO, activée, niveau 1** ;
+- l'utilisateur a ressoudé le module ;
+- pendant que le servo forçait, la LED est revenue à fond, **registres inchangés**.
+
+Conclusion : **contact intermittent sur le chemin de la LED** (soudure de IO33 du module, R18 ou D4), sensible aux vibrations et à la flexion. C'est cohérent avec l'appui sur PROG (proche de D4 / R18) qui la rallumait le 23.10.2026.
+
+**État** :
+- `GreenLedMode` est resté à 2 (fixe) pour les essais : à remettre à 0 (respiration) ;
+- **mode réduit** vu au rebranchement : 7 démarrages de moins de 60 s pendant les soudures, effacé ensuite ;
+- `pins` : USB sain (20 trames en 20 ms).
+
+### 24.10.2026 (2ᵉ entrée) — Plan v2 : mesure du courant et de la tension
+
+**Idée de l'utilisateur** : « une puce minuscule pour checker le courant, utile ? ».
+
+**Réponse** : utile, et sans nouvelle puce. La broche **ILM** du TPS259533 donne déjà le courant de sortie (gain 276 µA/A ±8 %, à brancher sur un ADC d'après TI [DS]), soit 0,144 V/A avec R5 = 523 Ω.
+
+**Fait** (`docs/carte-v2-plan.md`) :
+- nouveau **§2.1** :
+  - ILM → 10 kΩ → **IO4** (I_SENSE), 10 nF ;
+  - **+5V** de sortie de l'eFuse (≤ 5,7 V, plutôt que VBUS) → pont 1 MΩ / 470 kΩ → **IO5** (V5_SENSE), 10 nF ; 3,4 µA en veille ;
+  - précision, usages (alimentation faible détectée seule, servo bloqué, courbes web) ;
+  - INA236 / INA226 écartées tant que l'ILM suffit ;
+- mis à jour : §0, §3.1, §4.2, §5 (IO4, IO5), broches libres ramenées à 4, §10 (point 10), §11, §12.
+
+**Non fait** : relancer `gpio_study` (IO4 / IO5 étaient des broches libres sans destination dans le modèle).
+
+### 01.11.2026 — Carte v2 routée ; brochage final ; docs synchronisées
+
+**Demande** : mettre les docs du dépôt en accord avec la carte v2 routée, puis les GPIO de ce fichier.
+
+**Fait** :
+- relevé du PCB routé (`Desktop\Turret2_v2_6c\`, 6 couches) : nets de U7, de l'extendeur, des connecteurs et des points de test (scripts pcbnew, `kicad-cli`) ;
+- **brochage final** dans « État actuel » (tableau v0.1 → v2) ; nouveau lot **F2** (firmware pour la v2) ; ligne V2 de « Avancement » et nouvelle décision du 01.11.2026 ;
+- `docs/carte-v2-etat.md` (nouveau) : état réel de la carte, règles, écarts avec le plan, carte fille v2 ; bandeaux de renvoi dans le plan, le guide KiCad, `AMELIORATIONS_V2.md`, `design-plan.md`, `status-and-history.md`, `firmware-plan.md` et le README.
+
+**Corrige** les entrées du 21.10.2026 (10ᵉ entrée, brochage refait) et du 24.10.2026 (2ᵉ entrée, mesure sur IO4 / IO5) : ce brochage a encore changé au routage, et la mesure n'a pas été implantée.
+
+**Non fait** : aucun changement de code ; le firmware reste celui de la v0.1.

@@ -2,7 +2,9 @@
 
 > **Guide d'exécution dans KiCad, étape par étape : [carte-v2-kicad.md](carte-v2-kicad.md).**
 >
-> **Statut : plan, rien n'est fabriqué.** Rédigé le 21.10.2026 à partir de [AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) (propositions), des décisions de l'utilisateur et du projet KiCad v0.1 du dépôt (`Turret2_portable/`, commit `8248fcd`). Les valeurs marquées **[DS]** ont été relues dans la datasheet les 21 et 22.10.2026 (sources en fin de document) ; celles marquées **[à vérifier]** n'ont pas pu l'être.
+> **État au 01.11.2026 : carte routée en 6 couches, DRC propre, pas encore commandée.** La carte telle qu'elle est dans KiCad est décrite dans **[carte-v2-etat.md](carte-v2-etat.md), qui fait foi là où ce plan diffère** : 6 couches, brochage de l'ESP32 changé au routage (le tableau du §5 est périmé), mesure du courant et de la tension (§2.1) non implantée, J1 en TE AMP CT 292132-4, D1 gardée en SMAJ5.0A, IMU et extendeur au recto. Liste complète des écarts : carte-v2-etat.md §9. Ce plan reste la référence pour le **pourquoi** des choix.
+>
+> **Statut d'origine : plan, rien n'est fabriqué.** Rédigé le 21.10.2026 à partir de [AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) (propositions), des décisions de l'utilisateur et du projet KiCad v0.1 du dépôt (`Turret2_portable/`, commit `8248fcd`). Les valeurs marquées **[DS]** ont été relues dans la datasheet les 21 et 22.10.2026 (sources en fin de document) ; celles marquées **[à vérifier]** n'ont pas pu l'être.
 >
 > Si le projet KiCad maître (hors dépôt) a changé depuis le 25.09.2026, les numéros de composants v0.1 cités ici (R4, C9…) sont à revérifier.
 >
@@ -34,6 +36,7 @@
 | Contour | **la partie droite monte de 5 à 6 mm**, à droite de la zone d'antenne seulement (36 mm de large ; le dessous du haut-parleur est à 8 mm du bord actuel, mesuré dans Fusion : 6 mm laissent 2 mm de marge) ; carte de 77 × 41 à 77 × 47 mm ; bord du bas, trous H1 / H2, côtés et zone d'antenne inchangés (§8). **Fait** : h = 6 mm, 77,3 × 46,6 mm, troisième trou M2 **H3** en haut à droite ; modèle 3D `Turret2_portable/3d/Turret2_rehausse.step` | décision du 23.10.2026 : de la place sous la coque au-dessus de la carte ; l'antenne de l'ESP32 interdit de monter à gauche ; déplacer le module pour monter partout a été écarté |
 | Face arrière | IMU (U6), ampli (U9), extendeur et SW_RADAR au verso ; SW_SERVO, SW_LED et le P-MOS des capteurs Hall au recto **(à revoir avec la carte agrandie : si la place suffit, tout au recto)** | le chemin de puissance des servos reste au recto ; SW_RADAR (≈ 110 mA) à côté de J5, déjà au verso ; le verso venait du manque de place au recto |
 | Corrections v0.1 | entrées Hall et NeoPixel tirées, pull-up sur IO0, résistances série sur les lignes qui sortent de la carte, TVS à faible fuite, pont de retour du TPS631000 à 511 kΩ / 91 kΩ | broches flottantes, protection des GPIO, budget de veille (le pont de la v0.1 consomme 50 µA en permanence) |
+| Mesure | courant de sortie de l'eFuse (broche ILM, 0,144 V/A) sur IO4 et tension +5V (pont 1 MΩ / 470 kΩ) sur IO5, **sans nouvelle puce** (§2.1) | alimentation faible détectée automatiquement, servo bloqué détecté, courbes sur la page web ; *(non implantée sur la carte routée, 01.11.2026)* |
 
 ---
 
@@ -113,6 +116,22 @@ U1 TPS631000 : pont de retour R7 / R8 à 511 kΩ / 91 kΩ en v2 (§4.10).
 
 La limite de l'eFuse est **≈ 3,9 A** (R5 = 523 Ω ; déduit des points de la datasheet : 487 Ω → 4,17 A typ. [DS]). Toujours allumer les switches **un par un**, à ≥ 10 ms d'écart.
 
+### 2.1 Mesure du courant et de la tension (ajouté le 24.10.2026)
+
+> **Non implantée sur la carte routée (01.11.2026)** : ILM ne va qu'à R5, IO4 et IO5 sont libres sur des points de test (TP7, TP8). Ce paragraphe reste une option pour une prochaine version.
+
+Sans nouvelle puce.
+
+- **Courant** : la broche **ILM** de l'eFuse sert à la fois à fixer la limite de courant et à mesurer le courant de sortie (« The pin voltage can also be used to monitor the output load current » ; le schéma d'application de TI la relie à un ADC [DS]). Gain 276 µA/A (249–304 µA/A à 1 A, soit ±8 % [DS]). Avec R5 = 523 Ω : **V_ILM ≈ 0,144 V par ampère**, soit 0,58 V à 4 A, dans la plage de l'ADC sans atténuation. ILM → **10 kΩ série** → **IO4** (ADC1_CH3), 10 nF à la masse côté ESP32. La 10 kΩ isole ILM du condensateur, ne change pas la limite (l'entrée ADC ne tire pas de courant continu), et protège la limite si IO4 passait un jour en sortie (ILM à la masse : l'eFuse coupe dès 3 A [DS]).
+- **Tension** : le **+5V en sortie de l'eFuse** (≤ 5,7 V grâce à l'écrêtage, alors que VBUS peut monter bien plus haut en défaut) → pont **1 MΩ / 470 kΩ** → **IO5** (ADC1_CH4), 10 nF à la masse. 5,0 V donne 1,60 V, et 5,7 V au plus 1,82 V. Courant permanent 3,4 µA, compris en deep sleep.
+- **Précision attendue** : quelques dizaines de mA sur le courant (gain ±8 %, bruit de l'ADC), ~1 % sur la tension après calibration. Assez pour les servos, les pointes et les chutes de tension ; **pas pour les µA de la veille** (PPK2).
+- **Usages** :
+  - détecter automatiquement une alimentation faible : chute du +5V au démarrage d'un servo → rampe et « un servo à la fois », sans `power full` ;
+  - détecter un servo bloqué : courant élevé trop longtemps → servo relâché ;
+  - courbes courant / tension et pic enregistré sur la page web ;
+  - marge par rapport à la limite de l'eFuse.
+- **Écarté** : une puce INA236 ou INA226 sur I²C. Précise au mA avec tension et puissance, mais elle demande une puce et un shunt sur le passage des 4 A (à la place de la 0 Ω 2512 de mesure, §8). Elle ne vaudra la peine que si la précision de l'ILM ne suffit pas.
+
 **Ordre de mise sous tension et de coupure** (firmware, §10) :
 
 - Coupure : arrêter le PWM des servos et passer leurs broches à l'état bas → LEDs à noir puis lignes de données à l'état bas → `SERVO_EN`, `LED_EN` bas → UART du radar arrêté, sa broche TX (IO9) en entrée → `RADAR_EN` bas → `HALL_EN_N` haut → ampli : SD (IO37) bas avant d'arrêter l'I²S.
@@ -125,6 +144,8 @@ Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état 
 ## 3. Liste d'achat
 
 ### 3.1 À acheter
+
+> **Nomenclature réelle** : exportée du schéma (`kicad-cli sch export bom`) ; résumé dans [carte-v2-etat.md](carte-v2-etat.md). Écarts avec cette liste au 01.11.2026 : pas de SMAJ6.5A (D1 reste en SMAJ5.0A), J1 en **TE AMP CT 292132-4** au lieu du JST-XH, pas de 0 Ω 2512, pas de pièces pour la mesure du §2.1 (10 kΩ ILM, 1 MΩ / 470 kΩ, 10 nF), pas de pull-downs en option sur les PWM.
 
 | Qté (+ réserve) | Composant | Référence | Boîtier | Rôle |
 |---|---|---|---|---|
@@ -140,6 +161,10 @@ Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état 
 | 4 (+2) | 10 µF 25 V X7R | — | 0805 ou 1206 | sortie 5V_LED, 5V_RADAR ; 10 µF du MAX98357A s'il ne suit pas ; 10 µF sur VDD du LSM6DSOX si la datasheet ST le confirme (§4.5) |
 | 12 (+5) | 100 kΩ 1 % | — | 0603 | pull-downs : 3 × EN, 3 × entrées AHCT, 2 × Hall ; pull-up : grille Hall ; réserve |
 | 2 (+1) | 10 kΩ 1 % | — | 0603 | pull-up de IO0 (recommandé par Espressif) ; le pull-down de IO26 n'existe plus (IO26 = PWR_FLT, §5) |
+| 1 (+1) | 10 kΩ 1 % | — | 0603 | série ILM → IO4, mesure du courant (§2.1) ; *(non implantée sur la carte routée, 01.11.2026)* |
+| 1 (+1) | 1 MΩ 1 % | — | 0603 | pont de mesure du +5V, côté haut (§2.1) ; *(non implantée sur la carte routée, 01.11.2026)* |
+| 1 (+1) | 470 kΩ 1 % | — | 0603 | pont de mesure du +5V, côté bas (§2.1) ; *(non implantée sur la carte routée, 01.11.2026)* |
+| 2 (+2) | 10 nF X7R | — | 0603 | filtres des entrées IO4 et IO5 (§2.1) ; *(non implantée sur la carte routée, 01.11.2026)* |
 | 1 (+2) | 511 kΩ 1 % | — | 0603 | R7, haut du pont de retour du TPS631000 (§4.10) |
 | 1 (+2) | 91 kΩ 1 % | — | 0603 | R8, bas du pont de retour du TPS631000 (§4.10) |
 | 9 (+3) | 330 Ω | — | 0603 | série : 6 PWM servos, 3 données NeoPixel |
@@ -193,6 +218,7 @@ Brochage (WSON-8, vue de dessus) [DS] : 1, 2 = VIN ; 3 = ON ; 4 = VBIAS ; 5 = GN
 - **Écrêtage** : se déclenche à 5,5–5,9 V et maintient la sortie à **5,2–5,7 V** [DS], en ~5 µs. En écrêtage, l'eFuse dissipe (VIN – 5,45 V) × I, puis coupe en surchauffe et réessaie toutes les 93 ms.
 - **Diviseur OVLO** : garder **R4 = 249 kΩ** (seuil 1,13–1,27 V [DS] → coupure à 5,67–6,37 V) comme seconde ligne. La valeur de 274 kΩ proposée dans AMELIORATIONS_V2.md (attribuée par erreur à R6, qui est le pull-up de PWR_FLT) donnerait 5,25–5,91 V : **coupure possible sur un chargeur USB à 5,25 V**.
 - **Limite de courant** : R5 = 523 Ω → ≈ 3,9 A ; R_ILM minimum 487 Ω, qui donne 3,87–4,42 A [DS]. dVdt : C2 47 nF inchangé.
+- **Mesure du courant** sur ILM (0,144 V/A avec R5 = 523 Ω), vers IO4 par 10 kΩ : §2.1. Garder R5 et la piste de ILM courtes, et ne mettre aucun condensateur directement sur ILM (il est derrière la 10 kΩ).
 - **Pendant un écrêtage** (sortie ≤ 5,7 V), tout le +5V reste sous 6 V, le maximum absolu des TPS22965, du TPS631000 et du MAX98357A (7 V pour l'AHCT) [DS]. TPS631000, MAX98357A et AHCT sont alors au-dessus de leur plage recommandée (5,5 V) : acceptable pendant un défaut, pas en continu. Avec le TPS259573 de la v0.1 (sans écrêtage, OVLO jusqu'à 6,37 V), ces 6 V pouvaient être dépassés.
 - **Courant de repos** : 175 µA typ., 250 µA max, commun à toutes les variantes [DS] ; premier poste de la veille profonde (§1.1).
 - **Entrée** : abs. max 20 V [DS] ; aucune contrainte nouvelle pour les TVS.
@@ -225,6 +251,8 @@ Brochage (WSON-8, vue de dessus) [DS] : 1, 2 = VIN ; 3 = ON ; 4 = VBIAS ; 5 = GN
 - **Sorties HP** : courtes et en paire jusqu'à J15. Option CEM : emplacements pour des ferrites (0603) en série sur OUTP / OUTN si le câble du HP est long.
 
 ### 4.5 LSM6DSOX — IMU (déplacée au verso)
+
+> **Carte routée : l'IMU (U6) est au recto**, comme sur la v0.1 : pas de matrice d'axes à prévoir pour le retournement. INT1 est sur **IO14** (et non IO15).
 
 - **Découplage** : 100 nF au plus près de VDD (8) et 100 nF au plus près de VDDIO (5) ; un 10 µF sur VDD est souvent recommandé par ST. **[datasheet ST non téléchargeable les 21 et 22.10.2026 : à vérifier]**
 - **Broches** : inchangées et correctes sur la v0.1. SDO/SA0 au GND (adresse 0x6A) ; CS au +3V3 (mode I²C) ; SDx, SCx au GND ; INT2, OCS_Aux, SDO_Aux non connectés (tirages internes actifs par défaut).
@@ -265,6 +293,8 @@ Les résistances série vont **près des connecteurs**, pas au pied du module : 
 
 ### 4.9 TCAL6416 — extendeur de GPIO (U13, face avant, entre le module et l'IMU)
 
+> **Carte routée : U13 est au recto**, à côté de l'IMU. Câblage conforme à ce paragraphe (P00–P03, RESET sur `S3En`, ADDR au GND → 0x20, INT non relié).
+
 Brochage TSSOP-24 [DS] : 1 INT, 2 VCCI, 3 RESET, 4–11 P00–P07, 12 GND, 13–20 P10–P17, 21 ADDR, 22 SCL, 23 SDA, 24 VCCP.
 
 | Broche | Raccordement | Règle de la datasheet [DS] |
@@ -302,6 +332,8 @@ Brochage relu dans la datasheet et dans KiCad v0.1 [DS] : 1 VOUT (+3V3), 2 LX2, 
 ---
 
 ## 5. Tableau des GPIO (ESP32-S3-MINI-1-N8) — brochage optimisé pour le routage
+
+> **Périmé (01.11.2026)** : le brochage a encore changé pendant le routage (lot C, 30.10.2026), **après le §5.3 du 28.10.2026**. **Le brochage réel est dans [carte-v2-etat.md](carte-v2-etat.md) §4** : par exemple I²C sur IO35 / IO36, ampli sur IO37–IO42 (SD sur IO42, gains sur IO40 / IO41), IMU_INT1 sur IO14, IO1–IO6 libres. Le tableau ci-dessous est gardé pour l'historique et pour l'étude du §5.1.
 
 État au reset d'après le *Schematic Checklist* d'Espressif : **IE** = entrée activée, **WPU** = pull-up faible, **WPD** = pull-down faible, — = rien. RTC = utilisable en deep sleep et pour le réveil (IO0–IO21). Tactile = IO1–IO14. ADC1 = IO1–IO10 (l'ADC2 est inutilisable quand le Wi-Fi tourne).
 
@@ -476,6 +508,8 @@ Inchangés : Hall (IO8, IO10), LEDs (IO13, IO47), NeoPixel (IO14, IO16, IO18), I
 
 ## 8. Implantation, assemblage, tests
 
+> **Carte routée (01.11.2026)** : presque tout est au recto ; au verso, seulement l'ampli U9 et son découplage, J15, J16, les 100 nF des connecteurs de servos, les tirages Hall et les points de test (détail : [carte-v2-etat.md](carte-v2-etat.md) §6). Pas de 0 Ω 2512 de mesure. Logo « Turret V2 » au lieu de « v0.2 ».
+
 **Carte agrandie (23.10.2026).** Il y a de la place sous la coque au-dessus de la carte, mais l'antenne de l'ESP32 dépasse du bord haut à gauche : la zone d'exclusion déjà dessinée dans KiCad (antenne + 15 mm de chaque côté, 45 mm de large, toutes couches) interdit d'y mettre de la carte ou du cuivre. **Seule la partie droite monte** (36 mm de large, à droite de la marche, x ≥ 105,6 mm), **de 5 à 6 mm** : le dessous du haut-parleur est à 8 mm au-dessus du bord actuel (mesuré dans Fusion le 23.10.2026) ; 6 mm laissent 2 mm de marge, 5 mm en laissent 3 pour les tolérances d'impression. Une simple bande rectangulaire : le bord se déplace directement dans KiCad (guide KiCad, étape 5.0). Restent inchangés : le bord du bas, les trous H1 / H2, les côtés (support de la V4) et la zone d'antenne.
 
 **Contour fait (23.10.2026)** : h = 6 mm, carte de 77,3 × 46,6 mm. Un **troisième trou de fixation H3** (M2, `MountingHole_2.2mm_M2` comme H1 / H2) en (139,065 ; 83,175), à l'aplomb de H2 ; son centre est à 2,50 mm du bord le plus proche (l'arrondi du coin), comme H2 (2,54 mm du bord droit ; H1 : 3,0 mm), soit 1,4 mm de matière autour du trou de 2,2 mm et 0,5 mm de marge sous une tête de vis M2 ; il ne tient la carte que si le support a un plot en face, et il prend sa place (Ø 2,2 mm plus la tête de vis) dans la bande gagnée. Modèle 3D de la carte (export KiCad, composants compris) pour vérifier dans Fusion : `Turret2_portable/3d/Turret2_rehausse.step`.
@@ -515,13 +549,15 @@ Dans le modèle (§5.1), sa meilleure version a moins de croisements (8 contre 2
 - **13 lignes sous le module** au lieu de 10 ;
 - **63 mm de piste en plus** ;
 - l'**ampli sur deux côtés du module** (bus éclaté) ;
-- **2 broches libres seulement** sur l'ESP32 (IO3, IO4), au lieu de 6.
+- **2 broches libres seulement** sur l'ESP32 (IO3, IO4), au lieu de 6 (4 depuis la mesure du courant et de la tension, §2.1).
 
-La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres sur l'extendeur. Le brochage optimisé de la variante A est reproductible avec l'outil (`python gpio_study.py A …`).
+La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1 ; 4 depuis le 24.10.2026, IO4 et IO5 servant à la mesure, §2.1) et 12 E/S libres sur l'extendeur. Le brochage optimisé de la variante A est reproductible avec l'outil (`python gpio_study.py A …`).
 
 ---
 
 ## 10. Firmware à prévoir
+
+> **À lire avec le brochage réel** ([carte-v2-etat.md](carte-v2-etat.md) §4) : « jamais à l'état haut » porte sur **IO40 et IO41**, « ampli coupé avant `i2s.end()` » sur **IO42**, l'I²C reste sur `Wire.begin(35, 36)` ; l'IMU n'est pas retournée (point 6 sans objet) ; la mesure du point 10 n'existe pas sur la carte.
 
 1. **`pins.h` conditionnel** (`TURRET2_V2`) avec le brochage du §5 : presque toutes les broches changent ; plus de boutons A / B. La v0.1 garde son brochage. La **variante Arduino** (`variants/turret2/pins_arduino.h`, SDA 35 / SCL 36) reste valable pour l'I²C : même brochage sur les deux cartes.
 2. **Pilote de l'extendeur** (TCAL6416, 0x20) : écrire « tout coupé » (P00–P02 bas, P03 haut, **puis** configuration en sorties : le registre de sortie vaut 0xFF au démarrage, §4.9) **au tout début du boot**, juste après `Wire.begin(35, 36)` et une **récupération du bus I²C** (9 coups d'horloge si SDA est bloquée, par exemple par un module Qwiic ; IO35 / IO36 ne font pas de glitch au démarrage) ; même écriture dans la séquence d'arrêt avant un redémarrage volontaire.
@@ -536,6 +572,7 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
    - « jamais à l'état haut » porte sur **IO38 et IO40** (v0.1 : IO21 et IO47) ;
    - le bus I²C se démarre avec `Wire.begin(35, 36)`, comme en v0.1 ;
    - IO26 est l'entrée PWR_FLT (v0.1 : bouton A), IO48 le servo du canon droit (v0.1 : LED rouge).
+10. **Mesure du courant et de la tension** (§2.1) *(non implantée sur la carte routée, 01.11.2026)* : lecture de IO4 et IO5 par l'ADC1 (`analogReadMilliVolts`, IO4 sans atténuation, IO5 atténuation 11 dB), moyenne glissante ; courant = V_ILM / (276 µA/A × R5), tension = V_IO5 × 1470 / 470 ; IO4 **jamais en sortie**. Usages : alimentation faible détectée automatiquement (chute du +5V au démarrage d'un servo → rampe et un servo à la fois), servo bloqué relâché, courbes et pic sur la page web.
 
 ---
 
@@ -558,11 +595,16 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 - [ ] Bruit de commutation de l'ampli au verso : HP et Wi-Fi.
 - [x] **Relancer l'étude des GPIO** (28.10.2026, §5.3) (`Turret2_portable/tools/gpio_study/`) sur le placement v2 dès qu'il existe, avant de router.
 - [x] Flanc droit du module dégagé (SW3, R14, C13 déplacés) ; ROTATE_X sur IO12, plus de passage au-dessus de J16 (§5.2, §5.3, 28.10.2026).
+- [x] Routage terminé (6 couches, DRC 0, 01.11.2026) ; le brochage a encore changé au routage (lot C, 30.10.2026) : voir carte-v2-etat.md §4.
 - [ ] J19 (second port Qwiic, vertical) placé en bas à gauche, à côté de J1 : vérifier l'accès depuis l'extérieur et la hauteur (~4,6 mm) par rapport au boîtier.
 - [x] Carte agrandie : hauteur disponible au-dessus de la partie droite : 8 mm jusqu'au haut-parleur (Fusion, 23.10.2026) → la partie droite monte de 5 à 6 mm (§8).
-- [ ] Carte agrandie : vérifier dans Fusion avec un export STEP de la v2 (haut-parleur, arche, coque) ; décision « tout au recto » ou verso au placement (§8).
+- [x] Carte agrandie : export STEP de la carte routée placé dans Fusion le 01.11.2026 ; presque tout au recto (§8).
 - [ ] Après un `ESP.restart()` et après un plantage : rails bien coupés (écriture « tout coupé » au début du boot).
 
+- [ ] Carte fille des canons (§13) : brochage réel du servo sur J2 (signal au milieu sur la v1, gardé en v2) ; CT de SW_SERVO (C35, 4,7 nF) à passer à 10 nF seulement si l'appel de courant des deux réservoirs gêne (≈ 0,4 A avec 2 × 100 µF de plus).
+- [x] Carte fille des canons : place dans le canon vérifiée dans Fusion le 01.11.2026 (§13.5).
+- ~~Mesure du courant et de la tension (§2.1) : étalonnage~~ : sans objet, non implantée sur la carte routée.
+- [ ] Avant la commande : remplir les zones (touche B) et enregistrer ; empilement JLC06161H-2116 confirmé au calculateur ; texte de TP2 (carte-v2-etat.md §8).
 ---
 
 ## 12. Écarts avec AMELIORATIONS_V2.md
@@ -579,6 +621,70 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1) et 12 E/S libres 
 | Capteurs Hall non traités | coupés par AO3401A | OH49E : 4,2 mA typ. chacun en permanence sinon |
 | LEDs d'état « ~3 mA chacune » | rouge ~2 mA (R12 680 Ω) ; verte 3 à 13 mA (R18 100 Ω depuis le 19.10.2026) | calcul sous 3,3 V sur R12 / R18 |
 | — | résistances série, pull-up IO0, TVS, points de test, pont du TPS631000 à 511 kΩ / 91 kΩ | protection, mesure et veille |
+| — | mesure du courant (ILM de l'eFuse → IO4) et de la tension (+5V → IO5), sans nouvelle puce | idée de l'utilisateur du 24.10.2026 (« une puce pour checker le courant ») ; l'eFuse a déjà la sortie de mesure ; *non implantée sur la carte routée (01.11.2026)* |
+
+---
+
+## 13. Carte fille des canons
+
+> **Carte fille v2 faite le 01.11.2026** : projet `Desktop\Turret2_carte_fille\`, voir §13.5 et [carte-v2-etat.md](carte-v2-etat.md) §10.
+
+Une par canon, au bout du câble de J3 (canon gauche) ou J4 (canon droit). Fichiers d'origine : `Fork/gerber/DaughterBoard.zip` (Gerber seulement, KiCad 10.0.4, 2 couches, 13,3 × 19,7 mm). Schéma reconstitué le 23.10.2026 à partir des attributs de nets des Gerber et de la sérigraphie.
+
+![Carte fille v1 : face avant et face arrière (miroir), sérigraphie lisible au dos](img/carte-fille-canon-v1.png)
+
+### 13.1 Ce qu'elle contient
+
+**Aucun composant** : quatre connecteurs et des pistes.
+
+| Connecteur | Rôle | Broches (sérigraphie) | Nets |
+|---|---|---|---|
+| J1, JST-PH 4 (pas de 2 mm) | câble vers J3 / J4 de la carte | 5V · Srv · LED · Gnd | +5V · PWM du servo · données LED · GND (même ordre que J3 / J4) |
+| J2, 3 broches (2,54 mm) | servo du canon | **Gnd · Srv · 5V** | GND · PWM · +5V |
+| J5, 4 broches (2,54 mm) | 1ʳᵉ LED | Di · Gnd · 5V · Do | données (de J1) · GND · +5V · vers J4 |
+| J4, 3 broches (2,54 mm) | 2ᵉ LED | Di · Gnd · 5V | données (de J5) · GND · +5V |
+
+### 13.2 Points à corriger
+
+1. **Aucun condensateur.** Le servo du canon démarre à 0,5–0,7 A, avec le bruit de ses balais, à 15–20 cm de la carte, au bout d'un câble fin qu'il partage avec les 2 LEDs. Le courant d'appel et le bruit remontent par le câble vers la carte. C'est le même mécanisme que l'incident du 23.10.2026 sur J9 : servo sur câble épissé, LED verte et USB perdus.
+2. **J2 a le signal au milieu** (Gnd · Srv · 5V), alors qu'une prise de servo standard met le +5 V au milieu (marron GND · rouge +5V · orange signal). Une prise standard enfoncée telle quelle met le **+5 V sur la ligne PWM de l'ESP32** (IO1 / IO26 en v2, sans protection sur la v1) et le signal sur le +5 V. **À vérifier sur tes canons** : sens de la prise, fils inversés dans le connecteur, ou servo d'un autre brochage.
+3. **Pas de résistance série sur les données des LEDs.** La bonne pratique WS2812 / SK6812 est 300–500 Ω **près de la première LED**, donc ici, sur la carte fille.
+
+### 13.3 Carte fille v2 proposée (même taille, mêmes connecteurs)
+
+| Ajout | Valeur | Où | Pourquoi |
+|---|---|---|---|
+| Réservoir du servo | **100 à 220 µF, 10 V ou plus**, faible ESR : polymère ou tantale polymère CMS (boîtier B / D), ou électrolytique 6,3 mm si la place le permet | entre 5V et Gnd, **au plus près de J2** | fournit les pointes du moteur sur place : moins de chute dans le câble, moins de bruit renvoyé vers la carte |
+| Découplage HF du servo | 100 nF X7R 0603 (25 V) | aux broches de J2 | bruit des balais |
+| Découplage des LEDs | 100 nF X7R 0603 par LED | au ras de J5 et de J4 | bonne pratique SK6812, si les modules LED n'en ont pas déjà |
+| Résistance série des données | 330 Ω 0603 | entre J1.3 (LED) et J5.1 (Di) | réflexions sur le câble, courant dans la diode d'entrée d'une LED non alimentée ; pour les canons, elle **remplace** celles prévues sur 2Y / 3Y au §4.6 (une seule par ligne) |
+| Résistance série du PWM | 330 Ω 0603 | entre J1.2 (Srv) et J2 | protège la GPIO d'un faux contact avec le +5V et limite le bruit qui remonte (c'est déjà la résistance série prévue au §4.8 : la mettre ici plutôt que sur la carte) |
+| Brochage de J2 | **Gnd · 5V · Srv** (standard) | — | une prise de servo standard se branche sans risque (sauf si le point 13.2-2 révèle un servo à brochage spécial) |
+
+- **Courant d'appel en v2** : deux réservoirs de 220 µF de plus portent la capacité derrière SW_SERVO à ~880 µF. Avec CT = 4,7 nF (t_R 8,2 ms), la pointe reste ≈ 0,54 A, très en dessous des ~3,9 A de l'eFuse. Pour la garder à ~0,25 A, prendre **CT = 10 nF** (t_R 17,7 ms [DS]).
+- **Avec la v1** (5 V non commuté) : rien à changer côté carte. L'eFuse charge les réservoirs à la mise sous tension, avec sa rampe dVdt.
+- **Place** : la carte fait 13,3 × 19,7 mm. Les CMS (0603, tantale polymère) se mettent au dos, entre les pastilles traversantes. Un électrolytique traversant de 6,3 mm ne tient que si le canon a la hauteur nécessaire. **À mesurer** dans le canon avant de choisir.
+- **Repérage** : sérigraphier l'ordre des fils de chaque connecteur et un « 1 » sur la broche 1, comme sur la v1.
+
+### 13.4 Solution immédiate sur la v1 (sans refaire la carte)
+
+Souder un **condensateur de 100–220 µF + 100 nF directement sur les broches 5V et Gnd de J2**, côté soudure : sur la sérigraphie au dos, « 5V » et « Gnd » sont les deux broches des extrémités de J2. Faire de même sur le servo de test monté sur J9 (câble épissé), au plus près du servo.
+
+### 13.5 Carte fille v2 réalisée (01.11.2026)
+
+Choix retenus par rapport au §13.3 :
+
+| Proposé (§13.3) | Fait | Raison |
+|---|---|---|
+| Réservoir 100–220 µF ≥ 10 V | **C1, 100 µF 10 V tantale polymère, KEMET T520B107M010ATE070** (boîtier B 3528, 1,9 mm de haut, 70 mΩ), **au recto**, dans le coin libre à droite de J4 / J2 | au recto, il reste plus bas que le plastique des barrettes (2,5 mm) : la carte n'est pas plus épaisse. Au verso, un boîtier C dépassait de ~1,4 mm sous les queues des broches |
+| 100 nF X7R aux broches de J2 | **C2, 100 nF X7R 0603 50 V** (KEMET C0603C104K5R), au recto sous J2 | |
+| 100 nF par LED | non | demande de l'utilisateur : « juste le condo » |
+| 330 Ω série données et PWM | non | déjà sur la carte principale v2 (R25, R26 ; R28, R29) |
+| J2 au brochage standard | **non : Gnd · Srv · 5V gardé** | compatibilité avec les câbles existants ; vérifier le sens sur les canons |
+
+Même contour, mêmes connecteurs aux mêmes coordonnées, même trou M2, même cheminement des signaux, mêmes repères au verso ; plan de masse sur les deux faces. ERC, DRC et parité schéma ↔ PCB à 0. Place dans le canon vérifiée dans Fusion : la carte se pose sur le rebord du `GunCasing` (deux avant-trous de Ø 1,8 mm à 9,52 mm, un par canon, en miroir) ; seules les queues des broches de J2 touchent le rebord, comme sur la v1 : **les couper à ras**. Détails et images : [carte-v2-etat.md](carte-v2-etat.md) §10.
+
+![Carte fille v2](img/carte-fille-canon-v2.png)
 
 ---
 

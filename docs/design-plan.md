@@ -1,5 +1,7 @@
 # Turret2 — ESP32-S3 board for the Portal Turret v4: full design plan
 
+> **This document covers board v0.1.** Board v2 (6 layers, routed on 01.11.2026, not yet fabricated) is described in [carte-v2-etat.md](carte-v2-etat.md) (French), with its plan in [carte-v2-plan.md](carte-v2-plan.md).
+
 Project: `Turret2.kicad_pro` (KiCad 10). Target firmware: [joranderaaff/portal-turret-v4](https://github.com/joranderaaff/portal-turret-v4), reused as is. This document supersedes all earlier versions. **Updated 20.09.2026**: +5 V star, L3 zones and bulk capacitors done on the board (§9.1b). **21.09**: removal of J12, J13, J16, R13 and R17 recorded (§1, §3.5, §12, §12b.4). **23.09**: board routed and checked; **24.09**: Hall sensors split onto J17/J18 — see §0c, which takes precedence over the rest of this document wherever they disagree.
 
 > Dates are in DD.MM.YYYY format. This plan was written before and during layout; it keeps the **old reference designators** used in the early schematics. The actual designators on the board are listed in §0c.

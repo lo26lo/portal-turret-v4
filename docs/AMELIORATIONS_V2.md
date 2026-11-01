@@ -1,6 +1,6 @@
 # Turret2 — améliorations prévues pour la v2
 
-> **Statut : propositions.** Rien de ce document n'est encore implémenté ni testé.
+> **Statut : propositions.** Rien de ce document n'est encore implémenté ni testé. **État réel de la carte v2 routée (01.11.2026) : [carte-v2-etat.md](carte-v2-etat.md).**
 > **Le plan retenu est [carte-v2-plan.md](carte-v2-plan.md)** (21.10.2026) : il fait foi là où les deux documents diffèrent (radar sentinelle abandonné, eFuse TPS259533 au lieu de R4 = 274 kΩ, pas de 2N7002, capteurs Hall commutés, **brochage entièrement refait pour le routage et extendeur de GPIO adopté** ; liste des écarts en §12 du plan). Les tableaux de GPIO de ce document (§2.6, §2.9) sont donc périmés.
 > Base : carte Turret2 v0.1 (fabriquée en septembre 2026). Seules les broches I²S et `AMP_SD` de l'ampli sortent de `src/pins.h` (voir 2.5) ; le reste du brochage firmware est inchangé.
 > Radar monté : **Ai-Thinker RD-03D V2** (identifié le 20.10.2026), même protocole que le HLK-LD2450 cité dans les premières versions de ce document. Firmware : `Turret_firmware/`.

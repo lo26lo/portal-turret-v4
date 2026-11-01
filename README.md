@@ -6,7 +6,9 @@ This fork adds **Turret2**, a custom 4-layer controller PCB for [joranderaaff/po
 
 The board keeps the **exact GPIO mapping of the firmware's `Fork/src/pins.h`**, so the upstream firmware runs on it with one small change (the IMU, see [Firmware](#firmware)).
 
-> **Status: v0.1 — design complete, not yet fabricated or tested.** DRC is clean (0 errors, 0 unconnected items). Use at your own risk until a first batch has been built and validated.
+> **Status (01.11.2026):**
+> - **v0.1** (this README): built; two boards assembled, the firmware runs on them since 17.10.2026 (bring-up log in [docs/firmware-improvements.md](docs/firmware-improvements.md)).
+> - **v2**: routed on 6 layers, DRC clean, **not yet ordered**. Switchable rails (servos, LED ring, radar, Hall sensors) through an I²C GPIO expander for a real standby mode, remote USB only, new GPIO mapping, raised right-hand part. See [Turret2 v2](#turret2-v2) below.
 
 ---
 
@@ -84,7 +86,7 @@ IO39–IO42 are unused (the JTAG header was removed). IO0, IO3, IO45 and IO46 ar
 
 ## Firmware
 
-`Turret_firmware/` is the upstream firmware adapted to Turret2 (Turret2 only, no Wemos build). **Everything it does is described in [Turret_firmware/README.md](Turret_firmware/README.md)**; the design is in [docs/firmware-plan.md](docs/firmware-plan.md). **It compiles but has not run on a board yet**: expect calibration and fixes at bring-up.
+`Turret_firmware/` is the upstream firmware adapted to Turret2 (Turret2 only, no Wemos build). **Everything it does is described in [Turret_firmware/README.md](Turret_firmware/README.md)**; the design is in [docs/firmware-plan.md](docs/firmware-plan.md). It runs on the v0.1 boards since 17.10.2026; bring-up notes are in [docs/firmware-improvements.md](docs/firmware-improvements.md). **It targets v0.1 only: do not flash it on a v2 board** (different GPIO mapping).
 
 ### Build and flash
 
@@ -156,6 +158,18 @@ Hall thresholds (`HallOpenL/R`, `HallCloseL/R`: the sensors now run at 3.3 V; th
 - **BOM**: set the U7 value / MPN to **ESP32-S3-MINI-1-N8**. For JLCPCB assembly, LCSC part numbers still have to be added, and three SMD parts sit on the back (J16, R13, R17).
 - Order: 4 layers, 1.6 mm, ENIG recommended, stencil 0.10–0.12 mm with the comment "keep the 2 non-pad openings (alignment holes)".
 
+## Turret2 v2
+
+Second version of the board, designed in October 2026 and routed on 01.11.2026. Not yet ordered or tested. Documentation is in French:
+
+- [docs/carte-v2-etat.md](docs/carte-v2-etat.md) — **the board as routed**: 6-layer stack-up, net classes and rules, power tree, GPIO mapping, connectors, test points, placement, routing history, checklist before ordering, and the deviations from the plan.
+- [docs/carte-v2-plan.md](docs/carte-v2-plan.md) — the hardware plan and the reasons behind each choice (standby modes, load switches, eFuse, GPIO expander, parts).
+- [docs/carte-v2-kicad.md](docs/carte-v2-kicad.md) — the step-by-step KiCad guide used to build it.
+
+Main changes from v0.1: 6 layers (solid GND on In1 and In4); TPS259533 eFuse (output clamped at 5.2–5.7 V); three TPS22965 load switches (servos, LED ring, radar) and a P-MOS for the Hall sensors, driven by a TCAL6416 I²C expander; on-board USB-C removed, power and USB only through the remote connector J1; series resistors on every line that leaves the board (330 Ω, 1 kΩ for the radar UART); pull-downs on floating inputs; second Qwiic port (J19); right-hand part raised by 6 mm, third mounting hole H3; new GPIO mapping (I²C stays on IO35 / IO36). The KiCad project of v2 is not in this repository yet.
+
+The gun daughter board also has a v2 (same size and connectors as v1, plus a 100 µF polymer bulk capacitor and a 100 nF next to the servo connector): carte-v2-etat.md §10.
+
 ## Repository layout
 
 ```
@@ -163,6 +177,7 @@ Turret2_portable/          KiCad project (schematic, PCB, custom DRC rules)
 Turret2_portable/library   project-specific symbols, footprints and 3D models
 docs/design-plan.md        full design rationale, section by section
 docs/status-and-history.md current status, decisions and pitfalls, session by session
+docs/carte-v2-*.md         board v2: as-routed state, plan, KiCad guide (French)
 Turret_firmware/           Turret2 firmware (PlatformIO project) — see Turret_firmware/README.md
 docs/firmware-plan.md      firmware design; docs/firmware-improvements.md: improvement plan and log
 docs/experiments.md        measurement notebook (oscilloscope, PPK2), no hardware change
@@ -177,6 +192,7 @@ Open `Turret2_portable/Turret2.kicad_pro` with **KiCad 10.0.6 or later**. The PC
 
 - [docs/design-plan.md](docs/design-plan.md) — why every part and value was chosen: power path and eFuse settings, audio, IMU, connectors, stack-up, routing rules, custom DRC rules, JLCPCB order options, pre-fabrication checklist, community feedback on the V4. It keeps the early reference designators; §0c lists the actual ones.
 - [docs/status-and-history.md](docs/status-and-history.md) — current state of the board, what changed in each session, and a list of KiCad and pcbnew-scripting pitfalls.
+- Board v2 (French): [docs/carte-v2-etat.md](docs/carte-v2-etat.md) (as routed), [docs/carte-v2-plan.md](docs/carte-v2-plan.md) (plan), [docs/carte-v2-kicad.md](docs/carte-v2-kicad.md) (KiCad guide).
 
 ## Credits and license
 

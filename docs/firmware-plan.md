@@ -1,5 +1,7 @@
 # Plan d'adaptation du firmware à la carte Turret2
 
+> **Ce plan et le firmware actuel visent la carte v0.1.** La carte v2 (routée le 01.11.2026) a un autre brochage et d'autres règles de sécurité : [carte-v2-etat.md](carte-v2-etat.md) §4.
+
 Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décisions D1 à D7 tranchées (§9), **plus de compatibilité Wemos / V4** (Turret2 uniquement), page web de configuration ajoutée (§10, lot 12). Le suivi de l'exécution (ce qui est fait, en cours, les erreurs) est dans le journal de bord `docs/firmware-journal.md`, **local (non versionné)** : le lire avant de reprendre le travail.
 
 > **État au 26.09.2026** : les lots 1 à 12 de ce plan sont faits (commit `7a20d46`), puis les améliorations de [firmware-improvements.md](firmware-improvements.md) (lots I1, I2, IL). Ce plan reste le document de **conception** ; ce que le firmware fait réellement est décrit dans [../Turret_firmware/README.md](../Turret_firmware/README.md). Écarts décidés en cours de route :

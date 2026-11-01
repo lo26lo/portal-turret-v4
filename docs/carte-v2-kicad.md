@@ -3,6 +3,8 @@
 > **Rôle** : faire la carte v2 dans KiCad, étape par étape. Le **quoi** et le **pourquoi** sont dans [carte-v2-plan.md](carte-v2-plan.md) (les « §… » renvoient à ce plan) ; ici, le **comment** et **dans quel ordre**.
 >
 > Rédigé le 22.10.2026 pour **KiCad 10.0** (10.0.6 installé), à partir du projet v0.1 du dépôt (`Turret2_portable/`). Les références de composants, les noms de nets et les numéros de broches cités ici sont relevés dans ce projet (netlist exportée avec `kicad-cli` le 22.10.2026).
+>
+> **Avancement au 01.11.2026 : phases 0 à 6 faites, phase 7 (fabrication) à faire.** Le routage a été fait sur une copie à **6 couches** (`Desktop\Turret2_v2_6c\`, hors dépôt) au lieu des 4 couches prévues ici ; le brochage de l'ESP32 a encore changé au routage. L'état réel de la carte, les règles et les écarts avec ce guide sont dans **[carte-v2-etat.md](carte-v2-etat.md)**.
 
 ---
 
@@ -350,6 +352,8 @@ Je relance `Turret2_portable/tools/gpio_study/` sur ton placement (`TURRET_PCB=T
 
 ## Phase 6 — PCB : routage
 
+> **Fait (30.10 – 01.11.2026), en 6 couches** : empilement, règles propres aux couches internes, USB à 90 Ω (0,18 / 0,17 mm), vias GND à côté des vias rapides, sérigraphie dans le style de la v1 et logo « Turret V2 ». DRC : 0 erreur, 0 élément non connecté. Détails et historique : [carte-v2-etat.md](carte-v2-etat.md) §2 et §7. Les tableaux ci-dessous restent valables pour les largeurs et les vias de puissance ; la largeur USB de la dernière ligne est remplacée par celle de l'état.
+
 ### Avant de router : largeurs, vias, règles
 
 La v0.1 a déjà des classes de nets et des règles (`Turret2.kicad_dru`), et du cuivre de 35 µm (1 oz) sur les quatre couches. Avec les motifs de l'étape 4.7, les nouveaux rails en héritent ; voici les largeurs visées (IPC-2221, échauffement 10 °C) :
@@ -431,6 +435,8 @@ Dans cet ordre (§4, §5.2) :
 
 ## Phase 7 — Fabrication
 
+> **À faire.** Liste de contrôle avant la commande : [carte-v2-etat.md](carte-v2-etat.md) §8 (remplir les zones et enregistrer, empilement JLC06161H-2116 au calculateur, texte de TP2, deux pochoirs).
+
 1. **Vue 3D** : les deux faces ; hauteur des pièces du verso par rapport au support de la tourelle (des connecteurs y sont déjà).
 2. **Fichiers** : Gerber et perçages ; nomenclature ; fichier de position si l'assemblage est fait par le fabricant ; **deux pochoirs** (recto et verso, §3.1).
 3. **Revue finale avec moi** : je reprends la netlist et le PCB contre le plan, point par point (liste d'achat, découplage, brochage, tirages, faces).
@@ -447,3 +453,4 @@ Dans cet ordre (§4, §5.2) :
 - **Nets sans classe** : un nouveau nom qui ne suit aucun motif tombe dans la classe par défaut (0,2 mm, vias de 0,6 / 0,3 mm), sans erreur du DRC ; d'où les motifs de l'étape 4.7 et les labels « _C » de l'étape 1.3.
 - **Module ESP32 et connecteurs** : ne pas les déplacer (antenne au bord, longueur des câbles de la tourelle).
 - **Rails de la v0.1** : trois symboles +5V sur la feuille MCU, reliés par des fils ; une branche oubliée laisse un servo sur le +5V permanent. Ma vérification du point de contrôle 2 le voit.
+- **Zones non remplies ou masquées** (01.11.2026) : une pastille qui paraît isolée sans ligne de chevelu est reliée par une zone dont le remplissage est caché (« Afficher les zones remplies ») ; et un remplissage plus ancien qu'une via ajoutée la laisse en court-circuit avec les plans, pour le DRC. Toujours **B** puis enregistrer avant le DRC et les Gerber.

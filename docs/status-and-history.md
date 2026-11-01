@@ -1,5 +1,7 @@
 # Turret2 — status and design history
 
+> **This document covers board v0.1.** Board v2 status and history: [carte-v2-etat.md](carte-v2-etat.md) (French).
+
 ESP32-S3 board for the Portal turret, derived from the community project **portal-turret-v4**. This file records the current state of the board, the decisions taken session by session, and the pitfalls met along the way. The full design rationale is in [design-plan.md](design-plan.md).
 
 > Dates are in DD.MM.YYYY format (2026). Section numbers are kept stable because the design plan refers to them. Board coordinates are in mm, in KiCad's page coordinates (the outline runs from X 63.5 to 141.6 and Y 86.36 to 127.0).

@@ -287,6 +287,8 @@ void loop() {
   selfTest.Update(currentTime);
   debugUi.Update(currentTime);
 
+  // Weak supply (debug mode without "power full"): positional servos ramp (ServoRamp).
+  gantry.SetRampActive(board.IsServoLimited());
   gantry.Update(deltaTime);
   light.Update(deltaTime);
   motion.Update(deltaTime);

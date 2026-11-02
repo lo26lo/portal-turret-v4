@@ -23,6 +23,7 @@ enum SettingId {
   WingTrimR,
   ServoStagger,
   ServoIdleMs,
+  ServoRamp,
   LedBright,
   LedMaxmA,
   GreenLedMode,

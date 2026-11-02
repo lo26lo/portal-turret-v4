@@ -28,8 +28,27 @@ void Gantry::ApplySettings() {
   ANGLE_OFFSET_Z = settings->GetInt(SettingId::AngleOffsetZ);
   servoStaggerMs = settings->GetInt(SettingId::ServoStagger);
   servoIdleMs = settings->GetInt(SettingId::ServoIdleMs);
+  servoRampUs = settings->GetInt(SettingId::ServoRamp);
+  ApplyRamp();
   wingLeft.ApplySettings();
   wingRight.ApplySettings();
+}
+
+void Gantry::SetRampActive(bool active) {
+  if (active != rampActive) {
+    rampActive = active;
+    ApplyRamp();
+  }
+}
+
+// Positional servos only: a ramp on a continuous wing would delay its stop on
+// the Hall threshold.
+void Gantry::ApplyRamp() {
+  int32_t ramp = rampActive ? servoRampUs : 0;
+  rotateZ.SetRamp(ramp);
+  rotateX.SetRamp(ramp);
+  wingLeft.GetGun().GetChannel().SetRamp(ramp);
+  wingRight.GetGun().GetChannel().SetRamp(ramp);
 }
 
 ServoChannel &Gantry::GetChannel(uint8_t index) {
@@ -58,6 +77,10 @@ void Gantry::SetRotationZ(int angle, bool force) {
 void Gantry::Update(ulong deltaTime) {
   ulong now = millis();
   RunAttachSchedule(now);
+  rotateZ.Update(now);
+  rotateX.Update(now);
+  wingLeft.GetGun().GetChannel().Update(now);
+  wingRight.GetGun().GetChannel().Update(now);
   wingLeft.Update(deltaTime);
   wingRight.Update(deltaTime);
   ReleaseIdleRotation(now);
@@ -92,11 +115,15 @@ void Gantry::ReleaseIdleRotation(ulong now) {
   if (wingLeft.IsOpen() || wingRight.IsOpen() || wingLeft.IsMoving() || wingRight.IsMoving()) {
     return;
   }
-  if (rotateX.IsAttached() && now - rotateX.LastActivityAt() >= servoIdleMs) {
-    rotateX.Release();
+  // Signed difference: "now" is read at the start of Update(), before
+  // RunAttachSchedule(), so a servo attached in this very loop has a later
+  // activity time. Unsigned, the difference wrapped around to ~49 days and the
+  // servo was released at once (seen on 23.10.2026: "pas de 5 degrés").
+  if (rotateX.IsAttached() && (long)(now - rotateX.LastActivityAt()) >= (long)servoIdleMs) {
+    rotateX.Release("idle, ServoIdleMs");
   }
-  if (rotateZ.IsAttached() && now - rotateZ.LastActivityAt() >= servoIdleMs) {
-    rotateZ.Release();
+  if (rotateZ.IsAttached() && (long)(now - rotateZ.LastActivityAt()) >= (long)servoIdleMs) {
+    rotateZ.Release("idle, ServoIdleMs");
   }
 }
 
@@ -128,8 +155,8 @@ bool Gantry::HasPendingAttach() {
 }
 
 void Gantry::DetachAll() {
-  rotateX.Release();
-  rotateZ.Release();
+  rotateX.Release("detach all");
+  rotateZ.Release("detach all");
   wingLeft.Detach();
   wingRight.Detach();
 }

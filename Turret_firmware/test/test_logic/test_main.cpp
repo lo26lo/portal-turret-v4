@@ -13,6 +13,7 @@
 #include "logic/HallLogic.h"
 #include "logic/MenuLogic.h"
 #include "logic/RadarLogic.h"
+#include "logic/ServoLogic.h"
 #include "ui/MenuTree.h"
 
 void setUp() {}
@@ -332,6 +333,34 @@ void test_reset_gesture() {
   TEST_ASSERT_TRUE(g.Update(true, true, 37000) == S::Accepted);
   TEST_ASSERT_TRUE(g.Update(false, false, 38000) == S::Accepted);
   TEST_ASSERT_EQUAL_UINT32(0, g.RemainingMs(38000));
+}
+
+void test_servo_ramp() {
+  // No ramp: straight to the target.
+  TEST_ASSERT_EQUAL_INT(2400, logic::RampStep(500, 2400, 0, 20));
+  TEST_ASSERT_EQUAL_INT(2400, logic::RampStep(500, 2400, -5, 20));
+  // 1000 us/s, 20 ms: 20 us per step, both directions, no overshoot.
+  TEST_ASSERT_EQUAL_INT(1470, logic::RampStep(1450, 2400, 1000, 20));
+  TEST_ASSERT_EQUAL_INT(1430, logic::RampStep(1450, 500, 1000, 20));
+  TEST_ASSERT_EQUAL_INT(1455, logic::RampStep(1450, 1455, 1000, 20));
+  TEST_ASSERT_EQUAL_INT(1445, logic::RampStep(1450, 1445, 1000, 20));
+  TEST_ASSERT_EQUAL_INT(1450, logic::RampStep(1450, 1450, 1000, 20));
+  // A late loop takes a bigger step (the speed is kept, not the step).
+  TEST_ASSERT_EQUAL_INT(1550, logic::RampStep(1450, 2400, 1000, 100));
+  // Very slow ramp: at least 1 us per step, so it always ends.
+  TEST_ASSERT_EQUAL_INT(1451, logic::RampStep(1450, 2400, 10, 20));
+  // Full travel 500 -> 2400 at 1000 us/s in 20 ms steps: 95 steps (1.9 s).
+  int us = 500;
+  int steps = 0;
+  while (us != 2400 && steps < 1000) {
+    int next = logic::RampStep(us, 2400, 1000, 20);
+    TEST_ASSERT_TRUE(next > us && next - us <= 20);
+    us = next;
+    steps++;
+  }
+  TEST_ASSERT_EQUAL_INT(95, steps);
+  // Large elapsed times do not overflow.
+  TEST_ASSERT_EQUAL_INT(2400, logic::RampStep(500, 2400, 20000, 4000000000u));
 }
 
 void test_amp_gain_rounding() {
@@ -838,6 +867,7 @@ int main() {
   RUN_TEST(test_id3v2_size);
   RUN_TEST(test_upsample_factor);
   RUN_TEST(test_tip_watch);
+  RUN_TEST(test_servo_ramp);
   RUN_TEST(test_amp_gain_rounding);
   return UNITY_END();
 }

@@ -27,10 +27,11 @@ void Gun::Retract()
 
 void Gun::Update(ulong now)
 {
-  if (channel.IsAttached() && now - channel.LastActivityAt() >= HOLD_MS)
+  // Signed: the activity time can be a little later than "now" (see Gantry::ReleaseIdleRotation).
+  if (channel.IsAttached() && (long)(now - channel.LastActivityAt()) >= (long)HOLD_MS)
   {
-    channel.Release();
+    channel.Release("gun hold time");
   }
 }
 
-void Gun::Detach() { channel.Release(); }
+void Gun::Detach() { channel.Release("gun detach"); }

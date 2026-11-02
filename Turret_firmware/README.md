@@ -186,6 +186,7 @@ Six servos: rotate Z (IO7), rotate X (IO6), gun left (IO1), gun right (IO2), win
   - wings (continuous rotation) are released as soon as they stop: with no pulse they stop dead, which avoids the creep of a badly centred neutral;
   - guns are released 0.5 s after their last command;
   - rotations are held while a wing is open (aiming) and released after `ServoIdleMs` with the wings closed and still.
+- **Speed ramp on a weak supply**: in debug mode without `power full` (a computer USB port), the positional servos (rotations and guns, never the continuous wings) follow their command at `ServoRamp` µs per second instead of jumping (1000 by default, about 95°/s). A SG90 jumping 45° or more stalls on a computer port: it clicks without turning, while the ESP32 keeps running on its buck-boost 3.3 V (seen on 23.10.2026). After a release, the ramp starts again from the last pulse sent. `ServoRamp` = 0 turns the ramp off; with `power full` or in normal mode, the servos jump as before. Each release is logged (`Servo rotate Z released`).
 - **Wings**: speed ±475 µs around `1500 + WingTrim`. A movement ends when the Hall sensor passes the threshold, or after a 2 s timeout (counted once the servo is attached).
 - **Hall sensors** (IO8 left, IO9 right, 3.3 V, 12-bit ADC): thresholds `HallOpenL/R`, `HallCloseL/R`. If the open threshold is below the closed one, the comparisons are reversed (magnet mounted the other way). A sensor stuck at a rail (≤ 15 or ≥ 4080 for 1 s) or not changing during a whole movement sets red LED code 5.
 
@@ -346,6 +347,7 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `WingTrimL` / `WingTrimR` | Wings | 0 | -200..200 | stop point of the wing servo, µs around 1500 |
 | `ServoStagger` | Power | 250 | 50..1000 | ms between two servo attachments |
 | `ServoIdleMs` | Power | 5000 | 0..60000 | rotations released after this idle time (0 = never) |
+| `ServoRamp` | Power | 1000 | 0..20000 | speed of the positional servos on a weak supply (debug mode without `power full`), µs per second; 0 = no ramp |
 | `LedBright` | Lights | 255 | 0..255 | LED brightness |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
 | `GreenLedMode` | Status LEDs | 0 | 0..3 | green LED after boot: 0 breathing, 1 heartbeat, 2 steady, 3 off |

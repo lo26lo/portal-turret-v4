@@ -137,6 +137,12 @@ private:
   bool labMarkers = false;
   bool markerLevel = false;
   bool greenModulated = false; // pin routed to the sigma-delta modulator
+
+public:
+  // Diagnostic ("pins" command): what the firmware believes about the green LED.
+  bool IsGreenModulated() const { return greenModulated; }
+
+private:
   logic::GreenLedMode greenMode = logic::GreenLedMode::Breathing;
   uint32_t greenPeriodMs = 4000;
   uint8_t greenPercent = 100;

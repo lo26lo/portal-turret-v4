@@ -66,7 +66,7 @@ WingPosition Wing::ReadPosition() {
 }
 
 void Wing::Detach() {
-  channel.Release();
+  channel.Release("wing detach");
   gun.Detach();
   isOpening = false;
   isClosing = false;
@@ -74,7 +74,7 @@ void Wing::Detach() {
 
 void Wing::Stop() {
   // D6: no pulse = the continuous servo stops dead, no creeping from a bad neutral.
-  channel.Release();
+  channel.Release("wing stop");
 }
 
 void Wing::Open() {

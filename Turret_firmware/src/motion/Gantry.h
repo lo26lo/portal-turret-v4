@@ -32,6 +32,10 @@ public:
   bool HasHallFault() const;
   // L4 (loadtest): attach gap imposed in RAM; 0 = back to ServoStagger.
   void SetStaggerOverride(ulong ms) { staggerOverrideMs = ms; }
+  // Speed ramp (setting ServoRamp) on the positional servos (rotations and
+  // guns, never the continuous wings): on while the supply is weak (debug
+  // mode without "power full"). Called every loop by main.
+  void SetRampActive(bool active);
 
   // Servo outputs, in attach priority order (plan §3.2 step 11).
   static const uint8_t CHANNEL_COUNT = 6;
@@ -40,6 +44,7 @@ public:
 private:
   void RunAttachSchedule(ulong now);
   void ReleaseIdleRotation(ulong now);
+  void ApplyRamp();
 
   float X_AXIS_GEAR_RATIO = 75.0/17.0;
   float Z_AXIS_GEAR_RATIO = 30.0/15.0;
@@ -48,6 +53,8 @@ private:
   ulong servoStaggerMs = 250;
   ulong staggerOverrideMs = 0;
   ulong servoIdleMs = 5000;
+  int32_t servoRampUs = 0;
+  bool rampActive = false;
   ulong lastAttachAt = 0;
   bool attachedOnce = false;
 

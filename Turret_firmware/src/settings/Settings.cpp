@@ -63,6 +63,9 @@ Settings::Settings()
           {"WingTrimR", "Wing right: stop trim (us)", "Wings", SettingType::Int, (int32_t)0, (int32_t)-200, (int32_t)200},
           {"ServoStagger", "Delay between two servo starts (ms)", "Power", SettingType::Int, (int32_t)250, (int32_t)50, (int32_t)1000},
           {"ServoIdleMs", "Rotation servos released after (ms, 0 = never)", "Power", SettingType::Int, (int32_t)5000, (int32_t)0, (int32_t)60000},
+          // Weak supply (debug mode without "power full"): a SG90 jumping 90 deg
+          // draws ~0.5-0.7 A and stalls on a computer USB port; 1000 us/s = ~95 deg/s.
+          {"ServoRamp", "Servo speed on a weak supply (us/s, 0 = no ramp)", "Power", SettingType::Int, (int32_t)1000, (int32_t)0, (int32_t)20000},
           {"LedBright", "LED brightness (0..255)", "Lights", SettingType::Int, (int32_t)255, (int32_t)0, (int32_t)255},
           // FastLED power cap on the 5 V rail: 13 LEDs at full white draw ~0.8 A
           {"LedMaxmA", "LED current limit (mA)", "Power", SettingType::Int, (int32_t)500, (int32_t)100, (int32_t)1500},

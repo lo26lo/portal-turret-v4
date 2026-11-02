@@ -66,6 +66,7 @@ private:
   String GetCommand(const String &args);
   String ImuReport();
   String HallReport();
+  String PinsReport() const;
   // Tests need the state machine stopped (Manual). False (and a message) if not possible.
   bool EnterTestMode(String &error);
   void ReadConsole();

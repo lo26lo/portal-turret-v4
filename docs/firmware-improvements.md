@@ -1066,3 +1066,10 @@ Conclusion : **contact intermittent sur le chemin de la LED** (soudure de IO33 d
 **Corrige** les entrées du 21.10.2026 (10ᵉ entrée, brochage refait) et du 24.10.2026 (2ᵉ entrée, mesure sur IO4 / IO5) : ce brochage a encore changé au routage, et la mesure n'a pas été implantée.
 
 **Non fait** : aucun changement de code ; le firmware reste celui de la v0.1.
+
+### 02.11.2026 — Code des servos poussé
+
+Le code décrit les 23.10.2026 (6ᵉ et 7ᵉ entrées) et flashé le 24.10.2026 n'avait jamais été commité : rampe `ServoRamp`, temps signés (servos relâchés aussitôt attachés), raison des relâchements dans le log, commande `pins`, `logic/ServoLogic.h` et `test_servo_ramp`.
+
+**Vérifié** : compilation `turret2` OK (RAM 28,2 %, flash 46,0 %). **Non vérifié ici** : tests natifs (pas de gcc sur ce PC) : CI.
+

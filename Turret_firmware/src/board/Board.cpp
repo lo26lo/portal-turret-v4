@@ -53,6 +53,9 @@ bool IsSuspicious(esp_reset_reason_t reason) {
 Button::Button(uint8_t pin) : pin(pin), debouncer(DEBOUNCE_MS, LONG_PRESS_MS) {}
 
 void Button::Initialize() {
+  if (pin == PIN_ABSENT) {
+    return; // v2: no buttons, never pressed
+  }
   // External 10k pull-up + 100 nF on the board, active low.
   pinMode(pin, INPUT);
   // A button already held at boot is not an event (A + B is read by Board::Begin).
@@ -60,6 +63,9 @@ void Button::Initialize() {
 }
 
 void Button::Update(ulong now) {
+  if (pin == PIN_ABSENT) {
+    return;
+  }
   ButtonEvent event = debouncer.Update(digitalRead(pin) == LOW, now);
   if (event != ButtonEvent::None) {
     pending = event;
@@ -118,7 +124,8 @@ void Board::Mark(const char *label) {
 
 void Board::Begin() {
   // 1. Amplifier muted (SD low), then gain pins released: open drain, '1' = high
-  //    impedance = 9 dB. IO21 / IO47 must never be driven high (plan §2.2).
+  //    impedance = 9 dB. The gain pins must never be driven high (plan §2.2;
+  //    v0.1: IO21 / IO47, v2: IO40 / IO41).
   digitalWrite(PIN_AMP_SD, LOW);
   pinMode(PIN_AMP_SD, OUTPUT);
   digitalWrite(PIN_AMP_SD, LOW);
@@ -143,13 +150,26 @@ void Board::Begin() {
   pinMode(PIN_BENCH_MODE, INPUT_PULLUP);
   // PROG (IO0): the strap was sampled at reset, it is a plain button now. Input only.
   pinMode(PIN_PROG, INPUT_PULLUP);
+  progButton.Reset(digitalRead(PIN_PROG) == LOW, millis()); // held at boot: not a press
+  if (PIN_BUTTON_EXT != PIN_ABSENT) {
+    // v2 J20: R49 100k pull-down on the board; the internal one covers an unfitted R49.
+    pinMode(PIN_BUTTON_EXT, INPUT_PULLDOWN);
+    extButton.Reset(digitalRead(PIN_BUTTON_EXT) == HIGH, millis());
+  }
   buttonA.Initialize();
   buttonB.Initialize();
   attachInterrupt(digitalPinToInterrupt(PIN_PWR_FLT), OnPowerFault, FALLING);
+#ifdef PINS_UNUSED
+  // v2: pins wired to test points only, held low instead of floating (plan v2 §7).
+  for (uint8_t pin : PINS_UNUSED) {
+    pinMode(pin, INPUT_PULLDOWN);
+  }
+#endif
 
   // 4. Boot-time choices, read once.
   benchMode = digitalRead(PIN_BENCH_MODE) == LOW;
-  if (buttonA.IsDown() && buttonB.IsDown()) {
+  // A + B held at boot (v0.1 only; on both boards: SW1 + PROG held 5 s).
+  if (BOARD_HAS_BUTTONS && buttonA.IsDown() && buttonB.IsDown()) {
     ulong start = millis();
     factoryReset = true;
     while (millis() - start < FACTORY_RESET_HOLD_MS) {
@@ -186,7 +206,7 @@ void Board::Begin() {
 }
 
 void Board::PrintBanner() {
-  Log.println("---- Turret2 ----");
+  Log.println("---- " BOARD_NAME " ----");
   Log.printf("Firmware: %s (built %s %s)\n", FIRMWARE_VERSION, __DATE__, __TIME__);
   Log.printf("Reset reason: %s\n", ResetReasonName(resetReason));
   Log.printf("Suspicious boots in a row: %u, brownouts: %u%s\n",
@@ -204,7 +224,8 @@ void Board::PrintBanner() {
   uint32_t flash = ESP.getFlashChipSize();
   uint32_t psram = ESP.getPsramSize();
   Log.printf("Flash: %u MB, PSRAM: %u bytes\n", (unsigned)(flash >> 20), (unsigned)psram);
-  // Plan §2.1: the module must be an N8 (8 MB, no PSRAM; IO26 is button A).
+  // Plan §2.1: the module must be an N8 (8 MB, no PSRAM; IO26 is button A on
+  // the v0.1, the left wing on the v2).
   if (flash != 8u * 1024 * 1024 || psram != 0) {
     Log.println("WARNING: expected ESP32-S3-MINI-1-N8 (8 MB flash, no PSRAM)");
   }
@@ -220,6 +241,12 @@ void Board::BootDone() {
   digitalWrite(PIN_LED_RED, LOW);
   redCode = 0;
   redStep = 0;
+}
+
+void Board::LedsOff() {
+  labMarkers = false;
+  SetGreenLevel(0);
+  digitalWrite(PIN_LED_RED, LOW);
 }
 
 void Board::Update(ulong deltaTime) {
@@ -238,6 +265,26 @@ void Board::Update(ulong deltaTime) {
 
   UpdateBootLoopCounter(now);
   UpdateResetGesture(now);
+  // PROG alone (SW1 open): long press only. With SW1 closed it belongs to the
+  // factory reset gesture above.
+  bool sw1Open = digitalRead(PIN_BENCH_MODE) != LOW;
+  ButtonEvent prog = progButton.Update(digitalRead(PIN_PROG) == LOW, now);
+  if (prog != ButtonEvent::None && sw1Open) {
+    userPress = true;
+    if (prog == ButtonEvent::LongPress) {
+      progPending = ButtonEvent::LongPress;
+    }
+  }
+  // v2 remote button: same as PROG alone, whatever SW1.
+  if (PIN_BUTTON_EXT != PIN_ABSENT) {
+    ButtonEvent ext = extButton.Update(digitalRead(PIN_BUTTON_EXT) == HIGH, now);
+    if (ext != ButtonEvent::None) {
+      userPress = true;
+      if (ext == ButtonEvent::LongPress) {
+        progPending = ButtonEvent::LongPress;
+      }
+    }
+  }
   bool fastBlink = (now / FAST_BLINK_MS) % 2 == 0;
   if (resetAccepted) {
     // Accepted: green blinking fast, red off, until the restart.
@@ -270,6 +317,18 @@ void Board::UpdateResetGesture(ulong now) {
     resetRequested = true;
     resetAccepted = true;
   }
+}
+
+bool Board::TakeUserPress() {
+  bool press = userPress;
+  userPress = false;
+  return press;
+}
+
+ButtonEvent Board::TakeProgEvent() {
+  ButtonEvent event = progPending;
+  progPending = ButtonEvent::None;
+  return event;
 }
 
 bool Board::TakeFactoryResetRequest() {

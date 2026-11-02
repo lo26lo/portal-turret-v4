@@ -630,7 +630,10 @@ private:
   int32_t value = 0;
   char answer[SCREEN_LINE_BYTES] = "";
   uint32_t answerUntil = 0;
-  bool encoderHints = false; // last key came from the rotary encoder
+  // Hints in the words of the knob (rotary encoder), the only local control
+  // of the v2 (no buttons A / B); A / B hints only after an A / B key (v0.1
+  // buttons, console "key a"). Then they follow the last control used.
+  bool encoderHints = true;
 };
 
 } // namespace logic

@@ -22,13 +22,13 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
    - **Fusion doit être ouvert**, avec son serveur MCP actif, pour que l'outil réponde ;
    - visible dans une nouvelle conversation ; pour le retirer : `claude mcp remove fusion -s user`.
 
-## État actuel — 01.11.2026
+## État actuel — 02.11.2026
 
 - **Carte v2 routée** (projet maître hors dépôt, `Desktop\Turret2_v2_6c\`) : **6 couches**, DRC 0 erreur / 0 non connecté, **pas encore commandée**. État réel, règles, écarts avec le plan : [carte-v2-etat.md](carte-v2-etat.md). Ouvertures de pochoir sur H1, H2 et H3 (recto et verso) ajoutées le 01.11.2026.
 - **Le brochage de l'ESP32 a changé au routage** : le tableau du §5 de [carte-v2-plan.md](carte-v2-plan.md) est périmé, la référence est **le tableau ci-dessous** (relevé dans le PCB le 01.11.2026). La mesure du courant et de la tension sur IO4 / IO5 (entrée du 24.10.2026) **n'est pas implantée**.
 - **Carte fille des canons v2** faite (`Desktop\Turret2_carte_fille\`) : C1 100 µF polymère + C2 100 nF au ras de J2, même taille et mêmes connecteurs ; place vérifiée dans Fusion ([carte-v2-etat.md](carte-v2-etat.md) §10). Rien à changer côté firmware.
-- **Firmware** : inchangé depuis l'état du 23.10.2026 ci-dessous ; il ne vise que la v0.1. **Ne pas le flasher sur une carte v2** : il pilote des PWM sur IO1–IO7, et IO7 est relié à SW1 (sortie haute + SW1 fermé = court-circuit vers GND).
-- **Prochaine action firmware v2** (lot F2) : `pins.h` et variante Arduino v2 d'après le tableau ci-dessous ; pilote de l'extendeur (écriture « tout coupé » au tout début du boot) ; garde-fou de carte (extendeur à 0x20 sur IO35 / IO36, absent de la v0.1) ; séquences d'allumage et de coupure des rails ; veille (plan v2 §1, §10).
+- **Firmware** : deux cartes depuis le 02.11.2026, choisies à la compilation : `turret2*` (v0.1) et **`turret2_v2*`** (v2, `TURRET2_V2`). **Garde-fou de carte** dans les deux : au tout début du boot, I²C sur IO35 / IO36 et recherche de l'extendeur à 0x20 ; mauvaise carte = rien n'est piloté, console USB seulement. Un firmware v0.1 **antérieur au 02.11.2026** n'a pas ce garde-fou : ne jamais le flasher sur une carte v2 (il pilote des PWM sur IO1–IO7, et IO7 est relié à SW1). Rails de la v2 pilotés depuis le 02.11.2026 (F2.4) : allumés un par un au boot, coupés en défaut d'alimentation et avant un redémarrage.
+- **Prochaine action firmware v2** (lot F2) : **Lot F2 écrit en entier le 02.11.2026** (F2.1 brochage, F2.2 garde-fou, F2.3 extendeur, F2.4 rails, F2.5 fonctions de A / B, F2.6 veilles réglables depuis la page web) : compilé, **rien n'a tourné sur une carte v2** (pas encore fabriquée). Prochaine action : à la réception de la carte, mise en service avec `turret2_v2_bringup` (garde-fou, `rails`, `rail … on|off`, mesures listées dans les entrées 5 et 8 du 02.11.2026), puis essais de la veille.
 
 ### Brochage de la carte v2 (pour le firmware)
 
@@ -59,7 +59,8 @@ Relevé des nets de U7 dans `Turret2.kicad_pcb` le 01.11.2026, comparé à la v0
 | SW1 (DEBUG) | IO3 | **IO7** | R9 10 kΩ → 3V3, SW1 vers GND |
 | PROG | IO0 | IO0 | R21 10 kΩ → 3V3 |
 | Boutons A / B | IO26 / IO34 | **supprimés** | |
-| Libres | IO39–IO42 | **IO1–IO6** | points de test TP10, TP5–TP9 au verso ; IO3 est un strap |
+| Libres | IO39–IO42 | **IO1, IO3–IO6** | points de test TP10, TP6–TP9 au verso ; IO3 est un strap |
+| Bouton déporté (J20, actif haut) | — | **IO2** | **décidé le 02.11.2026, à ajouter dans KiCad** ([carte-v2-etat.md](carte-v2-etat.md) §11) ; TP5 |
 | Commandes des rails | — | **extendeur TCAL6416 (0x20)** | P00 SERVO_EN, P01 LED_EN, P02 RADAR_EN, P03 HALL_EN_N (actif bas) ; RESET = EN de l'ESP32 |
 
 Inchangés : USB D− / D+ (IO19 / IO20), UART0 (IO43 / IO44, J16), IO45 / IO46 non connectées. L'IMU est **au recto** comme sur la v0.1 : pas de changement d'axes.
@@ -125,7 +126,7 @@ Inchangés : USB D− / D+ (IO19 / IO20), UART0 (IO43 / IO44, J16), IO45 / IO46 
 | IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commits `83544a4` puis `8a88267` (tâche d'affichage + dix idées d'écran) ; passé avant I3 à la demande de l'utilisateur ; `check_web.py` 40/40 ; **CI verte** (run 37303638236) avec 24 tests natifs ; 19.10.2026 : blocage au boot corrigé, écran 0,96" vu fonctionner (mode normal) ; menus du mode debug pas encore essayés sur l'écran |
 | HW | Mise en service de la première carte (plan §8, étapes A à J) | en cours | 17.10.2026 : flash + premier démarrage OK (étape B) ; radar sans trame ; détail par étape dans plan §8. 21.10.2026 : deuxième carte (composants transférés), même résultat, IMU saine |
 | V2 | Carte v2 : veille sous 1 mA (rails commutés), corrections de la v0.1, brochage refait pour le routage | **routée, pas commandée** | 21.10.2026 : [carte-v2-plan.md](carte-v2-plan.md) (RD-03D seul, eFuse TPS259533, 3 × TPS22965, AO3401A, extendeur TCAL6416) ; 01.11.2026 : routée en 6 couches, DRC propre, brochage final dans « État actuel » et [carte-v2-etat.md](carte-v2-etat.md) ; carte fille des canons v2 faite |
-| F2 | Firmware pour la carte v2 : `pins.h` et variante v2, pilote de l'extendeur, rails, garde-fou de carte, veille | à faire | d'après le brochage de « État actuel » (01.11.2026) et le plan v2 §10 ; la mesure du §2.1 du plan n'existe pas sur la carte |
+| F2 | Firmware pour la carte v2 : `pins.h` et variante v2, pilote de l'extendeur, rails, garde-fou de carte, veille **configurable depuis la page web** (entrée du 02.11.2026, 3ᵉ) | **écrit** (02.11.2026, 4ᵉ à 8ᵉ entrées), compilé ; **à essayer sur la carte v2** | d'après le brochage de « État actuel » (01.11.2026) et le plan v2 §10 ; la mesure du §2.1 du plan n'existe pas sur la carte |
 | I5 | au choix : A5, B5–B10, C2, C3, C5, C6, D3 | à faire | à trier avec l'utilisateur ; B9 (veille sentinelle) et B10 (vitesse des cibles) ajoutées le 19.10.2026 ; B10 va naturellement avec I3 (visée B1, vue radar C1) |
 | IQ | Modules Qwiic sur J11 : Q1 encodeur rotatif, Q2 remise à zéro par SW1 + PROG (sans module), Q3 touche capacitive MPR121, Q4–Q7 en option | en cours | Q1 et Q2 écrits le 19.10.2026 ; **Q2 vérifié sur la carte** ; Q1 : commande `volume` vérifiée, encodeur pas encore reçu ; Q3 à la réception du MPR121 (commandé ou à commander : ADA1982 + ruban cuivre PRT-13827) |
 
@@ -296,6 +297,9 @@ Jugés inutiles : PIR (le radar fait mieux), ampli STEMMA (MAX98357A sur la cart
 
 | Date | Quoi | Conséquence / solution |
 |---|---|---|
+| 02.11.2026 | Datasheet du TCAL6416 (PDF de TI) illisible sur ce poste : pas de `pdftoppm` ni de `pypdf`, et la version HTML de TI ne donne que la table des matières | pilote limité aux registres standard de la famille 6416 (0x00–0x07), communs au TCA6416A et au PCAL6416A ; registres étendus (tirages, masque d'interruption, 0x40–0x4F) **non vérifiés**, donc non utilisés |
+| 02.11.2026 | Le piège des `\` retirés par l'outil Bash (26.09.2026) s'est reproduit : deux remplacements Python dans un heredoc échouaient sur des chaînes contenant une barre oblique inverse suivie de « n » (assertion, rien d'écrit ; la même chose a ensuite coupé cette ligne en deux, corrigée à la main) | remplacements contenant `\` faits avec l'outil d'édition |
+| 02.11.2026 | Tests natifs : `ziglang` installé dans le scratchpad (pip), mais son exécution a été refusée par le mode automatique de Claude Code | tests laissés à la CI |
 | 26.09.2026 | `www.ti.com` et `www.digchip.com` bloqués par le proxy du conteneur cloud (curl et WebFetch) | variante de l'eFuse obtenue par les extraits d'une recherche web seulement ; confirmer dans la datasheet depuis un poste normal |
 | 26.09.2026 | Sous VS Code (Windows), l'outil Bash retire les `\` du texte des commandes, même dans un heredoc `<<'EOF'` : un script Python passé en ligne a échoué (`SyntaxError`) | écrire tout script ou code contenant des `\` dans un fichier (outil d'écriture), puis l'exécuter ; déjà vu aux lots 4 et 10 (journal local) |
 | 17.10.2026 | Premier flash sur la carte : après l'écriture, le reset RTS d'esptool (`hard_reset`) laisse l'ESP32-S3 en mode téléchargement (ROM : `rst:0x15 (USB_UART_CHIP_RESET),boot:0x20 (DOWNLOAD(USB/UART0))`) ; console muette, partitions NVS et coredump vierges = l'application n'avait jamais tourné. `after_reset: watchdog_reset` démarre l'application mais le port USB disparaît pendant le reset : esptool lève une erreur série (`OSError(22)`) et pio affiche FAILED alors que tout est écrit et vérifié | `upload.after_reset = no_reset` dans `boards/turret2.json` + `scripts/reset_after_upload.py` (post-action de `upload` / `uploadfs`) qui relance esptool `--after watchdog_reset read_mac` et ignore la perte du port ; vérifié : SUCCESS et application démarrée |
@@ -1072,4 +1076,134 @@ Conclusion : **contact intermittent sur le chemin de la LED** (soudure de IO33 d
 Le code décrit les 23.10.2026 (6ᵉ et 7ᵉ entrées) et flashé le 24.10.2026 n'avait jamais été commité : rampe `ServoRamp`, temps signés (servos relâchés aussitôt attachés), raison des relâchements dans le log, commande `pins`, `logic/ServoLogic.h` et `test_servo_ramp`.
 
 **Vérifié** : compilation `turret2` OK (RAM 28,2 %, flash 46,0 %). **Non vérifié ici** : tests natifs (pas de gcc sur ce PC) : CI.
+
+### 02.11.2026 (2ᵉ entrée) — OLED noir un cran sur deux avec l'encodeur
+
+**Symptôme** (utilisateur, mode debug, OLED + encodeur I²C) : navigation et sélection possibles, mais « plein de glitchs » ; après deux descentes l'écran devient noir, il revient si l'on continue, et ainsi de suite.
+
+**Cause : bug du firmware, même famille que les servos relâchés aussitôt (23.10.2026).** `loop()` lit `currentTime = millis()`, puis `encoder.Update()` (≈ 1 ms de bus) et `HandleEncoder()` → `DebugUi::Key()` → `Wake(millis())` : `lastActivity` est **plus tard** que `currentTime`. Ensuite `DebugUi::Update(currentTime)` → `UpdateSleep()` calculait `now - lastActivity` en **non signé** : la différence repliée (~49 jours) dépassait `OledSleepS` et l'écran se mettait en veille (`SetPower(false)`) juste après le cran. Le cran suivant ne faisait que le réveiller (« une touche sur un écran en veille ne fait que le réveiller ») : d'où un écran noir un cran sur deux et des crans avalés. Les boutons A / B y échappaient presque toujours : rien ne prend du temps entre la lecture de `currentTime` et leur traitement.
+
+**Écarté en relisant le code** : partage du bus (`Wire` prend un verrou par transaction, U8g2 découpe en transactions de 24 octets et n'est appelé que par la tâche `oled`), rendu du menu (texte seul).
+
+**Corrigé** : `DebugUi::UpdateSleep` compare en signé. Les autres horodatages par `millis()` du firmware ont été relus : ils sont relus après coup (`Actions::Update`) ou déjà comparés en signé.
+
+**Vérifié** : compilation `turret2` OK (RAM 28,2 %, flash 46,0 %). **Non vérifié** : sur la carte (module pas sous la main).
+
+### 02.11.2026 (3ᵉ entrée) — Veille v2 : tout réglable depuis la page web
+
+**Demande** : prévoir dans les paramètres web de quoi configurer toute la veille de la carte v2.
+
+**Ce que disent déjà les docs** (relevé de la même session) : *quoi couper* dans chaque mode est décidé ([carte-v2-plan.md](carte-v2-plan.md) §1, §1.1, ordre de coupure en fin de §2.1, Hall §4.3, §10 point 5) ; restent ouverts les délais, le passage veille radar → veille profonde, le Wi-Fi en veille radar et la ronde. Périmés pour la v2 : la séquence « Entrée en veille » d'[AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) (radar sentinelle abandonné) et B9 (pensé pour la v0.1). Le §1 du plan donne encore l'IMU sur IO15 : c'est **IO14** sur la carte routée.
+
+**Prévu pour F2.6** : un groupe de réglages **`Sleep`** dans la table de `Settings` (la page web l'affiche seule, listes déroulantes pour les choix), plus un bouton et l'état de veille sur la page. Liste proposée, à valider :
+
+| Réglage | Rôle | Défaut proposé |
+|---|---|---|
+| `SleepMode` | jamais / veille radar seule / veille radar puis profonde | veille radar seule |
+| `RadarSleepMin` | minutes sans cible avant la veille radar (0 = jamais) | 10 |
+| `DeepSleepMin` | minutes de veille radar avant la veille profonde (0 = jamais) | 0 |
+| `NightStart` / `NightEnd` | plage horaire de veille profonde (heure NTP ; sans heure valide : ignorée) | désactivée |
+| `SleepWifi` | Wi-Fi en veille radar : inchangé / station seule / coupé | inchangé |
+| `PatrolPeriodS` / `PatrolOnS` | ronde en veille profonde : réveil toutes les *T* s, radar allumé *t* s (0 = pas de ronde) | 0 / 3 |
+| `WakeImu` / `WakeImuLevel` | réveil par l'IMU (INT1, IO14) et sa sensibilité | oui / moyenne |
+| `HallPower` | capteurs Hall toujours alimentés / seulement quand une aile bouge | à la demande |
+
+Plus : bouton « Veille maintenant » (radar / profonde) et ligne d'état (mode, temps avant la veille) ; commande console `sleep radar|deep|off`. **Garde-fous** : pas de veille profonde en mode debug (SW1) ; avertissement sur la page avant une veille profonde (page et console perdues jusqu'au réveil) ; réveil toujours possible par PROG.
+
+**Non fait** : aucun code (F2.6 vient après F2.1–F2.4).
+
+### 02.11.2026 (4ᵉ entrée) — Lot F2 : brochage v2, garde-fou de carte, pilote de l'extendeur (F2.1–F2.3)
+
+**Demande** : « tu peux commencer » (le firmware pour la carte v2), avec les choix proposés : un seul code pour les deux cartes (un environnement par carte), garde-fou aussi dans le build v0.1 ; l'appui long sur PROG pour le Wi-Fi viendra avec F2.5.
+
+**Fait** :
+- **F2.1 brochage** : `src/pins.h` en deux blocs (`TURRET2_V2` ou v0.1), relu ligne à ligne contre [carte-v2-etat.md](carte-v2-etat.md) §4 ; `BOARD_NAME`, `BOARD_HAS_EXPANDER`, `BOARD_HAS_BUTTONS`, `PIN_ABSENT` (boutons A / B absents en v2 : `Button` ne fait rien), `PINS_UNUSED` (IO1–IO6 en entrée avec pull-down, plan v2 §7), ports de l'extendeur `EXPANDER_*`. Nouvelle variante `variants/turret2_v2` (LED_BUILTIN sur IO13 ; SPI par défaut sur IO3–IO6 au lieu de IO39–IO42, qui sont l'I²S et l'ampli en v2). Commandes `inputs` et `pins` (registres de la LED verte, n'importe quelle broche) indépendantes de la carte. Environnements `turret2_v2`, `turret2_v2_bringup`, `turret2_v2_ota`, `turret2_v2_ota_home` ; la CI compile aussi `turret2_v2`.
+- **F2.2 garde-fou** (`board/BoardCheck`) : première chose de `setup()`, avant `Board::Begin()` ; `I2cBus::Start()` (récupération du bus + `Wire.begin(35, 36)`, **silencieux** : le log passe dans la mémoire RTC du démarrage précédent tant que `CrashLog::Begin` n'a pas tourné) ; extendeur vu = accusé à 0x20 **et** registres de configuration lisibles. Le build v2 l'exige, le build v0.1 le refuse. Mauvaise carte : aucune autre broche touchée, rails coupés si l'extendeur est là, console USB qui répète quoi flasher toutes les 5 s, commandes `rollback` (démarre l'autre partition OTA si elle contient une application : retour au firmware d'avant un OTA raté) et `scan`. Pas de Wi-Fi ni d'OTA dans ce cas. `I2cBus::Begin()` (étape 5) ne fait plus que rapporter la récupération et le scan.
+- **F2.3 pilote** (`board/Expander`) : `Probe`, `AllOff` (niveaux de sortie d'abord, puis configuration en sorties, relu), `SetPort`, `ReadPort0`. « Tout coupé » au tout début du boot et dans `Actions::ShutdownForRestart()` (redémarrage, OTA). Commande console **`rails`** (lecture seule).
+- Docs : README du firmware (environnements, garde-fou, étape 0 du boot, commandes, règles de la v2) ; plan v2 §2.1, §4.4, §4.5 et §10 point 9 (broches de l'ampli, de la TX du radar et d'INT1 périmées, corrigées d'après carte-v2-etat §4).
+
+**Vérifié** : compilation `turret2` et `turret2_v2` OK (RAM 28,2 %, flash 46,1 % chacune), sans avertissement dans `src/` ; `turret2_v2` compile bien avec `variants/turret2_v2` et `TURRET2_V2` (`pio project metadata`) ; noms de carte dans les binaires (« Turret2 v0.1 » seulement dans `turret2`, « Turret2 v2 » seulement dans `turret2_v2`) ; `tools/check_web.py` : tout passe. **Non vérifié** : tests natifs (pas de compilateur hôte : CI) ; tout le comportement sur une carte v2 (pas encore fabriquée) ; sur la v0.1, que le garde-fou laisse bien démarrer (à vérifier au prochain flash : ligne « Board check: Turret2 v0.1, nothing at 0x20 »).
+
+**À savoir pour la suite** :
+- le build v2 laisse **tous les rails coupés** : servos, LEDs, radar et Hall ne sont pas alimentés (défauts radar et Hall attendus) jusqu'à F2.4 ;
+- un OTA qui échoue après `ShutdownForRestart()` laisse les rails coupés jusqu'au redémarrage : F2.4 devra les rallumer si la tourelle continue ;
+- les ports libres P04–P17 de l'extendeur restent des entrées flottantes : à tirer (registres de tirage du TCAL6416, à vérifier dans la datasheet) avant le bilan de la veille profonde (F2.6).
+
+### 02.11.2026 (5ᵉ entrée) — Lot F2.4 : rails de la v2
+
+**Demande** : continuer (sans commit intermédiaire).
+
+**Fait** :
+- **`board/Power`** : `On` (un rail à la fois, ≥ 10 ms après le précédent, attente de la montée : 15 ms servos, 5 ms LEDs, radar et Hall), `Off`, `AllOff` (servos, LEDs, radar, Hall, puis tout le port de l'extendeur réécrit « tout coupé »), `IsOn`, `Name`, `Parse`. Avant de couper le rail des servos, leurs lignes sont tenues à l'état bas. Sur la v0.1, tout est sans effet et `IsOn` vaut toujours vrai.
+- **Ordre de boot** : rail LED avant `light.Initialize()` (étape 2), rail radar avant `radar.Initialize()` (étape 7 : la TX de l'UART ne monte qu'une fois le radar alimenté), rail Hall avant la lecture des ailes (étape 8), rail servos à la fin de l'étape 10, après la calibration RF, **sauf en mode réduit** (boucle de redémarrages : peut-être l'alimentation ; `rail servo on` pour passer outre).
+- **Protections** : `Gantry` n'attache aucun servo tant que le rail des servos est coupé (les commandes attendent) ; `Light` n'envoie aucune trame tant que le rail LED est coupé ; `Radar::End()` (UART arrêtée, TX en entrée, analyseur remis à zéro) ; le défaut radar se compte depuis le dernier démarrage du radar, plus depuis le boot.
+- **Défaut d'alimentation** (`FaultState`, v2) : rails servos et LEDs coupés ; à la sortie, LEDs puis servos rallumés (servos pas en mode réduit).
+- **Avant un redémarrage ou un OTA** (`ShutdownForRestart`) : radar arrêté puis `Power::AllOff()`. Un OTA raté redémarre toujours (`Ota.cpp`) : rien à rallumer, la note de la 4ᵉ entrée est sans objet.
+- Commande console **`rail <servo|led|radar|hall> on|off`** : arrête ce que le rail alimente avant de le couper (servos relâchés, LEDs désactivées, radar arrêté ; Hall refusé pendant un mouvement d'aile) et le relance après ; répond par l'état relu (`rails`).
+- README du firmware (section *Power handling*, tableau du boot, commandes).
+
+**Vérifié** : compilation `turret2` et `turret2_v2` OK (RAM 28,2 %, flash 46,2 %), sans avertissement dans `src/` ; `check_web.py` : tout passe. **Non vérifié** : tout sur une carte v2 (pas fabriquée) ; sur la v0.1, comportement inchangé attendu (appels sans effet), à confirmer au prochain flash.
+
+**À mesurer sur la carte v2** (temps codés en dur, avec marge) : montée réelle des rails (oscilloscope sur TP2, TP11, TP12, TP13), démarrage des OH49E, délai avant la première trame du RD-03D après `RADAR_EN` (le défaut radar tombe 3 s après le démarrage du radar), chute du +3V3 et PWR_FLT à l'allumage du rail servos (plan v2 §11).
+
+### 02.11.2026 (6ᵉ entrée) — Lot F2.5 : fonctions des boutons A / B
+
+D'après le tableau §2.7 d'[AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) ; sur les deux cartes (sans effet gênant sur la v0.1, qui garde ses boutons) :
+- **PROG maintenu 3 s, SW1 ouvert** : Wi-Fi marche / arrêt (comme B maintenu). `Board` a un anti-rebond de plus sur PROG (`TakeProgEvent`, appui long seulement) ; SW1 fermé, PROG reste au geste de remise à zéro (SW1 + PROG 5 s), qui n'a pas changé.
+- **Knob en mode normal, appui maintenu 0,6 s** : cycle de démo (comme A ; mêmes refus : seulement depuis `Idle`, tourelle debout). Rotation = volume et appui court = sourdine existaient déjà.
+- Déjà en place : remise à zéro par SW1 + PROG (remplace A + B au démarrage), menus du mode debug au knob, boutons de la page web.
+
+**Vérifié** : compilation `turret2` et `turret2_v2` OK (flash 46,2 %) ; `check_web.py` : tout passe ; README §7. **Non vérifié** sur une carte.
+
+### 02.11.2026 (7ᵉ entrée) — Plus de boutons A / B : interface au vocabulaire du knob
+
+**Remarque de l'utilisateur** : « attention, on n'a plus de boutons A et B ». L'interface parlait encore de A / B à plusieurs endroits.
+
+**Fait** :
+- **Menu** (`logic/MenuLogic.h`) : indications du bas de l'écran **au vocabulaire du knob par défaut** (« Tourner  Appui:ok »…) ; elles ne passent à A / B qu'après une touche A / B (boutons de la v0.1 s'ils sont montés, `key a` à la console). Test natif `test_menu_render_root` adapté (démarre sur les indications du knob, puis A / B après une touche A).
+- **Page web** (Tests → *Debug screen*) : les quatre boutons sont ceux du knob (tourner à gauche / à droite, appui, appui maintenu) au lieu de A / A long / B / B long.
+- **Assistant de calibration** (`ui/MenuTree.h`) : « puis appuie » au lieu de « puis B ».
+- **Pages QR** (`ui/DebugUi.cpp`) : « Tour:page / Appui:fin ».
+- Simulateur (`tools/mock_menu.py`, `tools/mock_server.py`) : touches du knob et mêmes indications que le firmware.
+- README : mode debug décrit avec le knob ; les boutons A / B ne sont plus qu'une note pour la v0.1.
+
+**Inchangé** : la commande `key a|al|b|bl` (touches internes du menu) et le code des boutons de la v0.1 (sans effet si rien n'est branché sur J12 / J13 : R19 / R20 tiennent les entrées hautes).
+
+**Vérifié** : compilation `turret2` et `turret2_v2` OK ; `check_web.py` : tout passe. **Non vérifié** : tests natifs (CI).
+
+### 02.11.2026 (8ᵉ entrée) — Lot F2.6 : veilles réglables depuis la page web
+
+**Demande** : « je te fais confiance » (liste de réglages de la 3ᵉ entrée acceptée telle quelle) ; les boutons A / B restent sur les cartes v0.1.
+
+**Fait** :
+- **`logic/SleepLogic.h`** (pur, testé) : `SleepMode`, `SleepWifi`, `SleepLevel` ; `InNightWindow` (fenêtre qui peut passer minuit, sans heure = pas de nuit), `SecondsUntilHour`, `WantedSleepLevel` (toujours éveillé → veille radar → veille profonde, une marche à la fois ; profonde après `DeepSleepMin` ou tout de suite la nuit, seulement si permise), `ImuWakeThreshold`. Tests natifs `test_sleep_night_window`, `test_sleep_levels`.
+- **Réglages, groupe `Sleep`** (affichés seuls sur la page) : `SleepMode` (1 : veille radar seule), `RadarSleepMin` (10), `DeepSleepMin` (0 = la nuit seulement), `NightSleep` (non), `NightStart` / `NightEnd` (23 / 7), `SleepWifi` (inchangé), `PatrolPeriodS` (0) / `PatrolOnS` (3), `WakeImu` (oui) / `WakeImuLevel` (moyen), `HallPower` (1 : pendant un mouvement d'aile).
+- **`control/Sleep`** :
+  - veille radar (les deux cartes) : depuis `Idle` en mode normal après `RadarSleepMin` sans cible dans la zone ; ampli coupé (SD bas, horloges I²S laissées), servos relâchés, LEDs éteintes, Hall coupés, Wi-Fi selon `SleepWifi` ; v2 : rails servos et LEDs coupés. Réveil : cible dans la zone, knob, PROG, bouton, changement d'état (cycle lancé depuis la page), `sleep off`. Pendant un défaut d'alimentation, le réveil ne rallume rien (FaultState s'en charge) ;
+  - veille profonde (v2, SW1 ouvert) : après `DeepSleepMin` de veille radar ou la nuit ; `ShutdownForRestart()` (ampli puis I²S, rails), Wi-Fi coupé, LEDs d'état éteintes, IMU armée (`Motion::ArmWakeup` : accéléromètre seul à 26 Hz en basse consommation, ±2 g, gyroscope arrêté, interruption de réveil verrouillée sur INT1 / IO14), réveils EXT1 (IO14 haut), EXT0 (PROG, IO0 bas), minuterie (ronde ou fin de nuit, la plus proche) ;
+  - **ronde** : réveil par la minuterie avec `rtcPatrol` (mémoire RTC) → démarrage « discret » (`Sleep::BeginBoot`, `IsQuietBoot`) : rails LEDs, Hall et servos laissés coupés, `BootState` sans attache ni homing, veille radar d'emblée ; cible → réveil complet ; personne pendant `PatrolOnS` → retour en veille profonde. Fin de nuit (heure enregistrée en RTC) = démarrage normal ;
+  - commande **`sleep [radar|deep|off]`** (sans argument : état en JSON) ; `/api/status` contient `sleep` (niveau, mode, temps d'inactivité, secondes avant la prochaine marche, profonde permise, nuit, ronde) et `hall.powered`.
+- **Hall à la demande** (`Gantry::SetHallPower` : `Always`, `WhileMoving`, `Off`) : `Wing` allume le rail avant un mouvement ou un homing ; coupé 2 s après l'arrêt des ailes ; toujours allumé en mode debug ; coupé en veille ; le défaut « capteur à un rail » n'est plus compté rail coupé ; `hall`, `cal hall` et l'auto-test allument le rail avant de lire.
+- **Page web** : carte *Sleep* dans l'onglet d'état (niveau, compte à rebours, nuit ; boutons « Radar sleep now », « Deep sleep now » avec confirmation, « Wake up ») ; Hall « off » dans l'état. Simulateur : commande `sleep` et champ `sleep` (carte v0.1 simulée : profonde refusée).
+- README : section *Sleep*, tableau des réglages, commande.
+
+**Pièges évités** : le temps d'inactivité est calculé en signé et borné à 0 (`NoteActivity()` horodate avec `millis()`, plus tard que le `now` de la boucle : même bug que l'OLED) ; un démarrage de ronde passe par `Booting` avant `Idle` : ce n'est pas un « changement d'état » qui réveille ; nom de l'objet global `sleepControl` (pas `sleep`, fonction POSIX).
+
+**Vérifié** : compilation `turret2` (RAM 29,2 %, flash 46,4 %) et `turret2_v2` (RAM 29,3 %, flash 46,7 %), sans avertissement dans `src/` ; `check_web.py` : tout passe. La RAM gagne 3,4 Ko : chaque réglage occupe ~280 octets (valeur, défaut, min, max au format d'une chaîne de 64 octets). **Non vérifié** : tests natifs (CI) ; tout le comportement sur une carte.
+
+**À vérifier sur la carte v2** :
+- registres de l'IMU écrits à la main (`TAP_CFG0` 0x56 bit LIR, `CTRL6_C` 0x15 bit XL_HM_MODE) : relus dans la carte des registres du LSM6DSOX de mémoire, la datasheet ST n'a pas pu être relue sur ce poste ; la bibliothèque Adafruit écrit `TAP_CFG` (0x58) bits 4 et 7, ce qui sur le LSM6DSOX correspond à `INTERRUPTS_ENABLE` (bit 7) et à un bit de seuil de tap (bit 4, sans effet ici) ;
+- réveil par PROG : que la ROM ne repasse pas en mode téléchargement si PROG est encore tenu (les broches de strap ne sont en principe pas relues au réveil d'un deep sleep) ;
+- courant réel en veille radar et en veille profonde (plan v2 §1.1, PPK2) ; les ports libres P04–P17 de l'extendeur restent des entrées flottantes ;
+- l'heure après une veille profonde (horloge RTC conservée, dérive), donc la fin de nuit.
+
+### 02.11.2026 (9ᵉ entrée) — Bouton déporté J20 sur IO2
+
+**Question de l'utilisateur** : faut-il un changement matériel pour PROG (réveil, mode téléchargement) ? Il peut encore modifier la carte.
+
+**Réponse** : rien à changer pour PROG lui-même. Les straps (dont IO0) ne sont relus qu'aux resets matériels (mise sous tension, watchdog RTC, brownout…), pas à la sortie d'une veille profonde (d'après la datasheet de l'ESP32-S3, de mémoire : à confirmer sur la carte) ; IO0 est une broche RTC tirée par R21. Le vrai point : **SW2 est-il accessible tourelle fermée ?** Proposé et accepté : un **bouton déporté sur IO2**.
+
+**Décidé** : bouton **actif à l'état haut** (vers +3V3), parce que les réveils de veille profonde par niveau sont EXT0 (une broche : PROG, actif bas) et EXT1 (un groupe, un seul mode : « l'une est haute », celui de l'IMU). Schéma : J20 2 broches, R50 1 kΩ (+3V3 → J20.1), R51 1 kΩ (J20.2 → IO2), R49 100 kΩ IO2 → GND, C46 10 nF facultatif ([carte-v2-etat.md](carte-v2-etat.md) §11). **À faire par l'utilisateur dans KiCad** avant la commande.
+
+**Firmware** : `PIN_BUTTON_EXT` (IO2 en v2, absent en v0.1), retiré de `PINS_UNUSED` ; `Board` : anti-rebond actif haut (`INPUT_PULLDOWN` en plus de R49), maintenu 3 s = Wi-Fi comme PROG, tout appui de PROG (SW1 ouvert) ou du bouton = activité (`TakeUserPress`, réveille la veille radar) ; veille profonde : EXT1 sur IO2 + IO14 (IMU si `WakeImu`), cause du réveil lue (`esp_sleep_get_ext1_wakeup_status`) ; commande `inputs`. Compilation `turret2` et `turret2_v2` OK, sans avertissement.
 

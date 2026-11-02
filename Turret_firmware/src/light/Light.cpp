@@ -1,4 +1,5 @@
 #include "Light.h"
+#include "board/Power.h"
 #include "pins.h"
 
 namespace {
@@ -13,7 +14,10 @@ void Light::Initialize() {
   FastLED.setMaxPowerInVoltsAndMilliamps(5, DEFAULT_MAX_MILLIAMPS);
 
   FastLED.clear();
-  FastLED.show();
+  // v2: only towards a powered ring (a patrol boot leaves the LED rail off).
+  if (Power::IsOn(Rail::Led)) {
+    FastLED.show();
+  }
 }
 
 void Light::SetMaxMilliamps(uint32_t milliamps) {
@@ -26,7 +30,10 @@ void Light::SetEnabled(bool enabledIn) {
   enabled = enabledIn;
   if (!enabled) {
     FastLED.clear();
-    FastLED.show();
+    // v2: no frame towards an unpowered ring (the AHCT would feed it).
+    if (Power::IsOn(Rail::Led)) {
+      FastLED.show();
+    }
   }
 }
 
@@ -62,7 +69,8 @@ void Light::SetBitPattern(bool enabled) {
 }
 
 void Light::Update(ulong deltaTime) {
-  if (!enabled) {
+  // v2: nothing is sent while the LED rail is off (plan v2 §2.1).
+  if (!enabled || !Power::IsOn(Rail::Led)) {
     return;
   }
   if (bitPattern) {

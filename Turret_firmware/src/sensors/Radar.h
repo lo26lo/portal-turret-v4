@@ -18,7 +18,14 @@ struct RadarTarget {
 
 class Radar {
 public:
+  // UART1 started (boot step 7, after the radar rail on the v2).
   void Initialize();
+  // UART1 stopped and its TX line back to an input, before the radar rail is
+  // switched off (v2: a TX line left high feeds the unpowered radar).
+  void End();
+  bool IsRunning() const { return running; }
+  // millis() of the last Initialize(): the radar needs time to send frames.
+  ulong GetStartedAt() const { return startedAt; }
   void Update(ulong deltaTime);
   const RadarTarget& GetTarget(uint8_t index) const;
   uint8_t GetTargetCount();
@@ -58,4 +65,6 @@ private:
 
   ulong lastSensorUpdateTime = 0;
   bool frameSeen = false;
+  bool running = false;
+  ulong startedAt = 0;
 };

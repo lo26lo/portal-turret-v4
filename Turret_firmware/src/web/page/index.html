@@ -54,6 +54,11 @@ input[type=range]{width:100%}
 <small>For the clock (NTP) and access from your home network. The turret's own network stays on.</small>
 </div></div>
 <div class="card"><h2>Status</h2><div class="grid" id="status"></div></div>
+<div class="card"><h2>Sleep</h2>
+<div class="row" id="sleepstate">…</div>
+<div class="row"><button data-cmd="sleep radar">Radar sleep now</button><button id="deepnow">Deep sleep now</button><button class="primary" data-cmd="sleep off">Wake up</button></div>
+<small>Radar sleep: the radar keeps watching, everything else rests; a target, the knob, PROG or <i>Wake up</i> wakes the turret. Deep sleep (v2 board): almost nothing draws current; the turret wakes up when moved, on PROG, at the end of the night or for a patrol, and this page is unreachable until then. Delays, night, WiFi and patrols: Settings tab, group <i>Sleep</i>.</small>
+</div>
 </section>
 
 <section id="t-settings"><div id="settings"></div></section>
@@ -81,8 +86,8 @@ input[type=range]{width:100%}
 <section id="t-tests">
 <div class="card"><h2>Debug screen</h2>
 <pre id="scr" class="scr"></pre>
-<div class="row"><button data-key="a">A</button><button data-key="al">A long</button><button data-key="b">B</button><button data-key="bl">B long</button><span id="scrinfo" style="color:var(--muted)"></span></div>
-<small>A: next / previous (long). B: enter / back (long). Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
+<div class="row"><button data-key="ccw">&#8634; Turn</button><button data-key="cw">Turn &#8635;</button><button data-key="push">Push</button><button data-key="hold">Push held</button><span id="scrinfo" style="color:var(--muted)"></span></div>
+<small>Same keys as the knob: turn = previous / next (or value &minus; / +), push = enter / OK, push held = back. Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
 </div>
 <div class="card"><h2>Self-test</h2>
 <div class="row"><button data-cmd="selftest quick">Quick (nothing moves)</button><button id="stfull">Full (LEDs, sound, servos, wings)</button><button id="stref">Report</button></div>
@@ -153,7 +158,7 @@ async function loadStatus(){
   kv("Mode",st.benchMode?"bench":st.reducedMode?"reduced":"normal"),kv("Brownouts / loops",st.brownouts+" / "+st.bootLoopCount),kv("eFuse events",st.powerFaults),
   kv("Radar",st.radar.alive?st.radar.targets+" target(s)":"silent",st.radar.alive?"":"bad"),
   kv("IMU",st.imu.available?(st.imu.upright?"upright":"axis "+AXES[st.imu.dominantAxis]):"missing",st.imu.available?"":"bad"),
-  kv("Hall L / R",st.hall.left+" / "+st.hall.right,st.hall.fault?"bad":""),
+  kv("Hall L / R",st.hall.powered===false?"off (powered while a wing moves)":st.hall.left+" / "+st.hall.right,st.hall.fault?"bad":""),
   kv("Wings",(st.wings.moving?"moving":(st.wings.leftOpen||st.wings.rightOpen)?"open":"closed")),
   kv("Amp",st.amp.gainDb+" dB"+(st.amp.muted?", muted":st.amp.running?"":", off")),
   kv("WiFi",esc(st.wifi.ssid)+", "+st.wifi.clients+" client(s)"),
@@ -167,6 +172,13 @@ async function loadStatus(){
   `Connecting to <b>${esc(sta.ssid)}</b>… (check the password if this lasts)`;
  if(sta.connected&&!wifiEdit)$("#wifiform").hidden=true;else $("#wifiform").hidden=false;
  const ch=$("#wifichange");if(ch)ch.onclick=()=>{wifiEdit=true;$("#wifiform").hidden=false};
+ const sl=st.sleep;
+ if(sl){
+  const lv={awake:"Awake",radar:"Radar sleep",deep:"Deep sleep"}[sl.level]||sl.level;
+  const nx=sl.nextS<0?"":sl.level==="awake"?` · radar sleep in ${up(sl.nextS*1000)}`:sl.patrol?` · patrol ends in ${up(sl.nextS*1000)}`:` · deep sleep in ${up(sl.nextS*1000)}`;
+  $("#sleepstate").innerHTML=`<b>${lv}</b>${sl.mode===0?" · sleep off in the settings":""}${nx}${sl.night?" · night":""}`;
+  $("#deepnow").disabled=!sl.deepAllowed;
+ }
  $("#hl").textContent=st.hall.left;$("#hr").textContent=st.hall.right;
  $("#axis").textContent=AXES[st.imu.dominantAxis]||"–";
 }
@@ -228,6 +240,7 @@ $$("[data-key]").forEach(b=>b.onclick=()=>post("/api/action",{cmd:"key "+b.datas
 async function loadSelfTest(){$("#strep").textContent=await (await fetch("/api/selftest")).text()}
 $("#stref").onclick=loadSelfTest;
 $("#stfull").onclick=()=>{if(confirm("Full self-test: the servos and the wings will move. Go?"))act("selftest")};
+$("#deepnow").onclick=()=>{if(confirm("Deep sleep: this page and the console stop answering until the turret wakes up (moved, PROG, end of the night or patrol). Go?"))act("sleep deep")};
 $$("[data-cmd]").forEach(b=>b.onclick=()=>act(b.dataset.cmd));
 $("#svgo").onclick=()=>act(`servo ${$("#sv").value} ${$("#svv").value}`);
 $("#vcgo").onclick=()=>act("voice "+$("#vc").value);

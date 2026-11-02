@@ -100,7 +100,7 @@ Le brochage a changé au routage (« lot C » : ordre des GPIO revu pour supprim
 | GPIO | Fonction v2 | Composants | Remarque |
 |---|---|---|---|
 | IO0 | PROG (SW2) | R21 10 kΩ → +3V3 | strap |
-| IO1–IO6 | **libres** | TP10 (IO1), TP5–TP9 (IO2–IO6), au verso | ADC1, tactiles, RTC ; IO3 est un strap |
+| IO1–IO6 | **libres** | TP10 (IO1), TP5–TP9 (IO2–IO6), au verso | ADC1, tactiles, RTC ; IO3 est un strap. **IO2 : bouton déporté J20, décidé le 02.11.2026, pas encore dans KiCad (§11)** |
 | IO7 | SW1 « DEBUG » (`DEBUG_SW`) | R9 10 kΩ → +3V3 | SW1 fermé = 330 µA |
 | IO8 | HALL_LEFT | R40 100 kΩ → GND | ADC1 |
 | IO9 | HALL_RIGHT | R41 100 kΩ → GND | ADC1 |
@@ -201,6 +201,7 @@ Plan de routage local : `Desktop\Turret2_v2_6c\PLAN_ROUTAGE_6C.html` (ordre : bl
 - [ ] Texte « 5V SERVO » de TP2 : remonter sa hauteur au minimum du fabricant.
 - [ ] Gerber, perçages, nomenclature, positions ; **deux pochoirs** (recto et verso), avec à la commande la mention « garder les 3 ouvertures hors pastilles (trous de centrage) ».
 - [ ] Vérification du schéma ↔ PCB (`kicad-cli pcb drc --schematic-parity`).
+- [ ] **Bouton déporté J20 sur IO2** (§11) : ajouter au schéma et au PCB, puis refaire DRC, remplissage des zones et export STEP.
 - [ ] Revue finale de la netlist contre ce document.
 
 ---
@@ -241,6 +242,28 @@ Projet `Desktop\Turret2_carte_fille\` (KiCad 10, 2 couches), créé le 01.11.202
 ![Carte fille v2 posée dans le canon gauche (Fusion)](img/carte-fille-canon-v2-fusion.png)
 
 - **Fabrication** : JLCPCB facture un ébavurage (0,02 $ par carte quand un côté fait entre 1,5 et 3 cm) ; normal pour une carte de cette taille.
+
+---
+
+## 11. Modification décidée le 02.11.2026 : bouton déporté J20 sur IO2 (à faire dans KiCad)
+
+**Pourquoi** : sans boutons A / B, PROG (SW2) est le seul bouton de la v2 en dehors du knob de debug. Il sert au Wi-Fi (maintenu 3 s), au réveil de la veille profonde et, avec SW1, à la remise à zéro. S'il n'est pas accessible tourelle fermée, un bouton déporté sur la coque le remplace. IO2 est libre, c'est une broche RTC (réveil possible), et elle est déjà sur TP5.
+
+**Bouton actif à l'état haut**, pas vers la masse : en veille profonde, l'ESP32-S3 n'a que deux réveils par niveau. EXT0 (une broche) est pris par PROG (IO0, actif bas). EXT1 (un groupe de broches) n'a qu'un mode commun, ici « l'une est haute », celui de l'IMU (INT1, IO14). Un bouton vers +3V3 rejoint ce groupe ; un bouton vers la masse ne pourrait pas.
+
+| Réf. | Valeur | Raccordement | Rôle |
+|---|---|---|---|
+| J20 | connecteur 2 broches (par exemple JST-PH, B2B-PH-K-S), au bord de la carte | 1 = BTN_3V3, 2 = BTN | vers le bouton (contact simple, normalement ouvert) |
+| R50 | 1 kΩ 0603 | +3V3 → J20.1 | limite à 3,3 mA un court-circuit de BTN_3V3 vers la masse (câble abîmé) ; ESD |
+| R51 | 1 kΩ 0603 | J20.2 → IO2 | protection de la GPIO, ESD ; même rôle que les 1 kΩ du radar |
+| R49 | 100 kΩ 0603 | IO2 → GND, côté module | IO2 bas au repos, connecteur débranché compris ; 0 µA en veille tant qu'on n'appuie pas |
+| C46 | 10 nF X7R 0603 (facultatif) | IO2 → GND, côté module | ESD et rebonds (τ = 10 µs avec R51) |
+
+- Appuyé : IO2 = 3,3 V × 100 / 102 ≈ **3,24 V** (1,6 mA). Relâché : 0 V.
+- Références à confirmer à l'annotation : R49–R51 et J20 sont libres d'après ces documents ; C44 / C45 sont déjà le découplage de l'extendeur, d'où C46.
+- Routage : signal lent, In3 permis ; garder TP5 sur IO2.
+
+**Firmware** (fait le 02.11.2026, `PIN_BUTTON_EXT` = 2 dans `pins.h`) : maintenu 3 s = Wi-Fi marche / arrêt (comme PROG) ; tout appui réveille la veille radar ; réveil de la veille profonde par EXT1 avec l'IMU ; commande `inputs` (état du bouton). Sans J20 câblé, rien ne change (IO2 tiré bas).
 
 ---
 

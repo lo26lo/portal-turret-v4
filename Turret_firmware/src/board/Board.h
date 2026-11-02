@@ -53,6 +53,9 @@ public:
   // End of the boot sequence: the status LEDs leave their boot test (both on)
   // and follow their settings.
   void BootDone();
+  // Deep sleep (F2.6): both status LEDs off as plain GPIO outputs low (the
+  // green one is an RTC pin: never left high, plan v2 §1.1).
+  void LedsOff();
   // Status LED settings (GreenLedMode, GreenLedPeriod, GreenLedBright,
   // RedLedMode) and LabMarkers. Again after every setting change.
   void ApplySettings(const Settings &settings);
@@ -68,12 +71,12 @@ public:
   void SetFullPower(bool enabled) { fullPower = enabled; }
   // Debug menu: a "long press" is 0.6 s instead of 3 s.
   void SetNavigationButtons(bool enabled);
-  bool IsFactoryResetRequested() const { return factoryReset; } // D3, A + B held at boot
+  bool IsFactoryResetRequested() const { return factoryReset; } // D3, A + B held at boot (v0.1 only)
   bool IsReducedMode() const { return reducedMode; }         // D5, reboot loop detected
   esp_reset_reason_t GetResetReason() const { return resetReason; }
   static const char *ResetReasonName(esp_reset_reason_t reason);
 
-  // eFuse fault line (IO38): current level and falling edges seen since the last call.
+  // eFuse fault line (PIN_PWR_FLT): current level and falling edges seen since the last call.
   bool IsPowerFault() const;
   uint32_t TakePowerFaultEdges();
   // True once per power fault seen since the last call, even if PWR_FLT was
@@ -106,8 +109,16 @@ public:
   bool HasLabMarkers() const { return labMarkers; }
   static void Mark(const char *label);
 
+  // v0.1 only: on the v2 (PIN_ABSENT) they never report an event.
   Button buttonA;
   Button buttonB;
+  // F2.5 (both boards): PROG held 3 s with SW1 open (SW1 closed: the factory
+  // reset gesture), or the v2 remote button (J20) held 3 s. Only LongPress is
+  // reported; returns it once and clears it.
+  ButtonEvent TakeProgEvent();
+  // Any press of PROG (SW1 open) or of the remote button since the last call
+  // (wakes the radar sleep up).
+  bool TakeUserPress();
 
 private:
   void UpdateGreenLed(ulong now);
@@ -149,6 +160,10 @@ private:
   logic::RedLedMode redMode = logic::RedLedMode::FaultCodes;
 
   logic::ResetGesture resetGesture;
+  logic::Debouncer progButton{30, 3000};
+  logic::Debouncer extButton{30, 3000}; // v2 J20, active high
+  ButtonEvent progPending = ButtonEvent::None;
+  bool userPress = false;
   bool resetRequested = false;
   bool resetAccepted = false;
 

@@ -1,3 +1,4 @@
+#include "control/Sleep.h"
 #include "board/Log.h"
 #include "BootState.h"
 #include "StateMachine.h"
@@ -33,6 +34,12 @@ void BootState::Update(ulong deltaTime) {
     if (board.IsServoLimited() || board.IsReducedMode()) {
       Log.println(board.IsReducedMode() ? "Boot: reduced mode, servos not attached"
                                         : "Boot: debug mode, servos not attached");
+      Finish();
+      return;
+    }
+    // Patrol from the deep sleep (F2.6): servo rail off, the radar looks only.
+    if (Sleep::IsQuietBoot()) {
+      Log.println("Boot: patrol, servos not attached");
       Finish();
       return;
     }

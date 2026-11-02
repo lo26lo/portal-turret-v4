@@ -67,11 +67,17 @@ def wrap(text, columns=COLUMNS, max_lines=3):
     return (lines + [""] * max_lines)[:max_lines]
 
 
+ENCODER_KEYS = ("cw", "ccw", "push", "hold")
+
+
 class MenuNav:
     def __init__(self, items, execute, get_value, info_line):
         self.items, self.execute, self.get_value, self.info_line = items, execute, get_value, info_line
         self.mode, self.menu, self.cursor, self.active, self.value, self.step = "browse", 0, 0, 0, 0, 0
         self.answer = ""
+        # Hints in the words of the knob until an A / B key arrives (no
+        # buttons on the v2), like MenuNav::encoderHints in MenuLogic.h.
+        self.encoder = True
 
     def children(self, parent):
         return [i for i, item in enumerate(self.items) if item["parent"] == parent]
@@ -79,8 +85,21 @@ class MenuNav:
     def run(self, command):
         self.answer = (self.execute(command) or "").split("\n")[0] if command else ""
 
+    def from_encoder(self, key):
+        """Knob key -> A / B key for the current mode (MenuNav::FromEncoder); None = ignored."""
+        if self.mode == "adjust":
+            return {"cw": "b", "ccw": "a", "push": "bl", "hold": "al"}[key]
+        if self.mode == "confirm":
+            return None if key in ("cw", "ccw") else ("b" if key == "push" else "a")
+        return {"cw": "a", "ccw": "al", "push": "b", "hold": "bl"}[key]
+
     def key(self, key):
-        """key: 'a', 'al' (A long), 'b', 'bl' (B long)."""
+        """key: 'a', 'al' (A long), 'b', 'bl' (B long), or the knob: 'cw', 'ccw', 'push', 'hold'."""
+        self.encoder = key in ENCODER_KEYS
+        if self.encoder:
+            key = self.from_encoder(key)
+            if key is None:
+                return
         if self.mode == "info":
             if key in ("a", "al"):
                 kids = self.children(self.items[self.active]["parent"])
@@ -159,7 +178,10 @@ class MenuNav:
                 lines[1 + row] = self.items[index][lang] + (" >" if self.items[index]["kind"] == "MENU" else "")
                 if first + row == self.cursor:
                     highlight = 1 + row
-            lines[5] = self.answer or ("A:suiv  B:ok" if french else "A:next  B:ok")
+            if self.encoder:
+                lines[5] = self.answer or ("Tourner  Appui:ok" if french else "Turn  Push:ok")
+            else:
+                lines[5] = self.answer or ("A:suiv  B:ok" if french else "A:next  B:ok")
             return lines, highlight
         item = self.items[self.active]
         lines[0] = item[lang]
@@ -168,24 +190,33 @@ class MenuNav:
             if self.step >= len(steps):
                 lines[2] = "Terminé" if french else "Done"
                 lines[4] = self.answer
-                lines[5] = "B:retour" if french else "B:back"
+                lines[5] = (("Appui:retour" if french else "Push:back") if self.encoder
+                            else ("B:retour" if french else "B:back"))
             else:
                 lines[0] = "%s %d/%d" % (item[lang], self.step + 1, len(steps))
                 lines[1:4] = wrap(self.items[steps[self.step]][lang])
                 lines[4] = self.answer
-                lines[5] = "B:ok  A:passer" if french else "B:ok  A:skip"
+                lines[5] = (("Appui:ok  Tour:passer" if french else "Push:ok  Turn:skip") if self.encoder
+                            else ("B:ok  A:passer" if french else "B:ok  A:skip"))
         elif self.mode == "info":
             for i in range(4):
                 lines[1 + i] = self.info_line(item["page"], i, french)
-            lines[5] = "A:page  B:retour" if french else "A:page  B:back"
+            lines[5] = (("Tour:page Appui:fin" if french else "Turn:page Push:back") if self.encoder
+                        else ("A:page  B:retour" if french else "A:page  B:back"))
         elif self.mode == "adjust":
             lines[2] = "      <  %d  >" % self.value
             lines[4] = self.answer
-            if item["save"]:
+            if self.encoder:
+                if item["save"]:
+                    lines[5] = "Tour:± Appui:sauve" if french else "Turn:± Push:save"
+                else:
+                    lines[5] = "Tour:± Appui:fin" if french else "Turn:± Push:done"
+            elif item["save"]:
                 lines[5] = "A:- B:+ B long:sauve" if french else "A:- B:+ hold B:save"
             else:
                 lines[5] = "A:- B:+ B long:fin" if french else "A:- B:+ hold B:done"
         else:
             lines[2] = "Confirmer ?" if french else "Are you sure?"
-            lines[5] = "B:oui   A:non" if french else "B:yes   A:no"
+            lines[5] = (("Appui:oui  long:non" if french else "Push:yes  hold:no") if self.encoder
+                        else ("B:oui   A:non" if french else "B:yes   A:no"))
         return lines, highlight

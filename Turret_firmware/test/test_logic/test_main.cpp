@@ -14,6 +14,7 @@
 #include "logic/MenuLogic.h"
 #include "logic/RadarLogic.h"
 #include "logic/ServoLogic.h"
+#include "logic/SleepLogic.h"
 #include "ui/MenuTree.h"
 
 void setUp() {}
@@ -363,6 +364,70 @@ void test_servo_ramp() {
   TEST_ASSERT_EQUAL_INT(2400, logic::RampStep(500, 2400, 20000, 4000000000u));
 }
 
+void test_sleep_night_window() {
+  // Same day.
+  TEST_ASSERT_TRUE(logic::InNightWindow(2, 1, 6));
+  TEST_ASSERT_FALSE(logic::InNightWindow(6, 1, 6)); // end excluded
+  TEST_ASSERT_FALSE(logic::InNightWindow(0, 1, 6));
+  // Across midnight.
+  TEST_ASSERT_TRUE(logic::InNightWindow(23, 23, 7));
+  TEST_ASSERT_TRUE(logic::InNightWindow(0, 23, 7));
+  TEST_ASSERT_TRUE(logic::InNightWindow(6, 23, 7));
+  TEST_ASSERT_FALSE(logic::InNightWindow(7, 23, 7));
+  TEST_ASSERT_FALSE(logic::InNightWindow(12, 23, 7));
+  // No night, or no clock.
+  TEST_ASSERT_FALSE(logic::InNightWindow(3, 5, 5));
+  TEST_ASSERT_FALSE(logic::InNightWindow(-1, 23, 7));
+  // Seconds to the next hour:00.
+  TEST_ASSERT_EQUAL_UINT32(3600, logic::SecondsUntilHour(6 * 3600, 7));
+  TEST_ASSERT_EQUAL_UINT32(8 * 3600, logic::SecondsUntilHour(23 * 3600, 7)); // across midnight
+  TEST_ASSERT_EQUAL_UINT32(86400, logic::SecondsUntilHour(7 * 3600, 7));     // exactly now: tomorrow
+}
+
+void test_sleep_levels() {
+  using L = logic::SleepLevel;
+  logic::SleepInputs in;
+  in.mode = logic::SleepMode::RadarThenDeep;
+  in.radarSleepAfterMs = 600000;
+  in.deepSleepAfterMs = 3600000;
+  in.deepAllowed = true;
+  // Awake until the idle delay, then the radar sleep first.
+  in.idleMs = 599999;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Awake) == L::Awake);
+  in.idleMs = 600000;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Awake) == L::Radar);
+  // Deep after DeepSleepMin of radar sleep, at once at night.
+  in.inRadarSleepMs = 3599999;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Radar);
+  in.inRadarSleepMs = 3600000;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Deep);
+  in.inRadarSleepMs = 0;
+  in.night = true;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Deep);
+  // Never deep when not allowed (v0.1, debug mode) or in RadarOnly.
+  in.deepAllowed = false;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Radar);
+  in.deepAllowed = true;
+  in.mode = logic::SleepMode::RadarOnly;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Radar);
+  // 0 = never on its own.
+  in.mode = logic::SleepMode::RadarThenDeep;
+  in.night = false;
+  in.deepSleepAfterMs = 0;
+  in.inRadarSleepMs = 100000000;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Radar);
+  in.radarSleepAfterMs = 0;
+  in.idleMs = 100000000;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Awake) == L::Awake);
+  // Never: always awake.
+  in.mode = logic::SleepMode::Never;
+  TEST_ASSERT_TRUE(logic::WantedSleepLevel(in, L::Radar) == L::Awake);
+  // IMU thresholds: more sensitive = lower.
+  TEST_ASSERT_TRUE(logic::ImuWakeThreshold(2) < logic::ImuWakeThreshold(1));
+  TEST_ASSERT_TRUE(logic::ImuWakeThreshold(1) < logic::ImuWakeThreshold(0));
+  TEST_ASSERT_TRUE(logic::ImuWakeThreshold(0) < 64);
+}
+
 void test_amp_gain_rounding() {
   TEST_ASSERT_EQUAL_INT32(9, logic::RoundAmpGain(0));
   TEST_ASSERT_EQUAL_INT32(9, logic::RoundAmpGain(10));
@@ -422,9 +487,15 @@ void test_menu_render_root() {
   TEST_ASSERT_EQUAL_STRING("Racine", screen.line[0]);
   TEST_ASSERT_EQUAL_STRING("Ping", screen.line[1]);
   TEST_ASSERT_EQUAL_INT8(1, screen.highlight);
-  TEST_ASSERT_EQUAL_STRING("A:suiv  B:ok", screen.line[5]);
+  // No key yet: hints in the words of the knob (the v2 has no buttons A / B).
+  TEST_ASSERT_EQUAL_STRING("Tourner  Appui:ok", screen.line[5]);
   nav.Render(screen, logic::Lang::English, 0);
   TEST_ASSERT_EQUAL_STRING("Root", screen.line[0]);
+  TEST_ASSERT_EQUAL_STRING("Turn  Push:ok", screen.line[5]);
+  // After an A / B key (v0.1 buttons, console): A / B hints.
+  Press(nav, logic::MenuKey::A);
+  Press(nav, logic::MenuKey::ALong);
+  nav.Render(screen, logic::Lang::English, 0);
   TEST_ASSERT_EQUAL_STRING("A:next  B:ok", screen.line[5]);
 }
 
@@ -868,6 +939,8 @@ int main() {
   RUN_TEST(test_upsample_factor);
   RUN_TEST(test_tip_watch);
   RUN_TEST(test_servo_ramp);
+  RUN_TEST(test_sleep_night_window);
+  RUN_TEST(test_sleep_levels);
   RUN_TEST(test_amp_gain_rounding);
   return UNITY_END();
 }

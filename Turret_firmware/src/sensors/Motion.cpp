@@ -56,6 +56,40 @@ void Motion::Initialize(Settings &settingsIn)
     }
 }
 
+// LSM6DSOX registers not covered by the library (datasheet register map).
+namespace {
+const uint8_t REG_TAP_CFG0 = 0x56; // bit 0 LIR: latched interrupts
+const uint8_t REG_CTRL6_C = 0x15;  // bit 4 XL_HM_MODE: 1 = accelerometer high-performance off (low power)
+} // namespace
+
+bool Motion::UpdateRegister(uint8_t reg, uint8_t mask, uint8_t value) {
+  Wire.beginTransmission(IMU_ADDRESS);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0 || Wire.requestFrom(IMU_ADDRESS, (uint8_t)1) != 1) {
+    return false;
+  }
+  uint8_t current = Wire.read();
+  Wire.beginTransmission(IMU_ADDRESS);
+  Wire.write(reg);
+  Wire.write((uint8_t)((current & ~mask) | (value & mask)));
+  return Wire.endTransmission() == 0;
+}
+
+bool Motion::ArmWakeup(uint8_t threshold) {
+  if (!available) {
+    return false;
+  }
+  imu.setGyroDataRate(LSM6DS_RATE_SHUTDOWN);
+  imu.setAccelRange(LSM6DS_ACCEL_RANGE_2_G);
+  imu.setAccelDataRate(LSM6DS_RATE_26_HZ);
+  bool ok = UpdateRegister(REG_CTRL6_C, 0x10, 0x10);
+  imu.enableWakeup(true, 0, threshold & 0x3F);
+  ok = UpdateRegister(REG_TAP_CFG0, 0x01, 0x01) && ok;
+  imu.configInt1(false, false, false, false, true);
+  imu.awake(); // reading WAKE_UP_SRC clears an event already latched
+  return ok;
+}
+
 void Motion::Update(ulong deltaTime)
 {
     if (!available)

@@ -1,3 +1,4 @@
+#include "board/Power.h"
 #include "board/Log.h"
 #include "motion/Gantry.h"
 
@@ -84,11 +85,16 @@ void Gantry::Update(ulong deltaTime) {
   wingLeft.Update(deltaTime);
   wingRight.Update(deltaTime);
   ReleaseIdleRotation(now);
+  UpdateHallPower(now);
 }
 
 // At most one servo starts per ServoStagger window: several servos jumping to
 // their target together draw 3 to 4 A, the limit of the eFuse (plan §4).
 void Gantry::RunAttachSchedule(ulong now) {
+  // v2: no pulse towards unpowered servos; the commands wait for the servo rail.
+  if (!Power::IsOn(Rail::Servo)) {
+    return;
+  }
   ulong gap = staggerOverrideMs ? staggerOverrideMs : servoStaggerMs;
   if (attachedOnce && now - lastAttachAt < gap) {
     return;
@@ -103,6 +109,26 @@ void Gantry::RunAttachSchedule(ulong now) {
       Board::Mark(channel.GetName()); // L1 lab marker
       return;
     }
+  }
+}
+
+void Gantry::UpdateHallPower(ulong now) {
+  const ulong HALL_OFF_DELAY_MS = 2000;
+  if (!Power::IsSwitchable()) {
+    return;
+  }
+  if (wingLeft.IsMoving() || wingRight.IsMoving()) {
+    hallNeededAt = now;
+    return;
+  }
+  if (hallPower == HallPower::Always) {
+    hallNeededAt = now;
+    Power::On(Rail::Hall); // nothing if already on
+    return;
+  }
+  long idle = (long)(now - hallNeededAt);
+  if (Power::IsOn(Rail::Hall) && (hallPower == HallPower::Off || idle >= (long)HALL_OFF_DELAY_MS)) {
+    Power::Off(Rail::Hall);
   }
 }
 

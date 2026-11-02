@@ -67,7 +67,8 @@ enum MenuIndex : int16_t {
 #define M_WIZ(en, fr, parent) \
   { en, fr, logic::ItemKind::Wizard, parent, nullptr, nullptr, nullptr, 0, 0, 0, 0 }
 // Wizard step: the label is the instruction (up to 63 characters, wrapped on
-// three lines); the command runs when B is pressed (nullptr = nothing to run).
+// three lines); the command runs on a push of the knob (B on the v0.1 buttons;
+// nullptr = nothing to run).
 #define M_STEP(en, fr, parent, command) \
   { en, fr, logic::ItemKind::Command, parent, command, nullptr, nullptr, 0, 0, 0, 0 }
 
@@ -89,16 +90,16 @@ static const logic::MenuItem MENU_TREE[] = {
 
     // Guided calibration, step by step. The servos are released in debug
     // mode, so the wings can be moved by hand.
-    M_STEP("Open the LEFT wing fully by hand, then press B", "Ouvre l'aile GAUCHE à fond à la main, puis B",
+    M_STEP("Open the LEFT wing fully by hand, then push", "Ouvre l'aile GAUCHE à fond à la main, puis appuie",
            MenuWizard, "cal hall left open"),
-    M_STEP("Close the LEFT wing fully, then press B", "Ferme l'aile GAUCHE à fond, puis B", MenuWizard,
+    M_STEP("Close the LEFT wing fully, then push", "Ferme l'aile GAUCHE à fond, puis appuie", MenuWizard,
            "cal hall left closed"),
-    M_STEP("Open the RIGHT wing fully by hand, then press B", "Ouvre l'aile DROITE à fond à la main, puis B",
+    M_STEP("Open the RIGHT wing fully by hand, then push", "Ouvre l'aile DROITE à fond à la main, puis appuie",
            MenuWizard, "cal hall right open"),
-    M_STEP("Close the RIGHT wing fully, then press B", "Ferme l'aile DROITE à fond, puis B", MenuWizard,
+    M_STEP("Close the RIGHT wing fully, then push", "Ferme l'aile DROITE à fond, puis appuie", MenuWizard,
            "cal hall right closed"),
-    M_STEP("Save the Hall thresholds: press B", "Enregistrer les seuils Hall : B", MenuWizard, "cal hall save"),
-    M_STEP("Stand the turret upright, then press B", "Pose la tourelle debout, puis B", MenuWizard, "cal imu"),
+    M_STEP("Save the Hall thresholds: push", "Enregistrer les seuils Hall : appuie", MenuWizard, "cal hall save"),
+    M_STEP("Stand the turret upright, then push", "Pose la tourelle debout, puis appuie", MenuWizard, "cal imu"),
     M_STEP("Wing trims: Calibration menu, Trim wing L and R", "Trims : menu Calibration, Trim aile G et D",
            MenuWizard, nullptr),
 

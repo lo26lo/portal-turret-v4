@@ -36,6 +36,12 @@ public:
   // guns, never the continuous wings): on while the supply is weak (debug
   // mode without "power full"). Called every loop by main.
   void SetRampActive(bool active);
+  // v2 Hall rail (lot F2.6), set every loop by main:
+  //  - Always: on (debug mode, HallPower "Always");
+  //  - WhileMoving: off 2 s after the wings stop; Wing switches it on before a move;
+  //  - Off: asleep (switched on again only by a wing move).
+  enum class HallPower : uint8_t { Always, WhileMoving, Off };
+  void SetHallPower(HallPower mode) { hallPower = mode; }
 
   // Servo outputs, in attach priority order (plan §3.2 step 11).
   static const uint8_t CHANNEL_COUNT = 6;
@@ -45,6 +51,7 @@ private:
   void RunAttachSchedule(ulong now);
   void ReleaseIdleRotation(ulong now);
   void ApplyRamp();
+  void UpdateHallPower(ulong now);
 
   float X_AXIS_GEAR_RATIO = 75.0/17.0;
   float Z_AXIS_GEAR_RATIO = 30.0/15.0;
@@ -55,6 +62,8 @@ private:
   ulong servoIdleMs = 5000;
   int32_t servoRampUs = 0;
   bool rampActive = false;
+  HallPower hallPower = HallPower::Always;
+  ulong hallNeededAt = 0;
   ulong lastAttachAt = 0;
   bool attachedOnce = false;
 

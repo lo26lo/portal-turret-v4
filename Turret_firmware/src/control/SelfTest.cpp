@@ -1,3 +1,4 @@
+#include "board/Power.h"
 #include "SelfTest.h"
 
 #include "board/Log.h"
@@ -103,8 +104,10 @@ void SelfTest::RunPassiveChecks(bool displayPresent) {
   // A sensor at a rail (0 or 4095) is unplugged or shorted.
   Wing &left = turret->gantry.GetWingLeft();
   Wing &right = turret->gantry.GetWingRight();
-  Set(EntryHallLeft, pass(!left.HasHallFault() && !logic::HallAtRail(left.GetLastHall())));
-  Set(EntryHallRight, pass(!right.HasHallFault() && !logic::HallAtRail(right.GetLastHall())));
+  // v2: the sensors may be off between wing moves (HallPower): read them powered.
+  Power::On(Rail::Hall);
+  Set(EntryHallLeft, pass(!left.HasHallFault() && !logic::HallAtRail(left.ReadHall())));
+  Set(EntryHallRight, pass(!right.HasHallFault() && !logic::HallAtRail(right.ReadHall())));
   Set(EntryLittleFs, pass(!board.HasFault(Fault::LittleFs)));
   Set(EntryOled, displayPresent ? Result::Ok : Result::Skip); // optional part
   Set(EntryWifi, pass((WiFi.getMode() & WIFI_AP) != 0));

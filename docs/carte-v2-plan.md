@@ -134,7 +134,7 @@ Sans nouvelle puce.
 
 **Ordre de mise sous tension et de coupure** (firmware, §10) :
 
-- Coupure : arrêter le PWM des servos et passer leurs broches à l'état bas → LEDs à noir puis lignes de données à l'état bas → `SERVO_EN`, `LED_EN` bas → UART du radar arrêté, sa broche TX (IO9) en entrée → `RADAR_EN` bas → `HALL_EN_N` haut → ampli : SD (IO37) bas avant d'arrêter l'I²S.
+- Coupure : arrêter le PWM des servos et passer leurs broches à l'état bas → LEDs à noir puis lignes de données à l'état bas → `SERVO_EN`, `LED_EN` bas → UART du radar arrêté, sa broche TX (IO9 ; **IO10 sur la carte routée**) en entrée → `RADAR_EN` bas → `HALL_EN_N` haut → ampli : SD (IO37 ; **IO42 sur la carte routée**) bas avant d'arrêter l'I²S.
 - Allumage : dans l'ordre inverse, un switch à la fois.
 
 Raison des étapes « lignes à l'état bas » : une ligne de signal à l'état haut vers un module non alimenté le **rétro-alimente** par ses diodes de protection (servo, LED, radar).
@@ -245,7 +245,7 @@ Brochage (WSON-8, vue de dessus) [DS] : 1, 2 = VIN ; 3 = ON ; 4 = VBIAS ; 5 = GN
 
 - **Découplage** : 10 µF + 0,1 µF sur VDD (7, 8) [DS, schémas d'application]. Sur la v0.1, C25 (10 µF) et C24 (100 nF) sont à côté de l'ampli : à déplacer avec lui, au ras des broches. C26 (100 µF, réservoir) peut rester au recto, au pied du via. VDD : 2,5–5,5 V, 6 V max absolu [DS].
 - **SD_MODE** : pull-down interne de **92–108 kΩ** [DS]. Garder **R10 = 2 kΩ** en série depuis la GPIO : 3,3 V × 100 / 102 ≈ 3,24 V → canal gauche. GPIO flottante → arrêt. **Aucun pull-down externe nécessaire.**
-- **GAIN_SLOT** : même montage, mais sur **IO38 en direct et IO40 par R11 = 100 kΩ** (v0.1 : IO21 et IO47), **toujours en drain ouvert**. Gains [DS] : non connecté 9 dB, GND 12 dB, GND par 100 kΩ 15 dB, VDD 6 dB, VDD par 100 kΩ 3 dB. Garder R11 près de l'ampli. IO38 et IO40 n'ont ni pull-up ni glitch au démarrage (Espressif).
+- **GAIN_SLOT** : même montage, mais sur **IO38 en direct et IO40 par R11 = 100 kΩ** (v0.1 : IO21 et IO47 ; **carte routée : IO40 en direct et IO41 par R11**, [carte-v2-etat.md](carte-v2-etat.md) §4), **toujours en drain ouvert**. Gains [DS] : non connecté 9 dB, GND 12 dB, GND par 100 kΩ 15 dB, VDD 6 dB, VDD par 100 kΩ 3 dB. Garder R11 près de l'ampli. IO38 et IO40 n'ont ni pull-up ni glitch au démarrage (Espressif).
 - **Courants** : arrêt 0,6 µA ; **standby 340 µA** si SD_MODE est haut sans BCLK [DS] → toujours mettre SD bas avant d'arrêter l'I²S (règle déjà appliquée).
 - **Pad exposé** : non relié en interne, à mettre au GND par des vias pour la dissipation [DS].
 - **Sorties HP** : courtes et en paire jusqu'à J15. Option CEM : emplacements pour des ferrites (0603) en série sur OUTP / OUTN si le câble du HP est long.
@@ -259,7 +259,7 @@ Brochage (WSON-8, vue de dessus) [DS] : 1, 2 = VIN ; 3 = ON ; 4 = VBIAS ; 5 = GN
 - **Pastilles 9 et 10** : soigner le pochoir ; un pont de soudure entre elles a été vu sur la deuxième carte (sans conséquence, voir firmware-improvements.md, 21.10.2026).
 - **Mécanique** : au centre de la carte, loin des vis M2, des connecteurs et des sources de chaleur (ampli, TPS631000, switches). **Ni via ni piste sous le boîtier LGA** (contraintes, et bonne pratique ST).
 - **Axes** : retournée au verso, Z s'inverse ainsi que X ou Y → matrice de correction dans `Motion` (§10).
-- **INT1** → IO15 (réveil EXT1). Configurer l'interruption de réveil en mode **verrouillé** (latched), pour qu'une impulsion courte ne soit pas manquée.
+- **INT1** → IO15 (**IO14 sur la carte routée**) (réveil EXT1). Configurer l'interruption de réveil en mode **verrouillé** (latched), pour qu'une impulsion courte ne soit pas manquée.
 - **INT1 au démarrage** : « INT1 must be set to '0' or left unconnected during power-on if the I²C/SPI interfaces are used » (datasheet du LSM6DSO, même famille ; même note citée pour le LSM6DSOX). IO15 n'a ni pull-up ni pilotage au reset : garder ainsi (pas de pull-up externe, IO15 jamais en sortie).
 
 ### 4.6 SN74AHCT125 — tampon NeoPixel (inchangé)
@@ -568,10 +568,11 @@ La variante C garde 6 broches libres sur l'ESP32 (toutes ADC1 ; 4 depuis le 24.1
 7. **Capteurs Hall** : alimentés à la demande ; l'auto-test signale « capteur absent » quand la lecture reste à ≈ 0.
 8. **Fonctions des boutons A / B** : vers la page web et PROG (tableau §2.7 d'AMELIORATIONS_V2.md). Le knob reste un outil de debug.
 9. **Règles de sécurité de la v0.1 à transposer** (documentation et `CLAUDE.md`, pour la v2 seulement) :
-   - « ampli coupé avant tout `i2s.end()` » porte sur **IO37** (v0.1 : IO13) ;
-   - « jamais à l'état haut » porte sur **IO38 et IO40** (v0.1 : IO21 et IO47) ;
+   - « ampli coupé avant tout `i2s.end()` » porte sur **IO42** (v0.1 : IO13) ;
+   - « jamais à l'état haut » porte sur **IO40 et IO41** (v0.1 : IO21 et IO47) ;
    - le bus I²C se démarre avec `Wire.begin(35, 36)`, comme en v0.1 ;
-   - IO26 est l'entrée PWR_FLT (v0.1 : bouton A), IO48 le servo du canon droit (v0.1 : LED rouge).
+   - IO21 est l'entrée PWR_FLT, IO26 l'aile gauche (v0.1 : bouton A), IO47 la LED rouge (v0.1 : gain de l'ampli), IO48 le servo du canon droit (v0.1 : LED rouge).
+   - *(Corrigé le 02.11.2026 d'après [carte-v2-etat.md](carte-v2-etat.md) §4 : cette liste donnait encore le brochage du 21.10.2026, IO37 / IO38 / IO40.)*
 10. **Mesure du courant et de la tension** (§2.1) *(non implantée sur la carte routée, 01.11.2026)* : lecture de IO4 et IO5 par l'ADC1 (`analogReadMilliVolts`, IO4 sans atténuation, IO5 atténuation 11 dB), moyenne glissante ; courant = V_ILM / (276 µA/A × R5), tension = V_IO5 × 1470 / 470 ; IO4 **jamais en sortie**. Usages : alimentation faible détectée automatiquement (chute du +5V au démarrage d'un servo → rampe et un servo à la fois), servo bloqué relâché, courbes et pic sur la page web.
 
 ---

@@ -9,6 +9,7 @@ class Light {
 public:
   // Boot step 2: registers the strips and sends a black frame, which clears the
   // random colours latched while the AHCT125 inputs floated, and caps the power.
+  // v2: after the LED rail is on (board/Power).
   void Initialize();
   void Update(ulong deltaTime);
 

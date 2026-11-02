@@ -98,6 +98,22 @@ Settings::Settings()
           // OLEDs burn in: the screen goes off after this time without a key press or activity
           {"OledSleepS", "Screen off after (s, 0 = never)", "Display", SettingType::Int, (int32_t)300, (int32_t)0, (int32_t)3600},
           {"OledFace", "Aperture logo and subtitles in normal mode", "Display", SettingType::Bool, true},
+          // Lot F2.6, sleep (docs/carte-v2-plan.md §1). Options in the order of
+          // logic::SleepMode / logic::SleepWifi (logic/SleepLogic.h). Deep sleep,
+          // patrols, IMU wake-up and Hall power: v2 board only, normal mode (SW1 open).
+          {"SleepMode", "Sleep", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)2, "Never|Radar sleep only|Radar sleep then deep sleep (v2)"},
+          {"RadarSleepMin", "Radar sleep after (min without a target, 0 = never)", "Sleep", SettingType::Int, (int32_t)10, (int32_t)0, (int32_t)240},
+          {"DeepSleepMin", "Deep sleep after (min of radar sleep, 0 = night only)", "Sleep", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)1440},
+          {"NightSleep", "Deep sleep at night (needs the time: home WiFi)", "Sleep", SettingType::Bool, false},
+          {"NightStart", "Night from (hour)", "Sleep", SettingType::Int, (int32_t)23, (int32_t)0, (int32_t)23},
+          {"NightEnd", "Night until (hour)", "Sleep", SettingType::Int, (int32_t)7, (int32_t)0, (int32_t)23},
+          {"SleepWifi", "WiFi while asleep", "Sleep", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2, "Unchanged|Home network only|Off"},
+          // Patrol: wake-up every PatrolPeriodS from the deep sleep, radar on for PatrolOnS.
+          {"PatrolPeriodS", "Deep sleep: look with the radar every (s, 0 = never)", "Sleep", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)3600},
+          {"PatrolOnS", "Deep sleep: radar look duration (s)", "Sleep", SettingType::Int, (int32_t)3, (int32_t)1, (int32_t)60},
+          {"WakeImu", "Deep sleep: wake up when the turret is moved", "Sleep", SettingType::Bool, true},
+          {"WakeImuLevel", "Deep sleep: movement needed", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)2, "Firm knock|Nudge|Light touch"},
+          {"HallPower", "Hall sensors powered", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)1, "Always|While a wing moves (v2)"},
       },
       prefsReady(false) {}
 

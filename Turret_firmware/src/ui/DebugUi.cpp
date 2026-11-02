@@ -126,7 +126,7 @@ void DebugUi::Initialize(Turret &turretIn, StateMachine &stateMachineIn, Actions
   ApplySettings();
   lastActivity = millis();
   if (IsMenuActive()) {
-    Log.println(display.IsPresent() ? "Debug mode: menu on the OLED, A / B navigate"
+    Log.println(display.IsPresent() ? "Debug mode: menu on the OLED, the knob navigates"
                                     : "Debug mode: no OLED, menu on the web page and with \"key\"");
   }
 }
@@ -192,7 +192,11 @@ void DebugUi::UpdateSleep(ulong now, bool moving) {
     Wake(now);
   }
   ulong delayMs = (ulong)turret->settings.GetInt(SettingId::OledSleepS) * 1000;
-  if (!asleep && delayMs > 0 && now - lastActivity >= delayMs) {
+  // Signed: Key() stamps lastActivity with millis(), later than the "now" of
+  // this loop (taken before the encoder poll). Unsigned, the difference wrapped
+  // around and the screen went to sleep right after a key; the next key only
+  // woke it up (seen 02.11.2026: black every other turn of the knob).
+  if (!asleep && delayMs > 0 && (long)(now - lastActivity) >= (long)delayMs) {
     asleep = true;
     display.SetPower(false);
   }
@@ -414,8 +418,8 @@ void DebugUi::InfoGraphic(int16_t page, logic::MenuScreen &screen) {
     snprintf(screen.line[1], logic::SCREEN_LINE_BYTES, "%.10s", accessPoint->GetSsid());
     snprintf(screen.line[2], logic::SCREEN_LINE_BYTES, "%.10s", strlen(accessPoint->GetSsid()) > 10 ? accessPoint->GetSsid() + 10 : "");
     snprintf(screen.line[3], logic::SCREEN_LINE_BYTES, "%s", qrSize ? "" : (french ? "trop long" : "too long"));
-    snprintf(screen.line[4], logic::SCREEN_LINE_BYTES, "A:page");
-    snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", french ? "B:retour" : "B:back");
+    snprintf(screen.line[4], logic::SCREEN_LINE_BYTES, "%s", french ? "Tour:page" : "Turn:page");
+    snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", french ? "Appui:fin" : "Push:back");
     break;
   }
 
@@ -427,8 +431,8 @@ void DebugUi::InfoGraphic(int16_t page, logic::MenuScreen &screen) {
     snprintf(screen.line[1], logic::SCREEN_LINE_BYTES, "%.10s", url.c_str() + 7);
     snprintf(screen.line[2], logic::SCREEN_LINE_BYTES, "%.10s", url.length() > 17 ? url.c_str() + 17 : "");
     snprintf(screen.line[3], logic::SCREEN_LINE_BYTES, "%.10s", turret->server.GetUsername()); // web user
-    snprintf(screen.line[4], logic::SCREEN_LINE_BYTES, "A:page");
-    snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", french ? "B:retour" : "B:back");
+    snprintf(screen.line[4], logic::SCREEN_LINE_BYTES, "%s", french ? "Tour:page" : "Turn:page");
+    snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", french ? "Appui:fin" : "Push:back");
     break;
   }
   }

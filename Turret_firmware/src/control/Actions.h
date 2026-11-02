@@ -14,6 +14,7 @@
 
 class StateMachine;
 class SelfTest;
+class Sleep;
 
 // Commands shared by the serial console (lot 10) and the web page (lot 12).
 // Everything that touches hardware runs in loop(): the web server task only
@@ -51,6 +52,8 @@ public:
   }
   // Self-test (control/SelfTest): the "selftest" command.
   void SetSelfTest(SelfTest *test) { selfTest = test; }
+  // Lot F2.6: "sleep" command and the sleep state in /api/status.
+  void SetSleep(Sleep *sleepIn) { sleep = sleepIn; }
   // Called at the end of ApplyAllSettings (the debug screen reloads its own settings).
   void SetSettingsListener(std::function<void()> listener) { settingsListener = listener; }
   bool IsFrench() const;
@@ -67,6 +70,8 @@ private:
   String ImuReport();
   String HallReport();
   String PinsReport() const;
+  String RailsReport() const;
+  String RailCommand(const String &args);
   // Tests need the state machine stopped (Manual). False (and a message) if not possible.
   bool EnterTestMode(String &error);
   void ReadConsole();
@@ -86,6 +91,7 @@ private:
   std::function<bool()> hasDisplay;
   std::function<void()> settingsListener;
   SelfTest *selfTest = nullptr;
+  Sleep *sleep = nullptr;
 
   bool shotPending = false;
   ulong shotStopAt = 0;

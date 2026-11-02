@@ -45,6 +45,18 @@ enum SettingId {
   OledContrast,
   OledSleepS,
   OledFace,
+  SleepMode,
+  RadarSleepMin,
+  DeepSleepMin,
+  NightSleep,
+  NightStart,
+  NightEnd,
+  SleepWifi,
+  PatrolPeriodS,
+  PatrolOnS,
+  WakeImu,
+  WakeImuLevel,
+  HallPower,
   COUNT
 };
 

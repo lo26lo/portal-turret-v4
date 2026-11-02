@@ -15,7 +15,7 @@ class StateMachine;
 
 // Debug screen (lot IM).
 //  - Debug mode (SW1 closed at power-up): menu of information pages, tests,
-//    calibration and settings, driven by buttons A and B (or the "key"
+//    calibration and settings, driven by the knob (v0.1: also buttons A / B; or the "key"
 //    command / the web page). See logic/MenuLogic.h for the keys.
 //  - Normal mode with a screen plugged in: the aperture logo with its
 //    subtitles (OledFace), or a plain status page; the buttons keep their

@@ -5,6 +5,25 @@
 
 void Radar::Initialize() {
   Serial1.begin(256000, SERIAL_8N1, PIN_RADAR_RX, PIN_RADAR_TX);
+  running = true;
+  startedAt = millis();
+}
+
+void Radar::End() {
+  if (!running) {
+    return;
+  }
+  Serial1.end();
+  pinMode(PIN_RADAR_TX, INPUT);
+  running = false;
+  // Parser back to "waiting for a header", targets forgotten.
+  readingData = false;
+  readingAck = false;
+  writeIndex = headerIndex = footerIndex = ackHeaderIndex = ackFooterIndex = 0;
+  for (uint8_t i = 0; i < TRACK_COUNT; i++) {
+    radarTargets[i].available = false;
+  }
+  radarTargetCount = 0;
 }
 
 namespace {
@@ -14,6 +33,9 @@ const ulong STALE_MS = 1000;
 } // namespace
 
 void Radar::Update(ulong deltaTime) {
+  if (!running) {
+    return;
+  }
   UpdateSerialData();
 
   // A1: a silent radar must not keep its last target alive forever.

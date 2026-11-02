@@ -7,16 +7,23 @@
 namespace {
 const uint32_t I2C_FREQUENCY = 400000;
 
+// Start() runs before the console: what it saw is logged by Begin().
+bool started = false;
+bool startOk = false;
+bool wasStuck = false;
+bool stillStuck = false;
+
 // After a warm reset in the middle of a transaction, a slave (the IMU) can
 // hold SDA low forever. Up to 9 clock pulses let it finish its byte, then a
 // STOP condition releases the bus. Both lines have 2.2k pull-ups on the board.
+// Silent (called before the console is up).
 void RecoverBus() {
   pinMode(PIN_SDA, INPUT);
   pinMode(PIN_SCL, INPUT);
   if (digitalRead(PIN_SDA) == HIGH) {
     return;
   }
-  Log.println("I2C: SDA stuck low, clocking the bus free");
+  wasStuck = true;
   pinMode(PIN_SCL, OUTPUT_OPEN_DRAIN);
   for (int i = 0; i < 9 && digitalRead(PIN_SDA) == LOW; i++) {
     digitalWrite(PIN_SCL, LOW);
@@ -34,18 +41,30 @@ void RecoverBus() {
   delayMicroseconds(5);
   pinMode(PIN_SDA, INPUT);
   pinMode(PIN_SCL, INPUT);
-  if (digitalRead(PIN_SDA) == LOW) {
-    Log.println("I2C: SDA still low after recovery");
-  }
+  stillStuck = digitalRead(PIN_SDA) == LOW;
 }
 } // namespace
 
 namespace I2cBus {
 
-bool Begin() {
+bool Start() {
+  if (started) {
+    return startOk;
+  }
+  started = true;
   RecoverBus();
   // Explicit pins, always (Turret2: SDA IO35, SCL IO36).
-  if (!Wire.begin(PIN_SDA, PIN_SCL, I2C_FREQUENCY)) {
+  startOk = Wire.begin(PIN_SDA, PIN_SCL, I2C_FREQUENCY);
+  return startOk;
+}
+
+bool Begin() {
+  Start();
+  if (wasStuck) {
+    Log.println(stillStuck ? "I2C: SDA was stuck low, still low after clocking the bus"
+                           : "I2C: SDA was stuck low, clocked the bus free");
+  }
+  if (!startOk) {
     Log.println("I2C: Wire.begin failed");
     return false;
   }

@@ -91,6 +91,7 @@ state = {
     "wingPos": 0.0, "wingTarget": 0.0, "servos": {n: None for n in SERVO_NAMES}, "powerFaults": 0,
     "wifiOn": True, "joinAt": None, "timeSet": False, "scanUntil": 0, "crash": False,
     "debug": True, "fullPower": False, "oled": True, "selftest": "", "cycles": 0,
+    "sleep": "awake",
 }
 
 
@@ -175,8 +176,8 @@ def menu_info(page, line, french):
         pages[key] = [str(hall(side)), "[" + "#" * (hall(side) * 15 // 4095) + "]",
                       ("ouvert: " if french else "open: ") + str(setting("HallOpen" + side)["value"]),
                       ("fermé: " if french else "closed: ") + str(setting("HallClose" + side)["value"])]
-    pages["PageQrWifi"] = ["(QR code)", setting("ApSsid")["value"][:10], "A:page", ""]
-    pages["PageQrWeb"] = ["(QR code)", "192.168.1.42" if sta_connected() else "192.168.4.1", "A:page", ""]
+    pages["PageQrWifi"] = ["(QR code)", setting("ApSsid")["value"][:10], "Turn:page", ""]
+    pages["PageQrWeb"] = ["(QR code)", "192.168.1.42" if sta_connected() else "192.168.4.1", "Turn:page", ""]
     pages["PageLog"] = ([l[:40] for l in log_lines[-4:]] + [""] * 4)[:4]
     pages["PageCrash"] = (["Coredump: 24576 " + ("o" if french else "B"), "task loopTask, PC 0x4", "2012345, backtrace 0x", "42012345 0x42009876"]
                           if state["crash"] else
@@ -251,7 +252,7 @@ def status():
         "imu": {"available": state["imu"], "gravity": [0.12, -9.78, 0.35] if state["imu"] else [0, 0, 0],
                 "dominantAxis": 4 if state["imu"] else 0, "upright": state["imu"] and axis == 4,
                 "temperature": 31.5},
-        "hall": {"left": hall("L"), "right": hall("R"), "fault": False},
+        "hall": {"left": hall("L"), "right": hall("R"), "fault": False, "powered": True},
         "wings": {"leftOpen": state["wingPos"] > 0.9, "rightOpen": state["wingPos"] > 0.9,
                   "moving": abs(state["wingTarget"] - state["wingPos"]) > 0.01},
         "servos": dict(state["servos"]),
@@ -272,6 +273,10 @@ def status():
         "selfTest": {"run": bool(state["selftest"]), "running": False,
                      "summary": state["selftest"].split("\n")[0] if state["selftest"] else ""},
         "freeHeap": 181234,
+        # Lot F2.6 (control/Sleep::StatusJson); the simulated turret is a v0.1: no deep sleep.
+        "sleep": {"level": state["sleep"], "mode": int(setting("SleepMode")["value"]), "idleS": 42,
+                  "nextS": -1 if state["sleep"] != "awake" else 558, "deepAllowed": False,
+                  "night": False, "patrol": False},
     }
 
 
@@ -417,9 +422,19 @@ def execute(line):
         if arg == "report":
             return state["selftest"] or "no self-test run yet (selftest | selftest quick)"
         return "self-test stopped"
+    if cmd == "sleep":
+        if arg == "radar":
+            state["sleep"] = "radar"
+            return "radar sleep"
+        if arg == "off":
+            state["sleep"] = "awake"
+            return "awake"
+        if arg == "deep":
+            return "refused: no deep sleep on Turret2 v0.1 (5 V not switched, IMU cannot wake it)"
+        return json.dumps(status()["sleep"])
     if cmd == "stats":
         return "boots 12, cycles total 345, since boot: cycles %d, targets 7, last cycle none" % state["cycles"]
-    if cmd == "key" and arg in ("a", "al", "b", "bl"):
+    if cmd == "key" and arg in ("a", "al", "b", "bl", "cw", "ccw", "push", "hold"):
         if state["debug"]:
             menu.key(arg)
         return ""

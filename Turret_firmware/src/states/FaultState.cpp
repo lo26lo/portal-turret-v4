@@ -1,4 +1,5 @@
 #include "board/Log.h"
+#include "board/Power.h"
 #include "FaultState.h"
 #include "StateMachine.h"
 
@@ -13,9 +14,13 @@ void FaultState::OnActivate() {
   turret->audio.StopVoice();
   turret->audio.amp.Shutdown();
   turret->light.SetEnabled(false);
+  // v2: the servo and LED rails go off too (servos released, LEDs disabled above).
+  Power::Off(Rail::Servo);
+  Power::Off(Rail::Led);
   turret->board.SetFault(Fault::EFuse, true);
   high = false;
-  Log.println("Fault: load shed (servos detached, amp muted, LEDs off)");
+  Log.println(Power::IsSwitchable() ? "Fault: load shed (servo and LED rails off, amp muted)"
+                                    : "Fault: load shed (servos detached, amp muted, LEDs off)");
 }
 
 void FaultState::Update(ulong deltaTime) {
@@ -35,7 +40,12 @@ void FaultState::Update(ulong deltaTime) {
 
   Log.println("Fault: PWR_FLT high for 2 s, resuming");
   turret->board.SetFault(Fault::EFuse, false);
+  // v2: rails back one at a time, LEDs first, servos last (as at boot).
+  Power::On(Rail::Led);
   turret->light.SetEnabled(true);
+  if (!turret->board.IsReducedMode()) {
+    Power::On(Rail::Servo);
+  }
   turret->audio.amp.Start(); // I2S clocks kept running during the fault
   stateMachine->GoToState(StateId::Booting);
 }

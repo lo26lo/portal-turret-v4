@@ -29,8 +29,17 @@ public:
   bool CanDeploy() const;
   // IsUpright() means something: IMU read at least once and ImuUpAxis calibrated.
   bool CanCheckUpright() const;
+  // Deep sleep (lot F2.6): accelerometer alone at 26 Hz, low power, +-2 g;
+  // wake-up interrupt routed to INT1 and latched, so that a short movement
+  // keeps INT1 high until the next boot reads it. threshold: WK_THS, 1 LSB =
+  // 31.25 mg (logic::ImuWakeThreshold). The next boot resets the chip
+  // (begin_I2C), which ends the latch. False if the IMU is missing.
+  bool ArmWakeup(uint8_t threshold);
 
 private:
+  // Read-modify-write of one register over I2C.
+  bool UpdateRegister(uint8_t reg, uint8_t mask, uint8_t value);
+
   Adafruit_LSM6DSOX imu;
   Settings *settings = nullptr;
   bool available = false;

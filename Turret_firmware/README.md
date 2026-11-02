@@ -102,6 +102,9 @@ PlatformIO project. In VS Code, open **this folder** (`Turret_firmware/`), not t
 | `turret2_bringup` | debug build: core logs at level 3, button and PWR_FLT events printed, waits up to 3 s for the USB host |
 | `turret2_ota` | `turret2` uploaded over WiFi, from the turret's network (section 12) |
 | `turret2_ota_home` | same, from the home network (`portal-turret.local`) |
+| `turret2_v2`, `turret2_v2_bringup`, `turret2_v2_ota`, `turret2_v2_ota_home` | the same four for the **v2 board** (6 layers, rails switched by an I2C expander): `TURRET2_V2` defined, pinout of `src/pins.h` for the v2, variant `variants/turret2_v2`. **Work in progress** (lot F2): pinout, board check and rails done, not yet run on a v2 board; sleep modes to come |
+
+**Board check**: the v0.1 and v2 boards put almost every function on other pins, and the wrong build could damage a board (on the v2, IO7 is SW1: the v0.1 build drives it as a servo output). Before any other pin, both builds start the I2C bus (IO35 / IO36 on both boards) and look for the v2 rail expander (TCAL6416 at 0x20): the v2 build needs it, the v0.1 build refuses it. On the wrong board the firmware drives nothing, switches the v2 rails off if it sees the expander, and repeats on the USB console what to flash; `rollback` there boots the other OTA slot (the firmware that was there before an OTA update), `scan` lists the I2C devices. Wi-Fi and OTA are not started in that case: reflash over USB.
 
 ```
 pio run                       # build
@@ -122,7 +125,7 @@ Size today: about 46 % of the 3.2 MB application partition, 28 % of the RAM. The
 
 **Version**: `scripts/git_version.py` writes `src/version_gen.h` before each build with `git describe --tags --dirty --always` (for example `fd63cb0-dirty`). It appears in the boot banner, in `/api/status` and on the web page. Tag a release (`git tag v0.1`) to get readable versions.
 
-**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2` and `turret2_bringup`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`) and `tools/check_web.py` on every push that touches `Turret_firmware/`.
+**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2`, `turret2_bringup` and `turret2_v2`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`) and `tools/check_web.py` on every push that touches `Turret_firmware/`.
 
 ## 4. Boot sequence
 
@@ -130,16 +133,17 @@ The order comes from the firmware plan §3.2. Steps 1 to 10 run in `setup()`, st
 
 | # | Step | Why |
 |---|---|---|
+| 0 | **Board check** (`BoardCheck::Run`): I2C started on IO35 / IO36 (bus recovery if SDA is stuck), rail expander looked for at 0x20; if it answers, every rail off at once. Wrong board: nothing else runs (see section 3) | the two boards share only the I2C pins; the expander keeps its outputs across a software restart |
 | 1 | **Safe state** (`Board::Begin`, first line): amplifier SD low (muted), gain pins released (9 dB), both status LEDs on, inputs configured, SW1 and buttons read, reset reason and counters read | after reset every pin floats; this happens within a few milliseconds |
-| 2 | **NeoPixels**: black frame, power cap | clears random colours latched while the level shifter inputs floated |
+| 2 | **NeoPixels**: v2: LED rail on; black frame, power cap | clears random colours latched while the level shifter inputs floated |
 | 3 | **Console**: `Serial` (USB CDC), boot banner | diagnostics from the start |
 | 4 | **Settings** from NVS (factory reset if A + B held), LED settings, **LittleFS** mounted (never formatted automatically) | everything else reads the settings |
-| 5 | **I2C** on IO35/IO36 at 400 kHz, bus recovery if SDA is stuck, scan printed | the IMU may hold SDA after a warm reset |
+| 5 | **I2C** on IO35/IO36 at 400 kHz (started at step 0), bus recovery reported, scan printed | the IMU may hold SDA after a warm reset |
 | 6 | **IMU** LSM6DSOX at 0x6A | red LED code 3 if missing |
-| 7 | **Radar** UART1 at 256000 baud | non blocking; code 4 if no frame for 3 s |
-| 8 | **Hall sensors** read: real wing position | a reset during a cycle can leave the wings open |
+| 7 | **Radar**: v2: radar rail on; UART1 at 256000 baud | non blocking; code 4 if no frame for 3 s |
+| 8 | **Hall sensors**: v2: Hall rail on; read: real wing position | a reset during a cycle can leave the wings open |
 | 9 | **Audio**: I2S clocks first, then gain with SD low, 10 ms, SD high | no pop |
-| 10 | **WiFi** access point, home WiFi, web server, OTA | the RF calibration current peak happens before the servos |
+| 10 | **WiFi** access point, home WiFi, web server, OTA; v2: then the servo rail on (kept off in reduced mode) | the RF calibration current peak happens before the servos |
 | 11 | **Servos one at a time**, `ServoStagger` apart (250 ms): rotate Z, rotate X (centred), gun left, gun right (retracted) | several servos jumping together draw 3 to 4 A, the eFuse limit |
 | 12 | **Homing**: guns retracted, wings closed unless the Hall sensors say they are | known mechanical state |
 | 13 | End: status LEDs as set (default: green breathing, red fault code), state `Idle` (or `Manual` in debug / reduced mode) | |
@@ -172,6 +176,14 @@ The turret does not aim at the target yet: the rotations stay centred, as in the
 - Status LEDs and buttons (section 7).
 
 ### Power handling
+
+**Sleep** (`control/Sleep.*`, `logic/SleepLogic.h`, lot F2.6; settings group *Sleep*, card *Sleep* on the Status tab, command `sleep`):
+
+- **Radar sleep** (both boards): after `RadarSleepMin` without a target in the detection zone, from `Idle` in normal mode. The radar keeps watching; servos released, LEDs off, amplifier in shutdown, Hall sensors off, WiFi as `SleepWifi` says; on the v2 the servo and LED rails are off as well. A target in the zone, the knob, PROG, a button, a cycle started from the web page or `sleep off` wakes it up (rails on one at a time, then the state machine reacts).
+- **Deep sleep** (v2 only, SW1 open): after `DeepSleepMin` of radar sleep, or at once at night (`NightSleep`). Shut down as for a restart (amplifier, then I2S, rails), WiFi off, status LEDs off, IMU armed (accelerometer alone at 26 Hz, wake-up interrupt latched on INT1 / IO14), then `esp_deep_sleep_start()`. Wake-up: the turret moved (`WakeImu`), PROG (IO0), the end of the night (timer), or a **patrol** every `PatrolPeriodS`: the turret then boots quiet (rails off but the radar's, no homing), looks for `PatrolOnS`, and goes back to deep sleep if nobody is there. Every wake-up is a full boot (the RAM is lost). Release PROG quickly after a PROG wake-up: if the ROM ever starts in download mode, press RESET.
+- Debug mode (SW1 closed) never sleeps on its own and refuses the deep sleep; `sleep radar` works there for tests.
+
+**v2 board, switched rails** (`board/Power.*`, `board/Expander.*`, lot F2.4): servos (5V_SERVO), LED ring (5V_LED), radar (5V_RADAR) and Hall sensors (3V3_HALL) each have a switch driven by the TCAL6416 expander at 0x20. All are off at reset and after the board check; the boot switches them on one at a time, at least 10 ms apart, each call waiting for its rail to rise: LEDs (step 2), radar (step 7), Hall (step 8), servos (end of step 10, not in reduced mode). Before a rail goes off, what it feeds is stopped (servos released and their lines held low, LEDs disabled, radar UART ended and its TX line an input), so that no line feeds an unpowered module. No servo is attached and no LED frame is sent while their rail is off. A power fault (`Fault` state) switches the servo and LED rails off and back on when it ends; a restart or an OTA update switches every rail off. On the v0.1 these calls do nothing (5 V always on).
 
 A power fault, from any state including `Booting`, enters `Fault` at once (plan §4). The ESP32 is powered behind the eFuse too: if the eFuse cuts completely the board simply restarts, and the reset reason and counters show it afterwards.
 
@@ -240,14 +252,19 @@ One interpreter for the console, the buttons and the web page. The web server ru
 
 ## 7. Buttons, switch and status LEDs
 
+Buttons A and B exist on the **v0.1 only**; on the **v2** their functions moved to the knob, PROG and the web page (lot F2.5, `docs/AMELIORATIONS_V2.md` §2.7).
+
 | Control | Action |
 |---|---|
-| Button A (IO26) | demo cycle, from `Idle` only, if upright |
-| Button B (IO34) short | mute / unmute |
-| Button B held 3 s | WiFi on / off (access point and home network) |
-| A + B held 1 s at power-up | all settings back to defaults, WiFi passwords included |
+| Button A (IO26, v0.1) | demo cycle, from `Idle` only, if upright |
+| Button B (IO34, v0.1) short | mute / unmute |
+| Button B held 3 s (v0.1) | WiFi on / off (access point and home network) |
+| A + B held 1 s at power-up (v0.1) | all settings back to defaults, WiFi passwords included |
+| **PROG** held 3 s, SW1 open (both boards) | WiFi on / off, like button B held (the v2 has no button B) |
+| **Remote button J20** (v2, IO2, active high; to add in KiCad, `docs/carte-v2-etat.md` §11) | held 3 s: WiFi on / off, like PROG; any press wakes the radar sleep; wakes the deep sleep up (EXT1, with the IMU) |
+| Knob (I2C, optional), normal mode | turn = volume, push = mute / unmute, **push held 0.6 s = demo cycle** (like button A) |
 | SW1 closed + **PROG** (SW2, on the board) held 5 s, at any time once started | **full factory reset**, no screen or external button needed: settings (WiFi passwords and calibrations included), statistics, boot-loop / brownout counters, core dump; then a restart. While PROG is held the red LED blinks fast (and a screen, if any, counts down); releasing PROG or opening SW1 cancels; once accepted the green LED blinks fast until the restart (2 s). Same as the `factory-reset` command. PROG held *while RESET is released* starts the ROM download mode instead: press PROG only once the turret runs |
-| SW1 (IO3) closed at power-up | **debug mode** (formerly "bench mode"): the turret never starts a cycle by itself (`Manual`), no servo attached automatically, one servo at a time; with an OLED on J11, buttons A and B drive the **debug menu** (next section) |
+| SW1 (v0.1 IO3, v2 IO7) closed at power-up | **debug mode** (formerly "bench mode"): the turret never starts a cycle by itself (`Manual`), no servo attached automatically, one servo at a time; with an OLED on J11, buttons A and B drive the **debug menu** (next section) |
 
 ### Debug mode and OLED screen
 
@@ -255,18 +272,18 @@ Plug a 128×64 I²C OLED into the Qwiic port **J11** (3.3 V, shared bus with the
 
 - **SW1 open (normal mode)**: the screen shows **the Aperture logo** (`OledFace`, 42 x 42 pixels, `src/ui/ApertureLogo.h`, made by `tools/aperture_logo.py`; it replaced the eye on 21.10.2026); underneath, subtitles at each change of state ("Target acquired", "Target lost", "Are you still there?"…) and the time. With `OledFace` off: one status page (state, faults, home network address, time). Buttons keep their normal functions.
 - **Faults, in both modes**: a fault that appears is shown full screen for 5 s (one line per fault with its name, and the red LED code), then the screen goes back to what it was showing; after that only the red LED keeps signalling it. A key press closes the alert early (debug mode). A fault that clears and comes back is shown again.
-- **SW1 closed at power-up (debug mode)**: the screen shows the menu and the buttons navigate. Without a screen the buttons keep their normal functions, and the same menu is available on the web page (Tests → *Debug screen*) and with the `key` command.
+- **SW1 closed at power-up (debug mode)**: the screen shows the menu and **the knob navigates** (table below); the hints at the bottom of the screen use its words ("Turn  Push:ok"). The v2 has no buttons A / B: the knob is its only local control. Without a screen, the same menu is on the web page (Tests → *Debug screen*, with the knob's four keys) and with the `key` command.
 
-| Button | In a menu | Information page | Adjusting a value | Confirmation |
+**v0.1 only, buttons A / B** (if fitted on J12 / J13): they drive the same menu, and the hints switch to A / B after one of them is pressed.
+
+| Button (v0.1) | In a menu | Information page | Adjusting a value | Confirmation |
 |---|---|---|---|---|
 | A short | next entry | next page | value − step | cancel |
 | A long (0.6 s) | previous entry | previous page | leave without saving | cancel |
 | B short | enter / run | back | value + step | confirm |
 | B long (0.6 s) | back to the parent menu | back | save and leave | cancel |
 
-In the guided setup: B does the step, A skips it, A long goes back one step, B long leaves.
-
-A + B held at power-up is still the factory reset.
+In the guided setup: B does the step, A skips it, A long goes back one step, B long leaves. A + B held at power-up is the factory reset of the v0.1; on both boards, SW1 closed + PROG held 5 s does it.
 
 **Rotary encoder (optional)**, on J11 as well (daisy-chained with the screen through its second Qwiic socket), detected at boot, address jumpers / switches as delivered:
 
@@ -276,7 +293,7 @@ A + B held at power-up is still the factory reset.
 | Adafruit I2C Quad Rotary Encoder (5752, seesaw) | 0x49 | knob 0 only; encoders sold separately, take PEC11-pinout ones **with a push switch** |
 | Soldered Rotary Encoder Breakout (333188, ATtiny404) | 0x30 | the board decides its own long press; a single click comes a little late (it waits for a possible double click); a double click counts as two pushes |
 
-In debug mode with a screen it drives the menu like the buttons; the hints at the bottom of the screen follow the last control used:
+In debug mode with a screen it drives the menu (the hints at the bottom of the screen use its words unless a v0.1 button was pressed last):
 
 | Encoder | In a menu | Information page | Adjusting a value | Confirmation | Guided setup |
 |---|---|---|---|---|---|
@@ -358,6 +375,17 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `OledType` | Display | 0 | 0..2 | OLED controller: 0 SSD1306 (0.96"), 1 SSD1309 (1.54"), 2 SH1106 (1.3"); applied at the next boot |
 | `OledAnim` | Display | true | true / false | wing animation on the screen while the wings move |
 | `OledFace` | Display | true | true / false | normal mode: the Aperture logo and its subtitles (true) or a status page (false) |
+| `SleepMode` | Sleep | 1 | 0..2 | 0 never, 1 radar sleep only, 2 radar sleep then deep sleep (v2) |
+| `RadarSleepMin` | Sleep | 10 | 0..240 | radar sleep after this many minutes without a target, from `Idle` (0 = never on its own) |
+| `DeepSleepMin` | Sleep | 0 | 0..1440 | deep sleep after this many minutes of radar sleep (0 = only at night) |
+| `NightSleep` | Sleep | false | true / false | deep sleep at night (needs the time: home WiFi) |
+| `NightStart` / `NightEnd` | Sleep | 23 / 7 | 0..23 | night window, local hours; may cross midnight |
+| `SleepWifi` | Sleep | 0 | 0..2 | WiFi while asleep: 0 unchanged, 1 home network only (access point off), 2 off |
+| `PatrolPeriodS` | Sleep | 0 | 0..3600 | deep sleep: wake up every this many seconds to look with the radar (0 = never) |
+| `PatrolOnS` | Sleep | 3 | 1..60 | deep sleep: how long a patrol looks |
+| `WakeImu` | Sleep | true | true / false | deep sleep: wake up when the turret is moved |
+| `WakeImuLevel` | Sleep | 1 | 0..2 | movement needed: 0 firm knock (375 mg), 1 nudge (156 mg), 2 light touch (62 mg) |
+| `HallPower` | Sleep | 1 | 0..1 | v2: Hall sensors always powered (0) or only while a wing moves (1); always on in debug mode |
 | `OledFlip` | Display | false | true / false | picture turned by 180° |
 | `OledContrast` | Display | 255 | 0..255 | screen contrast |
 | `OledSleepS` | Display | 300 | 0..3600 | screen off after this many seconds without activity (0 = never) |
@@ -432,10 +460,13 @@ USB, 115200 baud. Type `help`.
 | `cal hall left\|right open\|closed`, `cal hall save`, `cal imu` | calibration without the web page |
 | `key a\|al\|b\|bl\|cw\|ccw\|push\|hold`, `screen` | debug menu: press A, A long, B, B long, or turn / push the rotary encoder (works without one) / print the screen |
 | `volume [0-100\|+n\|-n]` | volume at once, saved 2 s after the last change |
-| `inputs` | raw levels of PROG, SW1, buttons A and B (bring-up step C) |
+| `inputs` | raw levels of PROG, SW1, buttons A and B (v0.1; bring-up step C) |
+| `rails` | v2: rails as read back from the expander (servos, LEDs, radar, Hall) and its port 0 registers |
+| `rail <servo\|led\|radar\|hall> on\|off` | v2: switches one rail; what it feeds is stopped first (servos released, LEDs disabled, radar UART ended) and started again after |
 | `factory-reset` | everything back to factory state (settings, statistics, counters, core dump), then a restart; same as SW1 closed + PROG held 5 s |
 | `selftest [quick\|report\|stop]` | self-test: full, passive checks only, last report, stop |
 | `stats` | boots, cycles (total and since boot), targets seen, last cycle |
+| `sleep [radar\|deep\|off]` | sleep state (JSON), or radar sleep / deep sleep now / wake up |
 | `trim left\|right <µs>` | runs a wing at its stop point with this trim for 2 s (not saved) |
 | `led ring\|left\|right\|all <RRGGBB\|off>` | test colours |
 | `tone <Hz> [ms]`, `gain 9\|12\|15`, `mute [on\|off]` | audio tests (gain not saved) |
@@ -479,7 +510,7 @@ The credentials are checked on the first block of the upload. The turret then st
 
 ## 13. Hardware safety rules
 
-These rules protect the board; the code follows them and any change must too (details: plan §2).
+These rules protect the board; the code follows them and any change must too (details: plan §2). They are written for the **v0.1**; on the **v2** (docs/carte-v2-etat.md §4) the gain pins are **IO40 / IO41**, the amplifier SD pin is **IO42**, IO21 is PWR_FLT and IO47 the red LED, and the v2 build must never run on a v0.1 (board check, section 3).
 
 - **IO21 and IO47 are never driven high** (amplifier gain, one of them compared against 5 V): open drain or input only. The variant has no `RGB_BUILTIN` for that reason.
 - Never stop the I2S clocks, change the sample rate or restart while the amplifier runs: SD low first (`Amp::Shutdown`).

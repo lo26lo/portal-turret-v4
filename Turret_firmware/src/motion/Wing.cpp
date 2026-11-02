@@ -1,4 +1,5 @@
 #include "board/Log.h"
+#include "board/Power.h"
 #include "Wing.h"
 #include "Arduino.h"
 #include "logic/HallLogic.h"
@@ -82,6 +83,7 @@ void Wing::Open() {
     return;
   }
   Log.println("Opening Wing");
+  Power::On(Rail::Hall); // v2, HallPower "while a wing moves": the move stops on the sensor
   isOpening = true;
   isClosing = false;
   timeMoving = 0;
@@ -98,6 +100,7 @@ void Wing::Close() {
 }
 
 void Wing::Home() {
+  Power::On(Rail::Hall);
   if (ReadPosition() == WingPosition::Closed) {
     isOpen = false;
     return;
@@ -108,6 +111,7 @@ void Wing::Home() {
 
 void Wing::StartClosing() {
   Log.println("Closing Wing");
+  Power::On(Rail::Hall);
   isOpening = false;
   isClosing = true;
   isOpen = false;
@@ -132,8 +136,11 @@ void Wing::Update(ulong deltaTime) {
   uint16_t hallValue = ReadHall();
   gun.Update(millis());
 
-  // Rail check at all times.
-  if (logic::HallAtRail(hallValue)) {
+  // Rail check at all times, while the sensors are powered (v2: 3V3_HALL may
+  // be off, the 100k pull-downs then read 0).
+  if (!Power::IsOn(Rail::Hall)) {
+    railTime = 0;
+  } else if (logic::HallAtRail(hallValue)) {
     railTime += deltaTime;
     if (railTime >= HALL_RAIL_MS && !hallFault) {
       hallFault = true;

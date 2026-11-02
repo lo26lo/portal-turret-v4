@@ -64,8 +64,11 @@ jobs:
           sys.exit(1 if bad else 0)
           EOF
 
-      - name: Build turret2 and turret2_bringup
+      - name: Build turret2 and turret2_bringup (board v0.1)
         run: pio run -e turret2 -e turret2_bringup
+
+      - name: Build turret2_v2 (board v2)
+        run: pio run -e turret2_v2
 
       - name: Native tests of the pure logic (src/logic)
         run: pio test -e native

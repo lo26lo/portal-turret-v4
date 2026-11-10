@@ -19,12 +19,19 @@ public:
   // Disabled = black frame, Update() draws nothing (fault, shutdown).
   void SetEnabled(bool enabled);
   bool IsEnabled() const { return enabled; }
-  // LedBright and LedMaxmA; 10 % in reduced mode (D5).
+  // Outside a test: red ring and guns glowing (Portal), or the turning
+  // rainbow of SetRainbow() on every strip. Setting LedEffect.
+  enum class Effect : uint8_t { RedEye = 0, Rainbow = 1 };
+
+  // LedBright, LedMaxmA and LedEffect; 10 % in reduced mode (D5).
   void ApplySettings(Settings &settings, bool reducedMode);
 
   // Test mode (console / web page): fixed colour on the selected strips
   // (bit 0 = ring, bit 1 = left gun, bit 2 = right gun) until ClearTest().
   void SetTestColor(uint8_t stripMask, CRGB color);
+  // Same test mode, a rainbow turning around the ring (one full turn of the
+  // colour wheel over the 9 LEDs), the guns following the colour of LED 1.
+  void SetRainbow(uint8_t stripMask);
   void ClearTest();
   // L3 (lab aid): fixed frame with a single bit set, readable on an
   // oscilloscope: first LED of the ring = red 0x80 (bit 9 of 24, GRB order),
@@ -34,12 +41,15 @@ public:
 
 private:
   void Show();
+  void DrawRainbow(uint8_t stripMask);
 
   CRGB centerLeds[9];
   CRGB leftLeds[2];
   CRGB rightLeds[2];
   bool enabled = true;
   bool testMode = false;
+  bool rainbow = false;
+  Effect effect = Effect::RedEye;
   bool bitPattern = false;
   uint8_t savedBrightness = 255;
   uint8_t testMask = 0;

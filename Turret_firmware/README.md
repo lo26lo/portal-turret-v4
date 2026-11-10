@@ -119,7 +119,7 @@ If the native USB does not show up: hold **BOOT** (SW2), press **RESET** (SW3), 
 
 First flash of a new board: `esptool.py flash_id` must report **8 MB** (module N8). The boot banner also warns when the flash is not 8 MB or when PSRAM is found.
 
-Pinned versions (`platformio.ini`): platform `espressif32@7.1.3` (arduino-esp32 2.0.17), FastLED 3.10.5, ESP32Servo 1.2.1, ESPAsyncWebServer 3.12.1, AsyncTCP 3.5.0, AceRoutine 1.5.1, Adafruit LSM6DS 4.7.4, U8g2 2.36.18, arduino-audio-tools and arduino-libhelix pinned to a commit. Keep the path of the project short on Windows: FastLED has very deep paths and GCC fails beyond 260 characters.
+Pinned versions (`platformio.ini`): platform `espressif32@7.1.3` (arduino-esp32 2.0.17), FastLED 3.9.20 (not 3.10.x: no RMT driver under ESP-IDF 4.4, LEDs all white), ESP32Servo 1.2.1, ESPAsyncWebServer 3.12.1, AsyncTCP 3.5.0, AceRoutine 1.5.1, Adafruit LSM6DS 4.7.4, U8g2 2.36.18, arduino-audio-tools and arduino-libhelix pinned to a commit. Keep the path of the project short on Windows: FastLED has very deep paths and GCC fails beyond 260 characters.
 
 Size today: about 46 % of the 3.2 MB application partition, 28 % of the RAM. The voice lines take 0.39 MB of the 1.5 MB LittleFS partition.
 
@@ -230,7 +230,7 @@ MAX98357A on I2S (BCLK IO11, LRCLK IO12, DIN IO10), 44.1 kHz, 16-bit, mono (the 
 
 ### Lights (`light/*`)
 
-WS2812 through the SN74AHCT125 level shifter: ring on IO14 (9 LEDs, GRB; the last one has red and green swapped), left gun IO15 and right gun IO16 (2 LEDs each, RGB). The ring shows red, the guns a flickering fire colour. `LedBright`, `LedMaxmA`, test colours from the console or page.
+WS2812 through the SN74AHCT125 level shifter: ring on IO14 (9 LEDs, GRB; the last one has red and green swapped), left gun IO15 and right gun IO16 (2 LEDs each, RGB). The ring shows red, the guns a flickering fire colour, or a turning rainbow with `LedEffect` = 1. `LedBright`, `LedMaxmA`, test colours from the console or page.
 
 ### Settings (`settings/*`)
 
@@ -366,6 +366,7 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ServoIdleMs` | Power | 5000 | 0..60000 | rotations released after this idle time (0 = never) |
 | `ServoRamp` | Power | 1000 | 0..20000 | speed of the positional servos on a weak supply (debug mode without `power full`), µs per second; 0 = no ramp |
 | `LedBright` | Lights | 255 | 0..255 | LED brightness |
+| `LedEffect` | Lights | 0 | 0..1 | outside a test: 0 red eye (ring red, guns glowing), 1 turning rainbow (ring, guns following LED 1) |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
 | `GreenLedMode` | Status LEDs | 0 | 0..3 | green LED after boot: 0 breathing, 1 heartbeat, 2 steady, 3 off |
 | `GreenLedPeriod` | Status LEDs | 4000 | 1000..10000 | one breath, or one heartbeat (ms) |
@@ -461,6 +462,7 @@ USB, 115200 baud. Type `help`.
 | `key a\|al\|b\|bl\|cw\|ccw\|push\|hold`, `screen` | debug menu: press A, A long, B, B long, or turn / push the rotary encoder (works without one) / print the screen |
 | `volume [0-100\|+n\|-n]` | volume at once, saved 2 s after the last change |
 | `inputs` | raw levels of PROG, SW1, buttons A and B (v0.1; bring-up step C) |
+| `pins [n]` | without argument: registers of the green LED pin and of the USB; with a GPIO number: its routing (GPIO matrix, IO_MUX) and its pad sampled from core 0 while a LED frame is sent (pulse widths, first 48 bits: a WS2812 "0" is ~0.4 µs high, a "1" ~0.8 µs) |
 | `rails` | v2: rails as read back from the expander (servos, LEDs, radar, Hall) and its port 0 registers |
 | `rail <servo\|led\|radar\|hall> on\|off` | v2: switches one rail; what it feeds is stopped first (servos released, LEDs disabled, radar UART ended) and started again after |
 | `factory-reset` | everything back to factory state (settings, statistics, counters, core dump), then a restart; same as SW1 closed + PROG held 5 s |
@@ -468,7 +470,7 @@ USB, 115200 baud. Type `help`.
 | `stats` | boots, cycles (total and since boot), targets seen, last cycle |
 | `sleep [radar\|deep\|off]` | sleep state (JSON), or radar sleep / deep sleep now / wake up |
 | `trim left\|right <µs>` | runs a wing at its stop point with this trim for 2 s (not saved) |
-| `led ring\|left\|right\|all <RRGGBB\|off>` | test colours |
+| `led ring\|left\|right\|all <RRGGBB\|rainbow\|off>`, `led rainbow` | test colours; `rainbow`: a rainbow turning around the ring (one turn every ~2 s), the guns following LED 1 |
 | `tone <Hz> [ms]`, `gain 9\|12\|15`, `mute [on\|off]` | audio tests (gain not saved) |
 | `voice [activate\|collision\|shutdown\|pickup\|retire\|search\|tipped\|alarm\|stop]` | a random line of that folder; without a name, the folders and their file counts |
 | `wifi [on\|off\|scan\|join\|forget]`, `time` | WiFi state and control (`forget` drops the home network), local time |

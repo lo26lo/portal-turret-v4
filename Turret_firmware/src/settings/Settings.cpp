@@ -114,6 +114,8 @@ Settings::Settings()
           {"WakeImu", "Deep sleep: wake up when the turret is moved", "Sleep", SettingType::Bool, true},
           {"WakeImuLevel", "Deep sleep: movement needed", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)2, "Firm knock|Nudge|Light touch"},
           {"HallPower", "Hall sensors powered", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)1, "Always|While a wing moves (v2)"},
+          // Light::Effect: what the LEDs show outside a test.
+          {"LedEffect", "LED effect", "Lights", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)1, "Red eye|Turning rainbow"},
       },
       prefsReady(false) {}
 

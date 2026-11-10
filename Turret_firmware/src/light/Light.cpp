@@ -40,12 +40,20 @@ void Light::SetEnabled(bool enabledIn) {
 void Light::ApplySettings(Settings &settings, bool reducedMode) {
   SetMaxMilliamps(settings.GetInt(SettingId::LedMaxmA));
   SetBrightness(reducedMode ? REDUCED_BRIGHTNESS : settings.GetInt(SettingId::LedBright));
+  effect = settings.GetInt(SettingId::LedEffect) == 1 ? Effect::Rainbow : Effect::RedEye;
 }
 
 void Light::SetTestColor(uint8_t stripMask, CRGB color) {
   testMode = true;
+  rainbow = false;
   testMask = stripMask;
   testColor = color;
+}
+
+void Light::SetRainbow(uint8_t stripMask) {
+  testMode = true;
+  rainbow = true;
+  testMask = stripMask;
 }
 
 void Light::ClearTest() {
@@ -81,11 +89,19 @@ void Light::Update(ulong deltaTime) {
     FastLED.show(); // no Show(): the channel swap of LED 8 does not matter here
     return;
   }
+  if (testMode && rainbow) {
+    DrawRainbow(testMask);
+    return;
+  }
   if (testMode) {
     fill_solid(centerLeds, 9, (testMask & 1) ? testColor : CRGB::Black);
     fill_solid(leftLeds, 2, (testMask & 2) ? testColor : CRGB::Black);
     fill_solid(rightLeds, 2, (testMask & 4) ? testColor : CRGB::Black);
     Show();
+    return;
+  }
+  if (effect == Effect::Rainbow) {
+    DrawRainbow(7);
     return;
   }
 
@@ -95,6 +111,24 @@ void Light::Update(ulong deltaTime) {
   fill_solid(leftLeds, 2, HeatColor(tri));
   fill_solid(rightLeds, 2, HeatColor(tri));
   fill_solid(centerLeds, 9, CRGB::Red);
+  Show();
+}
+
+void Light::DrawRainbow(uint8_t stripMask) {
+  // One turn of the colour wheel every ~2 s (hue + 1 every 8 ms).
+  uint8_t hue = millis() / 8;
+  fill_solid(centerLeds, 9, CRGB::Black);
+  fill_solid(leftLeds, 2, CRGB::Black);
+  fill_solid(rightLeds, 2, CRGB::Black);
+  if (stripMask & 1) {
+    fill_rainbow(centerLeds, 9, hue, 256 / 9);
+  }
+  if (stripMask & 2) {
+    fill_solid(leftLeds, 2, CHSV(hue, 255, 255));
+  }
+  if (stripMask & 4) {
+    fill_solid(rightLeds, 2, CHSV(hue, 255, 255));
+  }
   Show();
 }
 

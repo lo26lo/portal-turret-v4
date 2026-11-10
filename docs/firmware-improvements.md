@@ -297,6 +297,7 @@ Jugés inutiles : PIR (le radar fait mieux), ampli STEMMA (MAX98357A sur la cart
 
 | Date | Quoi | Conséquence / solution |
 |---|---|---|
+| 04.11.2026 | **Anneau NeoPixel tout blanc** (9 LEDs, quelle que soit la couleur) : FastLED 3.10.5, figé au lot 1, lit `SOC_RMT_SUPPORTED`, que l'ESP-IDF 4.4 du cœur Arduino 2.0.17 ne définit pas → « pas de RMT » → pilote logiciel deux fois trop lent (« 0 » de 0,94 µs, bit de 2,6 µs) : le WS2812 lit chaque bit comme un « 1 ». Forcer `FASTLED_ESP32_HAS_RMT=1` ne suffit pas : son pilote RMT4 ne compile pas (classe abstraite) | **FastLED 3.9.20** (pilote RMT4 éprouvé sous IDF 4.4) ; mesuré : « 0 » 0,29–0,35 µs, « 1 » 0,65–1,0 µs, bit ~1,1 µs ; anneau rouge vu par l'utilisateur. Flash −365 Ko. Ne pas remonter en 3.10.x tant que le cœur reste en IDF 4.4 |
 | 02.11.2026 | Datasheet du TCAL6416 (PDF de TI) illisible sur ce poste : pas de `pdftoppm` ni de `pypdf`, et la version HTML de TI ne donne que la table des matières | pilote limité aux registres standard de la famille 6416 (0x00–0x07), communs au TCA6416A et au PCAL6416A ; registres étendus (tirages, masque d'interruption, 0x40–0x4F) **non vérifiés**, donc non utilisés |
 | 02.11.2026 | Le piège des `\` retirés par l'outil Bash (26.09.2026) s'est reproduit : deux remplacements Python dans un heredoc échouaient sur des chaînes contenant une barre oblique inverse suivie de « n » (assertion, rien d'écrit ; la même chose a ensuite coupé cette ligne en deux, corrigée à la main) | remplacements contenant `\` faits avec l'outil d'édition |
 | 02.11.2026 | Tests natifs : `ziglang` installé dans le scratchpad (pip), mais son exécution a été refusée par le mode automatique de Claude Code | tests laissés à la CI |
@@ -1207,3 +1208,24 @@ D'après le tableau §2.7 d'[AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) ; sur les
 
 **Firmware** : `PIN_BUTTON_EXT` (IO2 en v2, absent en v0.1), retiré de `PINS_UNUSED` ; `Board` : anti-rebond actif haut (`INPUT_PULLDOWN` en plus de R49), maintenu 3 s = Wi-Fi comme PROG, tout appui de PROG (SW1 ouvert) ou du bouton = activité (`TakeUserPress`, réveille la veille radar) ; veille profonde : EXT1 sur IO2 + IO14 (IMU si `WakeImu`), cause du réveil lue (`esp_sleep_get_ext1_wakeup_status`) ; commande `inputs`. Compilation `turret2` et `turret2_v2` OK, sans avertissement.
 
+
+### 04.11.2026 — Anneau NeoPixel tout blanc : FastLED 3.10.5 sans RMT sous ESP-IDF 4.4
+
+**Demande** : carte v0.1 branchée, y mettre le dernier firmware (`4c0c45d`, flashé en USB) ; puis « peux-tu faire un test » : les 9 LEDs de l'anneau sont blanches en permanence.
+
+**Enquête** :
+- câblage v1 relevé dans `Turret2.kicad_pcb` : IO14 (U7 pad 18) → IC2 pad 2 (1A) ; IC2 pad 3 (1Y) → J14 pad 2 en direct ; 1OE à la masse ; IC2 en +5 V. Conforme ;
+- `led ring FF0000 / 00FF00 / 0000FF / 000000` : aucun changement visible ;
+- nouvelle commande **`pins <n>`** : routage de la broche (matrice GPIO, IO_MUX) et échantillonnage du plot **depuis le cœur 0 pendant l'envoi** d'une trame (horodatage au compteur de cycles, durée des impulsions, 48 premiers bits décodés). Résultat : IO14 bien pilotée (pas flottante), 216 bits émis, mais « 0 » de 0,94 µs et bit de 2,6 µs : tous lus comme des « 1 » = blanc ;
+- cause : FastLED 3.10.5 (`platforms/esp/32/feature_flags/enabled.h`) prend `FASTLED_ESP32_HAS_RMT = SOC_RMT_SUPPORTED`, défini à 0 par défaut si absent ; l'ESP-IDF 4.4 du cœur Arduino 2.0.17 (`framework-arduinoespressif32` 4.20017) ne le définit pas → pas de pilote RMT, repli sur un envoi logiciel mal calé. Aucun pilote enregistré dans son gestionnaire de canaux ;
+- essai `-DFASTLED_ESP32_HAS_RMT=1` (+ `ESP32_ARDUINO_NO_RGB_BUILTIN=1` exigé ensuite) : le pilote RMT4 de la 3.10.5 ne compile pas (`ChannelEngineRMT4Impl` abstraite). Abandonné.
+
+**Correction** : `fastled/FastLED@3.9.20` (dernière 3.9, avant la refonte des pilotes). Mesuré avec `pins 14` : « 0 » 0,29–0,35 µs, « 1 » 0,65–1,0 µs, bit ~1,1 µs ; noir = que des « 0 », blanc = que des « 1 ». **Anneau rouge vu par l'utilisateur.** Compilation `turret2` : RAM 27,3 %, flash 35,5 % (46,4 % avant) ; `turret2_v2` : RAM 27,3 %, flash 35,8 %.
+
+**Conséquence** : l'anneau (et les LEDs des canons) n'a sans doute jamais fonctionné avec ce firmware depuis le figeage des versions du 25.09.2026. L'inversion rouge / vert de la 9ᵉ LED vient du firmware d'origine (`Fork/src/light/Light.cpp`) ; à confirmer à l'œil maintenant que les couleurs passent.
+
+**Défaut 4 (radar)** au démarrage de cette carte : déjà vu le 21.10.2026, sans lien.
+
+**Puis** (demande de l'utilisateur) : **arc-en-ciel qui tourne**, mode de test LED : `led rainbow` (tout) ou `led ring|left|right|all rainbow` ; `Light::SetRainbow` : `fill_rainbow` sur les 9 LEDs de l'anneau (un tour de roue chromatique), teinte + 1 toutes les 8 ms (un tour en ~2 s), canons à la couleur de la LED 1 ; `led off` pour sortir. Bouton « rainbow » sur la page web (outils LED). Compilé, `check_web.py` OK, flashé sur la v0.1 et lancé.
+
+**Puis** (« lance-le pour qu'il tourne indéfiniment au démarrage ») : réglage **`LedEffect`** (groupe Lights, ajouté en fin de table : 0 « Red eye », défaut, comportement Portal ; 1 « Turning rainbow ») ; `Light::Effect`, lu dans `ApplySettings` (démarrage et chaque changement) ; hors test, l'arc-en-ciel remplace l'anneau rouge et le feu des canons ; un test (`led …`) passe toujours devant, un défaut éteint toujours les LEDs. Compilé (`turret2` et `turret2_v2`), `check_web.py` OK ; flashé sur la v0.1, `set LedEffect 1`, relu après redémarrage : 1.

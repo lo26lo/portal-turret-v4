@@ -258,7 +258,7 @@ String Actions::Execute(const String &line) {
     return text;
   }
   if (command == "pins") {
-    return PinsReport();
+    return args.length() ? PinReport((uint8_t)args.toInt()) : PinsReport();
   }
   if (command == "rails") {
     return RailsReport();
@@ -623,7 +623,7 @@ String Actions::Execute(const String &line) {
 
 String Actions::Help() {
   return "Commands:\n"
-         "  status | scan | imu | hall | flt | inputs | pins | rails | rail <servo|led|radar|hall> on|off | reset-reason | crashlog | coredump [erase]\n"
+         "  status | scan | imu | hall | flt | inputs | pins [n] | rails | rail <servo|led|radar|hall> on|off | reset-reason | crashlog | coredump [erase]\n"
          "  get [key] | set <key> <value> | reset-settings [group]\n"
          "  servo <0-5|rotz|rotx|gunl|gunr|wingl|wingr> <angle 0-180|us 500-2400|off>\n"
          "  wings open|close | guns extend|retract | trim left|right <us>\n"
@@ -631,7 +631,7 @@ String Actions::Help() {
          "  power [full|limited] | cal hall left|right open|closed | cal hall save | cal imu\n"
          "  key a|al|b|bl|cw|ccw|push|hold (debug menu) | screen | selftest [quick|report|stop] | stats\n"
          "  sleep [radar|deep|off] (sleep state, or go to sleep / wake up; settings: group Sleep)\n"
-         "  led ring|left|right|all <RRGGBB|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
+         "  led ring|left|right|all <RRGGBB|rainbow|off> | tone <Hz> [ms] | gain 9|12|15 | mute [on|off]\n"
          "  voice [activate|collision|shutdown|pickup|retire|search|tipped|alarm|stop]\n"
          "  volume [0-100|+n|-n] (saved 2 s after the last change)\n"
          "  wifi [on|off|scan|join|forget] | time | demo | resume | reboot\n"
@@ -704,6 +704,118 @@ String Actions::PinsReport() const {
            (unsigned long)usbConf, (usbConf & USB_SERIAL_JTAG_USB_PAD_ENABLE) ? "on" : "OFF",
            (usbConf & USB_SERIAL_JTAG_DP_PULLUP) ? "on" : "off", (unsigned)((frame2 - frame1) & 0x7FF),
            frame2 != frame1 ? "host talking" : "no host frames", (unsigned long)millis());
+  return String(text);
+}
+
+// "pins <n>": routing and activity of any GPIO (04.11.2026: ring all white on
+// a v0.1, is IO14 really driven?). The pad is sampled while a LED frame is
+// sent, its input enabled for the time of the reading.
+String Actions::PinReport(uint8_t pin) const {
+  if (pin > 48 || (pin >= 22 && pin <= 25) || (pin >= 27 && pin <= 32) || pin == 19 || pin == 20) {
+    return "pins <n>: a GPIO of the module, not 19 / 20 (USB) nor 27..32 (flash)";
+  }
+  uint32_t outSel = REG_READ(GPIO_FUNC0_OUT_SEL_CFG_REG + 4 * pin) & 0x1FF;
+  bool outEnabled = pin < 32 ? (REG_READ(GPIO_ENABLE_REG) >> pin) & 1 : (REG_READ(GPIO_ENABLE1_REG) >> (pin - 32)) & 1;
+  bool outLevel = pin < 32 ? (REG_READ(GPIO_OUT_REG) >> pin) & 1 : (REG_READ(GPIO_OUT1_REG) >> (pin - 32)) & 1;
+  uint32_t mux = REG_READ(GPIO_PIN_MUX_REG[pin]);
+
+  REG_SET_BIT(GPIO_PIN_MUX_REG[pin], FUN_IE);
+  // The pad is sampled from core 0 while core 1 sends the frame. The LED
+  // driver sets the pin as an output at each frame, which clears its input
+  // enable: the sampler sets it again as soon as it drops.
+  // Edge times in CPU cycles (240 MHz): the WS2812 reads a "0" from a high
+  // pulse of ~0.4 us and a "1" from ~0.8 us, in a bit of ~1.25 us.
+  static const uint16_t MAX_EDGES = 128;
+  struct Probe {
+    uint8_t pin;
+    volatile bool started, done;
+    uint32_t samples, highs, edges;
+    uint32_t edgeAt[MAX_EDGES];
+  };
+  static Probe probe;
+  probe.pin = pin;
+  probe.started = probe.done = false;
+  probe.samples = probe.highs = probe.edges = 0;
+  auto sampler = [](void *arg) {
+    Probe &p = *(Probe *)arg;
+    const uint32_t mask = 1u << (p.pin & 31);
+    const uint32_t reg = p.pin < 32 ? GPIO_IN_REG : GPIO_IN1_REG;
+    const uint32_t muxReg = GPIO_PIN_MUX_REG[p.pin];
+    bool last = REG_READ(reg) & mask;
+    p.started = true;
+    uint32_t start = ESP.getCycleCount();
+    while (ESP.getCycleCount() - start < 6000u * 240u) {
+      if (!(REG_READ(muxReg) & FUN_IE)) {
+        REG_SET_BIT(muxReg, FUN_IE);
+      }
+      bool level = REG_READ(reg) & mask;
+      if (level != last) {
+        if (p.edges < MAX_EDGES) {
+          p.edgeAt[p.edges] = ESP.getCycleCount();
+        }
+        p.edges++;
+        last = level;
+      }
+      p.highs += level;
+      p.samples++;
+    }
+    p.done = true;
+    vTaskDelete(nullptr);
+  };
+  xTaskCreatePinnedToCore(sampler, "pinprobe", 2048, &probe, configMAX_PRIORITIES - 1, nullptr, 0);
+  while (!probe.started) {
+  }
+  delayMicroseconds(200);
+  uint32_t showStart = micros();
+  turret->light.Update(0);
+  uint32_t showUs = micros() - showStart;
+  uint32_t outSelAfter = REG_READ(GPIO_FUNC0_OUT_SEL_CFG_REG + 4 * pin) & 0x1FF;
+  while (!probe.done) {
+    delay(1);
+  }
+  uint32_t samples = probe.samples, highs = probe.highs, edges = probe.edges;
+  if (!(mux & FUN_IE)) {
+    REG_CLR_BIT(GPIO_PIN_MUX_REG[pin], FUN_IE);
+  }
+
+  const char *signal = outSel == SIG_GPIO_OUT_IDX ? "GPIO"
+                       : (outSel >= RMT_SIG_OUT0_IDX && outSel <= RMT_SIG_OUT0_IDX + 3) ? "RMT"
+                       : outSel == GPIO_SD0_OUT_IDX ? "sigma-delta 0"
+                                                    : "other";
+  // Pulses from the recorded edges: the line rests low and the sampler starts
+  // 200 us before the frame, so even edges rise.
+  uint16_t recorded = probe.edges < MAX_EDGES ? probe.edges : MAX_EDGES;
+  uint16_t first = 0;
+  uint32_t highMin = UINT32_MAX, highMax = 0, periodMin = UINT32_MAX, periodMax = 0, shortCount = 0, longCount = 0;
+  String bits;
+  for (uint16_t i = first; i + 1 < recorded; i += 2) {
+    uint32_t highNs = (probe.edgeAt[i + 1] - probe.edgeAt[i]) * 1000 / 240;
+    highMin = min(highMin, highNs);
+    highMax = max(highMax, highNs);
+    (highNs < 600 ? shortCount : longCount)++;
+    if (bits.length() < 48) {
+      bits += highNs < 600 ? '0' : '1';
+    }
+    if (i + 2 < recorded) {
+      uint32_t periodNs = (probe.edgeAt[i + 2] - probe.edgeAt[i]) * 1000 / 240;
+      periodMin = min(periodMin, periodNs);
+      periodMax = max(periodMax, periodNs);
+    }
+  }
+
+  char text[640];
+  snprintf(text, sizeof(text),
+           "IO%u: out_sel %u (%s), output %s, out level %u; IO_MUX 0x%08lx (func %lu, pull-up %s, pull-down %s, "
+           "drive %lu); LED update %lu us, out_sel after it %lu\n"
+           "pad over 6 ms (core 0, during the update): %lu samples, %lu high, %lu edges (%s)\n"
+           "first %u edges: high %lu..%lu ns (%lu short < 600 ns, %lu long), bit period %lu..%lu ns; bits %s",
+           (unsigned)pin, (unsigned)outSel, signal, outEnabled ? "enabled" : "DISABLED", (unsigned)outLevel,
+           (unsigned long)mux, (unsigned long)((mux >> MCU_SEL_S) & MCU_SEL_V), (mux & FUN_PU) ? "on" : "off",
+           (mux & FUN_PD) ? "on" : "off", (unsigned long)((mux >> FUN_DRV_S) & FUN_DRV_V), (unsigned long)showUs,
+           (unsigned long)outSelAfter, (unsigned long)samples, (unsigned long)highs, (unsigned long)edges,
+           edges ? "toggling" : "steady", (unsigned)recorded, (unsigned long)(highMax ? highMin : 0),
+           (unsigned long)highMax, (unsigned long)shortCount, (unsigned long)longCount,
+           (unsigned long)(periodMax ? periodMin : 0), (unsigned long)periodMax, bits.c_str());
   return String(text);
 }
 
@@ -825,8 +937,17 @@ String Actions::LedCommand(const String &args) {
     turret->light.ClearTest();
     return "LED test off";
   }
+  if (strip == "rainbow") {
+    strip = "all";
+    mask = 7;
+    colorText = "rainbow";
+  }
+  if (mask != 0 && colorText == "rainbow") {
+    turret->light.SetRainbow(mask);
+    return "LED " + strip + " = moving rainbow; \"led off\" to leave";
+  }
   if (mask == 0 || colorText.length() != 6) {
-    return "usage: led ring|left|right|all <RRGGBB|off>";
+    return "usage: led ring|left|right|all <RRGGBB|rainbow|off>, led rainbow";
   }
   uint32_t rgb = strtoul(colorText.c_str(), nullptr, 16);
   turret->light.SetTestColor(mask, CRGB(rgb));

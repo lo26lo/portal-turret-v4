@@ -70,6 +70,7 @@ private:
   String ImuReport();
   String HallReport();
   String PinsReport() const;
+  String PinReport(uint8_t pin) const;
   String RailsReport() const;
   String RailCommand(const String &args);
   // Tests need the state machine stopped (Manual). False (and a message) if not possible.

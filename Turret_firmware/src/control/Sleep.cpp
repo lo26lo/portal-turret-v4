@@ -16,8 +16,8 @@ namespace {
 // Kept across the deep sleep (RTC slow memory), lost at power-up.
 const uint32_t RTC_MAGIC = 0x51EE7A11;
 RTC_DATA_ATTR uint32_t rtcMagic = 0;
-RTC_DATA_ATTR bool rtcPatrol = false;       // the deep sleep has patrols
-RTC_DATA_ATTR time_t rtcNightEndEpoch = 0;  // > 0: deep sleep for the night, until then
+RTC_DATA_ATTR bool rtcPatrol = false;      // the deep sleep has patrols
+RTC_DATA_ATTR time_t rtcNightEndEpoch = 0; // > 0: deep sleep for the night, until then
 
 bool quietBoot = false;
 StateId sleepState = StateId::Idle; // state when the radar sleep began
@@ -62,7 +62,9 @@ bool Sleep::BeginBoot() {
   return quietBoot;
 }
 
-bool Sleep::IsQuietBoot() { return quietBoot; }
+bool Sleep::IsQuietBoot() {
+  return quietBoot;
+}
 
 void Sleep::Initialize(Turret &turretIn, StateMachine &stateMachineIn, Actions &actionsIn, AccessPoint &accessPointIn,
                        Station &stationIn) {
@@ -102,15 +104,14 @@ void Sleep::NoteActivity() {
 }
 
 bool Sleep::TargetInZone() const {
-  Settings &settings = turret->settings;
-  return turret->radar.FirstTargetInZone(settings.GetInt(SettingId::DetectMaxMm),
-                                         settings.GetInt(SettingId::DetectAngle)) >= 0;
+  return turret->radar.FirstTargetInZone() >= 0;
 }
 
 bool Sleep::IsNight() const {
   Settings &settings = turret->settings;
   return settings.GetBool(SettingId::NightSleep) &&
-         logic::InNightWindow(LocalHour(), settings.GetInt(SettingId::NightStart), settings.GetInt(SettingId::NightEnd));
+         logic::InNightWindow(LocalHour(), settings.GetInt(SettingId::NightStart),
+                              settings.GetInt(SettingId::NightEnd));
 }
 
 bool Sleep::DeepAllowed(String &refused) const {

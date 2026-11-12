@@ -12,13 +12,12 @@
 #define SPEED_US 475
 #define MOVE_TIMEOUT_MS 2000
 // Hall sensor diagnostics (plan §7 lot 8).
-#define HALL_RAIL_MS 1000   // at a rail for this long = unplugged or shorted
-#define HALL_MIN_SWING 150  // less change than this during a movement = stuck
+#define HALL_RAIL_MS 1000  // at a rail for this long = unplugged or shorted
+#define HALL_MIN_SWING 150 // less change than this during a movement = stuck
 
 Wing::Wing(int servoPinIn, int gunServoPinIn, int hallSensorPinIn)
     : servoPin(servoPinIn), hallSensorPin(hallSensorPinIn),
-      channel(servoPinIn, servoPinIn == PIN_WING_LEFT ? "wing left" : "wing right"),
-      gun(gunServoPinIn) {}
+      channel(servoPinIn, servoPinIn == PIN_WING_LEFT ? "wing left" : "wing right"), gun(gunServoPinIn) {}
 
 void Wing::Initialize(Settings &settingsIn, bool leftIn) {
   settings = &settingsIn;
@@ -38,9 +37,13 @@ void Wing::ApplySettings() {
 }
 
 // Polarity handled in logic/HallLogic.h (tested natively).
-bool Wing::IsPastOpen(uint16_t value) const { return logic::HallPastOpen(value, hallOpen, hallClosed); }
+bool Wing::IsPastOpen(uint16_t value) const {
+  return logic::HallPastOpen(value, hallOpen, hallClosed);
+}
 
-bool Wing::IsPastClosed(uint16_t value) const { return logic::HallPastClosed(value, hallOpen, hallClosed); }
+bool Wing::IsPastClosed(uint16_t value) const {
+  return logic::HallPastClosed(value, hallOpen, hallClosed);
+}
 
 uint8_t Wing::GetOpenPercent() const {
   // A faulty sensor says nothing: fall back on the known end state.
@@ -130,7 +133,9 @@ void Wing::TestStop(int32_t trim, ulong ms) {
   stopTestUntil = millis() + ms;
 }
 
-Gun &Wing::GetGun() { return gun; }
+Gun &Wing::GetGun() {
+  return gun;
+}
 
 void Wing::Update(ulong deltaTime) {
   uint16_t hallValue = ReadHall();
@@ -192,8 +197,8 @@ void Wing::Update(ulong deltaTime) {
     lastTimedOut = true;
     if (moveMax - moveMin < HALL_MIN_SWING) {
       hallFault = true;
-      Log.printf("Wing %s: Hall sensor did not change during the movement (%u..%u)\n",
-                    left ? "left" : "right", moveMin, moveMax);
+      Log.printf("Wing %s: Hall sensor did not change during the movement (%u..%u)\n", left ? "left" : "right", moveMin,
+                 moveMax);
     }
     if (isOpening) {
       isOpen = true;
@@ -204,5 +209,9 @@ void Wing::Update(ulong deltaTime) {
   }
 }
 
-bool Wing::IsOpen() { return isOpen; }
-bool Wing::IsClosing() { return isClosing; }
+bool Wing::IsOpen() {
+  return isOpen;
+}
+bool Wing::IsClosing() {
+  return isClosing;
+}

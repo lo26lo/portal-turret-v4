@@ -41,9 +41,9 @@ inline bool FiringDone(uint32_t now, uint32_t startedAt, uint32_t fireMs) {
 
 // Searching (target lost after a burst): what the state does next.
 enum class SearchStep : uint8_t {
-  Keep,    // keep looking
-  Fire,    // a target is back in the zone: fire again
-  GiveUp,  // searchMs over without a target: retire
+  Keep,   // keep looking
+  Fire,   // a target is back in the zone: fire again
+  GiveUp, // searchMs over without a target: retire
 };
 
 inline SearchStep SearchDecision(bool targetInZone, uint32_t now, uint32_t startedAt, uint32_t searchMs) {

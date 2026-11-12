@@ -97,8 +97,7 @@ inline uint32_t Id3v2Size(const uint8_t *header, size_t length) {
   if ((header[6] | header[7] | header[8] | header[9]) & 0x80) {
     return 0; // not syncsafe: not a valid tag
   }
-  uint32_t size = ((uint32_t)header[6] << 21) | ((uint32_t)header[7] << 14) |
-                  ((uint32_t)header[8] << 7) | header[9];
+  uint32_t size = ((uint32_t)header[6] << 21) | ((uint32_t)header[7] << 14) | ((uint32_t)header[8] << 7) | header[9];
   return 10 + size + ((header[5] & 0x10) ? 10 : 0);
 }
 

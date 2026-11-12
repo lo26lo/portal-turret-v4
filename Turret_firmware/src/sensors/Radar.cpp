@@ -73,22 +73,33 @@ void Radar::TakeFrame(const logic::RadarFrame &frame) {
   }
 }
 
-bool Radar::IsInZone(const RadarTarget &target, int32_t maxDistanceMm, int32_t halfAngleDeg) const {
-  return target.available && logic::IsInZone(target.x, target.y, maxDistanceMm, halfAngleDeg);
+void Radar::ApplySettings(const Settings &settings) {
+  zoneMaxMm = settings.GetInt(SettingId::DetectMaxMm);
+  zoneHalfAngleDeg = settings.GetInt(SettingId::DetectAngle);
+  zoneMaxSpeedCms = settings.GetInt(SettingId::MaxSpeedCms);
 }
 
-int8_t Radar::FirstTargetInZone(int32_t maxDistanceMm, int32_t halfAngleDeg) const {
+bool Radar::IsInZone(const RadarTarget &target) const {
+  return target.available && logic::IsInZone(target.x, target.y, zoneMaxMm, zoneHalfAngleDeg) &&
+         logic::IsPlausibleSpeed(target.speed, zoneMaxSpeedCms);
+}
+
+int8_t Radar::FirstTargetInZone() const {
   if (!IsAlive(STALE_MS)) {
     return -1;
   }
   for (uint8_t i = 0; i < TRACK_COUNT; i++) {
-    if (IsInZone(targets[i], maxDistanceMm, halfAngleDeg)) {
+    if (IsInZone(targets[i])) {
       return i;
     }
   }
   return -1;
 }
 
-const RadarTarget &Radar::GetTarget(uint8_t index) const { return targets[index % TRACK_COUNT]; }
+const RadarTarget &Radar::GetTarget(uint8_t index) const {
+  return targets[index % TRACK_COUNT];
+}
 
-bool Radar::IsAlive(ulong maxAgeMs) const { return HasSeenFrame() && millis() - lastFrameAt < maxAgeMs; }
+bool Radar::IsAlive(ulong maxAgeMs) const {
+  return HasSeenFrame() && millis() - lastFrameAt < maxAgeMs;
+}

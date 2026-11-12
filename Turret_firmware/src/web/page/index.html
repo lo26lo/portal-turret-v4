@@ -71,34 +71,34 @@
   </header>
   <nav id="tabs"></nav>
   <main>
-    <div id="coredumpWarning" class="warn" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>
-    <div id="passwordWarning" class="warn" hidden>The WiFi password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
+    <div id="coredumpWarning" class="warn" data-i18n="warn.coredump" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>
+    <div id="passwordWarning" class="warn" data-i18n="warn.password" hidden>The WiFi password is still the factory one. Change ApPassword in Settings → WiFi.</div>
 
     <section id="tab-status">
       <div class="card" id="wifiCard">
-        <h2>Home WiFi</h2>
+        <h2 data-i18n="wifi.title">Home WiFi</h2>
         <div class="row" id="wifiState">…</div>
         <div id="wifiForm">
           <div class="row">
-            <button id="scanButton">Scan</button>
-            <select id="networks" style="flex:1"><option value="">– choose a network –</option></select>
+            <button id="scanButton" data-i18n="wifi.scan">Scan</button>
+            <select id="networks" style="flex:1"><option value="" data-i18n="wifi.choose">– choose a network –</option></select>
           </div>
           <div class="row">
-            <input id="ssid" placeholder="network name" style="flex:1">
-            <input id="password" type="password" placeholder="password" style="flex:1">
-            <button class="primary" id="joinButton">Connect</button>
+            <input id="ssid" placeholder="network name" data-i18n-placeholder="wifi.name" style="flex:1">
+            <input id="password" type="password" placeholder="password" data-i18n-placeholder="wifi.password" style="flex:1">
+            <button class="primary" id="joinButton" data-i18n="wifi.connect">Connect</button>
           </div>
-          <small>For the clock (NTP) and access from your home network. The turret's own network stays on.</small>
+          <small data-i18n="wifi.help">For the clock (NTP) and access from your home network. The turret's own network stays on.</small>
         </div>
       </div>
-      <div class="card"><h2>Status</h2><div class="grid" id="status"></div></div>
+      <div class="card"><h2 data-i18n="status.title">Status</h2><div class="grid" id="status"></div></div>
       <div class="card">
-        <h2>Sleep</h2>
+        <h2 data-i18n="sleep.title">Sleep</h2>
         <div class="row" id="sleepState">…</div>
         <div class="row">
-          <button data-cmd="sleep radar">Radar sleep now</button>
-          <button id="deepSleepButton">Deep sleep now</button>
-          <button class="primary" data-cmd="sleep off">Wake up</button>
+          <button data-cmd="sleep radar" data-i18n="sleep.radar">Radar sleep now</button>
+          <button id="deepSleepButton" data-i18n="sleep.deep">Deep sleep now</button>
+          <button class="primary" data-cmd="sleep off" data-i18n="sleep.wake">Wake up</button>
         </div>
         <small>Radar sleep: the radar keeps watching, everything else rests; a target, the knob, PROG or <i>Wake up</i> wakes the turret. Deep sleep (v2 board): almost nothing draws current; the turret wakes up when moved, on PROG, at the end of the night or for a patrol, and this page is unreachable until then. Delays, night, WiFi and patrols: Settings tab, group <i>Sleep</i>.</small>
       </div>
@@ -108,7 +108,7 @@
 
     <section id="tab-calib">
       <div class="card">
-        <h2>Hall sensors</h2>
+        <h2 data-i18n="hall.title">Hall sensors</h2>
         <div class="grid">
           <div class="kv"><span>Left (live)</span><b id="hallLeft">–</b></div>
           <div class="kv"><span>Right (live)</span><b id="hallRight">–</b></div>
@@ -120,31 +120,31 @@
           <button data-capture="R,closed">Right closed</button>
         </div>
         <div class="row" id="captures"></div>
-        <div class="row"><button class="primary" id="hallSaveButton">Compute and save thresholds</button></div>
+        <div class="row"><button class="primary" id="hallSaveButton" data-i18n="hall.save">Compute and save thresholds</button></div>
         <small>Move each wing by hand (or with Tests), capture both positions, then save. Thresholds are set at 25 % and 75 % between the two values.</small>
       </div>
       <div class="card">
-        <h2>IMU</h2>
+        <h2 data-i18n="imu.title">IMU</h2>
         <div class="row">Dominant axis: <b id="axis">–</b>, setting: <b id="axisSetting">–</b></div>
         <div class="row">
-          <button class="primary" id="imuCaptureButton">The turret stands upright: capture</button>
-          <button id="imuOffButton">Disable the check</button>
+          <button class="primary" id="imuCaptureButton" data-i18n="imu.capture">The turret stands upright: capture</button>
+          <button id="imuOffButton" data-i18n="imu.off">Disable the check</button>
         </div>
       </div>
       <div class="card">
-        <h2>Wing trims</h2>
+        <h2 data-i18n="trim.title">Wing trims</h2>
         <small>Runs the wing at its stop point for 2 s. Adjust until it does not move, then save.</small>
         <div class="row">Left <b id="trimLeftValue">0</b> µs</div>
         <input type="range" id="trimLeft" min="-200" max="200" step="5">
         <div class="row">Right <b id="trimRightValue">0</b> µs</div>
         <input type="range" id="trimRight" min="-200" max="200" step="5">
-        <div class="row"><button class="primary" id="trimSaveButton">Save trims</button></div>
+        <div class="row"><button class="primary" id="trimSaveButton" data-i18n="trim.save">Save trims</button></div>
       </div>
     </section>
 
     <section id="tab-tests">
       <div class="card">
-        <h2>Debug screen</h2>
+        <h2 data-i18n="screen.title">Debug screen</h2>
         <pre id="screen" class="scr"></pre>
         <div class="row">
           <button data-key="ccw">&#8634; Turn</button>
@@ -156,18 +156,18 @@
         <small>Same keys as the knob: turn = previous / next (or value &minus; / +), push = enter / OK, push held = back. Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
       </div>
       <div class="card">
-        <h2>Self-test</h2>
+        <h2 data-i18n="selftest.title">Self-test</h2>
         <div class="row">
-          <button data-cmd="selftest quick">Quick (nothing moves)</button>
-          <button id="selfTestFullButton">Full (LEDs, sound, servos, wings)</button>
-          <button id="selfTestReportButton">Report</button>
+          <button data-cmd="selftest quick" data-i18n="selftest.quick">Quick (nothing moves)</button>
+          <button id="selfTestFullButton" data-i18n="selftest.full">Full (LEDs, sound, servos, wings)</button>
+          <button id="selfTestReportButton" data-i18n="selftest.report">Report</button>
         </div>
         <pre id="selfTestReport">–</pre>
         <small>OK / FAIL / SKIP (could not be tested) / CHECK (look at the LEDs, listen to the tone).</small>
       </div>
       <div class="card">
-        <h2>Tests</h2>
-        <small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
+        <h2 data-i18n="tests.title">Tests</h2>
+        <small data-i18n="tests.help">Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
         <div class="row">
           <button data-cmd="wings open">Wings open</button>
           <button data-cmd="wings close">Wings close</button>
@@ -205,23 +205,25 @@
           <button data-cmd="scan">I2C scan</button>
           <button data-cmd="imu">IMU</button>
           <button data-cmd="hall">Hall</button>
-          <button data-cmd="demo">Demo cycle</button>
-          <button class="primary" data-cmd="resume">Resume</button>
+          <button data-cmd="demo" data-i18n="tests.demo">Demo cycle</button>
+          <button class="primary" data-cmd="resume" data-i18n="tests.resume">Resume</button>
         </div>
         <div class="row">
-          <input id="command" placeholder="console command (help)" style="flex:1">
-          <button id="commandButton">Run</button>
+          <input id="command" placeholder="console command (help)" data-i18n-placeholder="tests.command" style="flex:1">
+          <button id="commandButton" data-i18n="tests.run">Run</button>
+          <select id="helpCategory"></select>
+          <button id="helpButton" data-i18n="tests.helpButton">Help</button>
         </div>
-        <small>Answers appear in the Log tab.</small>
+        <small data-i18n="tests.answers">Answers appear in the Log tab.</small>
       </div>
     </section>
 
     <section id="tab-log">
       <div class="card">
         <div class="row">
-          <h2 style="flex:1;margin:0">Log</h2>
+          <h2 style="flex:1;margin:0" data-i18n="tab.log">Log</h2>
           <label><input type="checkbox" id="logAuto" checked> auto</label>
-          <button id="logRefreshButton">Refresh</button>
+          <button id="logRefreshButton" data-i18n="log.refresh">Refresh</button>
         </div>
         <pre id="log"></pre>
       </div>
@@ -229,29 +231,29 @@
 
     <section id="tab-maint">
       <div class="card">
-        <h2>Firmware update</h2>
+        <h2 data-i18n="fw.title">Firmware update</h2>
         <div class="row">
           <input type="file" id="firmwareFile" accept=".bin">
-          <button class="primary" id="firmwareUploadButton">Upload</button>
+          <button class="primary" id="firmwareUploadButton" data-i18n="fw.upload">Upload</button>
         </div>
-        <small id="firmwareMessage">The turret stops before the upload and reboots afterwards.</small>
+        <small id="firmwareMessage" data-i18n="fw.help">The turret stops before the upload and reboots afterwards.</small>
       </div>
       <div class="card">
-        <h2>Crash report</h2>
+        <h2 data-i18n="crash.title">Crash report</h2>
         <div class="row" id="crashInfo">–</div>
         <div class="row">
-          <button id="crashLogButton">Log of the previous run</button>
+          <button id="crashLogButton" data-i18n="crash.log">Log of the previous run</button>
           <a id="coredumpLink" href="/api/coredump" download="coredump.elf"><button>Download core dump</button></a>
-          <button id="coredumpEraseButton">Erase core dump</button>
+          <button id="coredumpEraseButton" data-i18n="crash.erase">Erase core dump</button>
         </div>
         <pre id="crashText" hidden></pre>
         <small>Decode with the firmware.elf of the same build: espcoredump.py --chip esp32s3 info_corefile -c coredump.elf firmware.elf</small>
       </div>
       <div class="card">
-        <h2>System</h2>
+        <h2 data-i18n="sys.title">System</h2>
         <div class="row">
-          <button id="rebootButton">Reboot</button>
-          <button id="factoryResetButton">Reset all settings</button>
+          <button id="rebootButton" data-i18n="sys.reboot">Reboot</button>
+          <button id="factoryResetButton" data-i18n="sys.factory">Reset all settings</button>
         </div>
       </div>
     </section>
@@ -265,8 +267,17 @@
     const TABS = [["status", "Status"], ["settings", "Settings"], ["calib", "Calibration"],
                   ["tests", "Tests"], ["log", "Log"], ["maint", "Maintenance"]];
 
-    // Lists from the firmware (GET /api/meta); defaults until it answers.
-    let meta = {faults: {}, axes: ["off", "+X", "-X", "+Y", "-Y", "+Z", "-Z"], voices: [], servos: []};
+    // Lists and texts from the firmware (GET /api/meta); defaults until it answers.
+    let meta = {faults: {}, axes: ["off", "+X", "-X", "+Y", "-Y", "+Z", "-Z"], voices: [], servos: [], categories: [], text: {}};
+
+    // Text in the language of the turret (web/PageText.h), or the English written in the page.
+    function t(key, fallback) {
+      return meta.text[key] || fallback;
+    }
+    function applyTexts() {
+      all("[data-i18n]").forEach((e) => { e.textContent = t(e.dataset.i18n, e.textContent); });
+      all("[data-i18n-placeholder]").forEach((e) => { e.placeholder = t(e.dataset.i18nPlaceholder, e.placeholder); });
+    }
     let currentTab = "status";
     let status = null;       // last GET /api/status
     let settingsList = [];   // last GET /api/settings
@@ -315,8 +326,14 @@
       if (tab === "log") loadLog();
       if (tab === "tests") loadScreen();
     }
-    byId("tabs").innerHTML = TABS.map(([key, label]) => `<button data-tab="${key}">${label}</button>`).join("");
-    all("nav button").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
+    function renderTabs() {
+      byId("tabs").innerHTML = TABS.map(([key, label]) => `<button data-tab="${key}">${escapeHtml(t("tab." + key, label))}</button>`).join("");
+      all("nav button").forEach((b) => {
+        b.onclick = () => showTab(b.dataset.tab);
+        b.classList.toggle("primary", b.dataset.tab === currentTab);
+      });
+    }
+    renderTabs();
 
     // ---------------------------------------------------------------- meta
     async function loadMeta() {
@@ -327,6 +344,11 @@
       }
       byId("voice").innerHTML = meta.voices.map((v) => `<option>${escapeHtml(v)}</option>`).join("");
       byId("servo").innerHTML = meta.servos.map((s) => `<option value="${escapeHtml(s.alias)}">${escapeHtml(s.name)}</option>`).join("");
+      byId("helpCategory").innerHTML = `<option value="">help: all</option>` +
+        (meta.categories || []).map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      document.documentElement.lang = meta.lang || "en";
+      applyTexts();
+      renderTabs();
     }
 
     // ---------------------------------------------------------------- status tab
@@ -358,25 +380,26 @@
         : radar.frames === 0 ? `silent (${radar.bytes} bytes, no frame: baud rate?)`
         : "silent";
       const sta = st.wifi.sta;
+      const aim = st.aim ? (st.aim.on ? ` · aim ${st.aim.deg}°` : "") : "";
       byId("status").innerHTML = [
-        keyValue("Uptime", uptime(st.uptimeMs)),
-        keyValue("Reset", escapeHtml(st.resetReason)),
+        keyValue(t("st.uptime", "Uptime"), uptime(st.uptimeMs)),
+        keyValue(t("st.reset", "Reset"), escapeHtml(st.resetReason)),
         keyValue("PWR_FLT", st.pwrFlt ? "LOW" : "ok", st.pwrFlt ? "bad" : "okc"),
-        keyValue("Mode", st.benchMode ? "bench" : st.reducedMode ? "reduced" : "normal"),
-        keyValue("Brownouts / loops", st.brownouts + " / " + st.bootLoopCount),
-        keyValue("eFuse events", st.powerFaults),
-        keyValue("Radar", radarText + (radar.badFrames ? `, ${radar.badFrames} bad frame(s)` : ""), radar.alive ? "" : "bad"),
-        keyValue("IMU", st.imu.available ? (st.imu.upright ? "upright" : "axis " + meta.axes[st.imu.dominantAxis]) : "missing", st.imu.available ? "" : "bad"),
-        keyValue("Hall L / R", st.hall.powered === false ? "off (powered while a wing moves)" : st.hall.left + " / " + st.hall.right, st.hall.fault ? "bad" : ""),
-        keyValue("Wings", st.wings.moving ? "moving" : (st.wings.leftOpen || st.wings.rightOpen) ? "open" : "closed"),
-        keyValue("Amp", st.amp.gainDb + " dB" + (st.amp.muted ? ", muted" : st.amp.running ? "" : ", off")),
-        keyValue("WiFi", escapeHtml(st.wifi.ssid) + ", " + st.wifi.clients + " client(s)"),
-        keyValue("Home network", !sta.enabled ? "not configured" : sta.connected ? escapeHtml(sta.ip) + " (" + sta.rssi + " dBm)" : "connecting…", sta.enabled && !sta.connected ? "bad" : ""),
-        keyValue("Time", st.time ? escapeHtml(st.time) : "not set"),
-        keyValue("Free heap", Math.round(st.freeHeap / 1024) + " kB"),
-        keyValue("Cycles", st.stats ? st.stats.cycles + " (+" + st.stats.sessionCycles + "), " + st.stats.boots + " boots" : "–"),
-        keyValue("Firmware", escapeHtml(st.version)),
-      ].join("") + `<div class="kv" style="grid-column:1/-1"><span>Servos (µs, – = released)</span><b>${servos}</b></div>`;
+        keyValue(t("st.mode", "Mode"), st.benchMode ? "bench" : st.reducedMode ? "reduced" : "normal"),
+        keyValue(t("st.loops", "Brownouts / loops"), st.brownouts + " / " + st.bootLoopCount),
+        keyValue(t("st.efuse", "eFuse events"), st.powerFaults),
+        keyValue(t("st.radar", "Radar"), radarText + (radar.badFrames ? `, ${radar.badFrames} bad frame(s)` : "") + aim, radar.alive ? "" : "bad"),
+        keyValue(t("st.imu", "IMU"), st.imu.available ? (st.imu.upright ? "upright" : "axis " + meta.axes[st.imu.dominantAxis]) : "missing", st.imu.available ? "" : "bad"),
+        keyValue(t("st.hall", "Hall L / R"), st.hall.powered === false ? "off (powered while a wing moves)" : st.hall.left + " / " + st.hall.right, st.hall.fault ? "bad" : ""),
+        keyValue(t("st.wings", "Wings"), st.wings.moving ? "moving" : (st.wings.leftOpen || st.wings.rightOpen) ? "open" : "closed"),
+        keyValue(t("st.amp", "Amp"), st.amp.gainDb + " dB" + (st.amp.muted ? ", muted" : st.amp.running ? "" : ", off")),
+        keyValue(t("st.wifi", "WiFi"), escapeHtml(st.wifi.ssid) + ", " + st.wifi.clients + " client(s)"),
+        keyValue(t("st.home", "Home network"), !sta.enabled ? "not configured" : sta.connected ? escapeHtml(sta.ip) + " (" + sta.rssi + " dBm)" : "connecting…", sta.enabled && !sta.connected ? "bad" : ""),
+        keyValue(t("st.time", "Time"), st.time ? escapeHtml(st.time) : "not set"),
+        keyValue(t("st.heap", "Free heap"), Math.round(st.freeHeap / 1024) + " kB"),
+        keyValue(t("st.cycles", "Cycles"), st.stats ? st.stats.cycles + " (+" + st.stats.sessionCycles + "), " + st.stats.boots + " boots" : "–"),
+        keyValue(t("st.firmware", "Firmware"), escapeHtml(st.version)),
+      ].join("") + `<div class="kv" style="grid-column:1/-1"><span>${escapeHtml(t("st.servos", "Servos (µs, – = released)"))}</span><b>${servos}</b></div>`;
 
       byId("wifiState").innerHTML = !sta.enabled ? "Not connected to a home network yet."
         : sta.connected
@@ -607,6 +630,8 @@
       const command = byId("command").value.trim();
       if (command) runCommand(command);
     };
+    // "help <category>": one category fits the log tail; the answer is in the Log tab.
+    byId("helpButton").onclick = () => runCommand(("help " + byId("helpCategory").value).trim()).then(() => showTab("log"));
     byId("command").onkeydown = (e) => { if (e.key === "Enter") byId("commandButton").click(); };
 
     // ---------------------------------------------------------------- log tab

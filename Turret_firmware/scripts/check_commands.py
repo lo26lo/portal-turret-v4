@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Checks that the README lists every console command of the firmware.
 
-The commands are the rows of Actions::COMMANDS (src/control/Actions.cpp), one
-per line: CMD("name", "usage", ...). Section 11 of README.md must have a row
+The commands are the rows of commands::TABLE (src/control/CommandTable.h), one
+per line: {"name", "usage", "help", "category", ...}. Section 11 of README.md must have a row
 `name` for each of them, and must not list a command that no longer exists.
 Run from Turret_firmware/ (the CI does); exit code 1 on a mismatch.
 """
@@ -14,8 +14,25 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def firmware_commands():
-    text = open(os.path.join(ROOT, "src", "control", "Actions.cpp"), encoding="utf-8").read()
-    return set(re.findall(r'^\s*CMD\("([a-z-]+)",', text, re.MULTILINE))
+    text = open(os.path.join(ROOT, "src", "control", "CommandTable.h"), encoding="utf-8").read()
+    rows = re.findall(r'\{"([a-z-]+)",\s*"([^"]*)",\s*"([^"]*)",\s*"([^"]*)",\s*Id::', text)
+    names = [name for name, _, _, _ in rows]
+    for name, usage, help_text, category in rows:
+        if not usage.startswith(name):
+            print("usage does not start with the command name:", name, "->", usage)
+            names.append("!")
+        if not help_text or not category:
+            print("empty help or category:", name)
+            names.append("!")
+    if len(set(names)) != len(names):
+        print("duplicate command name:", sorted(n for n in names if names.count(n) > 1))
+    # Categories must be contiguous: "help" prints one heading per block.
+    categories = [c for _, _, _, c in rows]
+    blocks = [c for i, c in enumerate(categories) if i == 0 or categories[i - 1] != c]
+    if len(blocks) != len(set(blocks)):
+        print("a category appears in two separate blocks of the table:", blocks)
+        names.append("!")
+    return set(names)
 
 
 def readme_commands():

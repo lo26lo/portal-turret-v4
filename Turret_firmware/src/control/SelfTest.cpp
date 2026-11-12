@@ -31,16 +31,44 @@ enum Entry : uint8_t {
   EntryWingRight,
 };
 
-const char *NAMES_EN[SelfTest::ENTRY_COUNT] = {
-    "flash 8 MB, no PSRAM", "PWR_FLT high", "IMU answers", "gravity ~9.8", "radar frames",
-    "Hall left", "Hall right", "LittleFS", "OLED", "WiFi access point", "amplifier",
-    "LEDs (look)", "sound (listen)", "servo rotate Z", "servo rotate X", "servo gun left",
-    "servo gun right", "wing left", "wing right"};
-const char *NAMES_FR[SelfTest::ENTRY_COUNT] = {
-    "flash 8 Mo, sans PSRAM", "PWR_FLT haut", "IMU répond", "gravité ~9,8", "trames radar",
-    "Hall gauche", "Hall droit", "LittleFS", "OLED", "point d'accès WiFi", "ampli",
-    "LEDs (regarder)", "son (écouter)", "servo rotation Z", "servo rotation X", "servo canon G",
-    "servo canon D", "aile gauche", "aile droite"};
+const char *NAMES_EN[SelfTest::ENTRY_COUNT] = {"flash 8 MB, no PSRAM",
+                                               "PWR_FLT high",
+                                               "IMU answers",
+                                               "gravity ~9.8",
+                                               "radar frames",
+                                               "Hall left",
+                                               "Hall right",
+                                               "LittleFS",
+                                               "OLED",
+                                               "WiFi access point",
+                                               "amplifier",
+                                               "LEDs (look)",
+                                               "sound (listen)",
+                                               "servo rotate Z",
+                                               "servo rotate X",
+                                               "servo gun left",
+                                               "servo gun right",
+                                               "wing left",
+                                               "wing right"};
+const char *NAMES_FR[SelfTest::ENTRY_COUNT] = {"flash 8 Mo, sans PSRAM",
+                                               "PWR_FLT haut",
+                                               "IMU répond",
+                                               "gravité ~9,8",
+                                               "trames radar",
+                                               "Hall gauche",
+                                               "Hall droit",
+                                               "LittleFS",
+                                               "OLED",
+                                               "point d'accès WiFi",
+                                               "ampli",
+                                               "LEDs (regarder)",
+                                               "son (écouter)",
+                                               "servo rotation Z",
+                                               "servo rotation X",
+                                               "servo canon G",
+                                               "servo canon D",
+                                               "aile gauche",
+                                               "aile droite"};
 const ulong WING_TIMEOUT_MS = 5000; // attach wait + 2 s movement timeout, with margin
 } // namespace
 
@@ -150,8 +178,7 @@ void SelfTest::Update(ulong now) {
   if (!running) {
     return;
   }
-  if (turret->board.GetPowerFaultCount() != faultsAtStart ||
-      stateMachine->GetCurrentStateId() == StateId::Fault) {
+  if (turret->board.GetPowerFaultCount() != faultsAtStart || stateMachine->GetCurrentStateId() == StateId::Fault) {
     Set(entry, Result::Fail);
     Finish("aborted, power fault during the step");
     return;

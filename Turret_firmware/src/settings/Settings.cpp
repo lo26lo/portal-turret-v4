@@ -6,13 +6,24 @@ const char *NVS_NAMESPACE = "turret";
 const size_t NVS_KEY_MAX = 15;
 } // namespace
 
-SettingValue::SettingValue(const char *v) { strlcpy(valueString, v, SETTING_STRING_MAX); }
+SettingValue::SettingValue(const char *v) {
+  strlcpy(valueString, v, SETTING_STRING_MAX);
+}
 
-SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min), max(max), options(nullptr) {}
+SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type,
+                             SettingValue defaultValue, SettingValue min, SettingValue max)
+    : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min),
+      max(max), options(nullptr) {}
 
-SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max, const char *options) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min), max(max), options(options) {}
+SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type,
+                             SettingValue defaultValue, SettingValue min, SettingValue max, const char *options)
+    : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min(min),
+      max(max), options(options) {}
 
-SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue) : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue), min((int32_t)0), max((int32_t)0), options(nullptr) {}
+SettingsEntry::SettingsEntry(const char *key, const char *label, const char *group, SettingType type,
+                             SettingValue defaultValue)
+    : key(key), label(label), group(group), type(type), value(defaultValue), defaultValue(defaultValue),
+      min((int32_t)0), max((int32_t)0), options(nullptr) {}
 
 bool OptionName(const char *options, int32_t index, char *out, size_t size) {
   if (options == nullptr || index < 0 || size == 0) {
@@ -115,7 +126,7 @@ Settings::Settings()
           {"WakeImuLevel", "Deep sleep: movement needed", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)2, "Firm knock|Nudge|Light touch"},
           {"HallPower", "Hall sensors powered", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)1, "Always|While a wing moves (v2)"},
           // Light::Effect: what the LEDs show outside a test.
-          {"LedEffect", "LED effect", "Lights", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)1, "Red eye|Turning rainbow"},
+          {"LedEffect", "LED effect", "Lights", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2, "Red eye|Turning rainbow|Living eye (follows the state)"},
           // Firing cycle (logic/CycleLogic.h): a burst, then a search for the target.
           {"FireMs", "Burst of fire (ms)", "Detection", SettingType::Int, (int32_t)3000, (int32_t)500, (int32_t)20000},
           {"SearchMs", "Search for the target after a burst (ms, 0 = retire at once)", "Detection", SettingType::Int, (int32_t)4000, (int32_t)0, (int32_t)30000},
@@ -123,6 +134,9 @@ Settings::Settings()
           // Off by default: the direction of the rotation against the radar x axis
           // has not been checked on a turret yet (AngleOffsetZ / the gear ratio).
           {"AimZ", "Rotation Z follows the target (check the direction first)", "Detection", SettingType::Bool, false},
+          // B10: radial speed of the radar (cm/s). A walking person is under 200,
+          // a reflection or a fan blade can read far more. 0 = no limit.
+          {"MaxSpeedCms", "Ignore targets faster than (cm/s, 0 = no limit)", "Detection", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)2000},
       },
       prefsReady(false) {}
 
@@ -149,19 +163,10 @@ void Settings::Load() {
       continue;
     }
     switch (entry.type) {
-    case SettingType::Int:
-      entry.value.valueInt = prefs.getInt(entry.key, entry.value.valueInt);
-      break;
-    case SettingType::Float:
-      entry.value.valueFloat =
-          prefs.getFloat(entry.key, entry.value.valueFloat);
-      break;
-    case SettingType::Bool:
-      entry.value.valueBool = prefs.getBool(entry.key, entry.value.valueBool);
-      break;
-    case SettingType::Str:
-      prefs.getString(entry.key, entry.value.valueString, SETTING_STRING_MAX);
-      break;
+    case SettingType::Int: entry.value.valueInt = prefs.getInt(entry.key, entry.value.valueInt); break;
+    case SettingType::Float: entry.value.valueFloat = prefs.getFloat(entry.key, entry.value.valueFloat); break;
+    case SettingType::Bool: entry.value.valueBool = prefs.getBool(entry.key, entry.value.valueBool); break;
+    case SettingType::Str: prefs.getString(entry.key, entry.value.valueString, SETTING_STRING_MAX); break;
     }
   }
 }
@@ -171,18 +176,10 @@ void Settings::Persist(const SettingsEntry &entry) {
     return;
   }
   switch (entry.type) {
-  case SettingType::Int:
-    prefs.putInt(entry.key, entry.value.valueInt);
-    break;
-  case SettingType::Float:
-    prefs.putFloat(entry.key, entry.value.valueFloat);
-    break;
-  case SettingType::Bool:
-    prefs.putBool(entry.key, entry.value.valueBool);
-    break;
-  case SettingType::Str:
-    prefs.putString(entry.key, entry.value.valueString);
-    break;
+  case SettingType::Int: prefs.putInt(entry.key, entry.value.valueInt); break;
+  case SettingType::Float: prefs.putFloat(entry.key, entry.value.valueFloat); break;
+  case SettingType::Bool: prefs.putBool(entry.key, entry.value.valueBool); break;
+  case SettingType::Str: prefs.putString(entry.key, entry.value.valueString); break;
   }
 }
 
@@ -196,8 +193,7 @@ const SettingsEntry *Settings::Get(SettingId id) const {
 }
 
 SettingsEntry *Settings::Get(SettingId id) {
-  return const_cast<SettingsEntry *>(
-      static_cast<const Settings *>(this)->Get(id));
+  return const_cast<SettingsEntry *>(static_cast<const Settings *>(this)->Get(id));
 }
 
 int32_t Settings::GetInt(SettingId id) const {
@@ -358,8 +354,7 @@ bool Settings::Set(SettingId id, const char *value) {
 
 namespace {
 bool ParseBool(const char *text) {
-  return strcasecmp(text, "true") == 0 || strcasecmp(text, "on") == 0 ||
-         strcmp(text, "1") == 0;
+  return strcasecmp(text, "true") == 0 || strcasecmp(text, "on") == 0 || strcmp(text, "1") == 0;
 }
 
 // Index of the option named text (any case), -1 if none.
@@ -398,12 +393,9 @@ bool Settings::SetFromString(SettingId id, const char *text) {
       return Set(id, (int32_t)number);
     }
     return Set(id, (int32_t)strtol(text, nullptr, 10));
-  case SettingType::Float:
-    return Set(id, (float)strtod(text, nullptr));
-  case SettingType::Bool:
-    return Set(id, ParseBool(text));
-  case SettingType::Str:
-    return Set(id, text);
+  case SettingType::Float: return Set(id, (float)strtod(text, nullptr));
+  case SettingType::Bool: return Set(id, ParseBool(text));
+  case SettingType::Str: return Set(id, text);
   }
   return false;
 }

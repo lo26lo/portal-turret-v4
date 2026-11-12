@@ -67,9 +67,9 @@ private:
   logic::SleepLevel level = logic::SleepLevel::Awake;
   ulong lastActivity = 0;
   ulong radarSleepSince = 0;
-  bool patrol = false;     // quiet boot: back to deep sleep at patrolUntil
+  bool patrol = false; // quiet boot: back to deep sleep at patrolUntil
   ulong patrolUntil = 0;
-  bool apWasOn = false;    // WiFi to restore when waking up
+  bool apWasOn = false; // WiFi to restore when waking up
   bool staWasOn = false;
   bool wifiChanged = false;
 };

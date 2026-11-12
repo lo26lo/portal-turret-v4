@@ -104,6 +104,6 @@ private:
   int16_t voiceLast[(int)Voice::Count] = {}; // index of the last file played, -1 none
   logic::Upsampler upsampler;                // reads the decoder's current frame
   int16_t voiceBlock[DMA_BUFFER_FRAMES * 2]; // L, R, L, R...
-  size_t voiceBlockFrames = 0; // frames filled
-  size_t voiceBlockSent = 0;   // bytes already taken by the I2S driver
+  size_t voiceBlockFrames = 0;               // frames filled
+  size_t voiceBlockSent = 0;                 // bytes already taken by the I2S driver
 };

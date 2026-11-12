@@ -29,15 +29,9 @@ bool Display::Begin(int32_t oledType) {
   // inside begin() (first board, 19.10.2026). Without them U8g2 calls
   // Wire.begin(), which leaves the bus started by I2cBus (IO35 / IO36) as it is.
   switch (oledType) {
-  case 1:
-    u8g2 = new U8G2_SSD1309_128X64_NONAME0_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
-    break;
-  case 2:
-    u8g2 = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
-    break;
-  default:
-    u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
-    break;
+  case 1: u8g2 = new U8G2_SSD1309_128X64_NONAME0_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE); break;
+  case 2: u8g2 = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE); break;
+  default: u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE); break;
   }
   u8g2->setI2CAddress(address << 1);
   u8g2->setBusClock(400000);
@@ -45,13 +39,14 @@ bool Display::Begin(int32_t oledType) {
   u8g2->setFont(u8g2_font_6x10_tf); // Latin-1: accented letters for French
   u8g2->setFontMode(1);             // transparent: needed to write on an inverted bar
   Log.printf("Display: OLED at 0x%02X, type %ld (%s)\n", address, (long)oledType,
-             oledType == 1 ? "SSD1309" : oledType == 2 ? "SH1106" : "SSD1306");
+             oledType == 1   ? "SSD1309"
+             : oledType == 2 ? "SH1106"
+                             : "SSD1306");
 
   // Frames are sent by a low-priority task on the other core (loop() runs on
   // core 1), so that the 25 ms of a frame never delay the main loop.
   lock = xSemaphoreCreateMutex();
-  if (lock == nullptr ||
-      xTaskCreatePinnedToCore(TaskEntry, "oled", TASK_STACK_BYTES, this, 1, &task, 0) != pdPASS) {
+  if (lock == nullptr || xTaskCreatePinnedToCore(TaskEntry, "oled", TASK_STACK_BYTES, this, 1, &task, 0) != pdPASS) {
     Log.println("Display: could not start the display task, screen disabled");
     task = nullptr;
     present = false;
@@ -86,7 +81,9 @@ void Display::SetPower(bool on) {
   }
 }
 
-void Display::TaskEntry(void *self) { static_cast<Display *>(self)->Run(); }
+void Display::TaskEntry(void *self) {
+  static_cast<Display *>(self)->Run();
+}
 
 // Display task: the only code that touches U8g2 after Begin().
 void Display::Run() {
@@ -139,12 +136,8 @@ void Display::Draw(const logic::MenuScreen &screen) {
     DrawFrameLines(screen);
     DrawGraph(screen);
     break;
-  case logic::Graphic::Qr:
-    DrawQr(screen);
-    break;
-  case logic::Graphic::Logo:
-    DrawLogo(screen);
-    break;
+  case logic::Graphic::Qr: DrawQr(screen); break;
+  case logic::Graphic::Logo: DrawLogo(screen); break;
   default:
     for (uint8_t i = 0; i < logic::SCREEN_LINES; i++) {
       uint8_t top = i * LINE_HEIGHT + (i > 0 ? 2 : 0); // small gap under the title

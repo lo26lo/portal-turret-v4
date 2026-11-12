@@ -7,8 +7,7 @@
 #include "pins.h"
 
 Gantry::Gantry()
-    : wingLeft(PIN_WING_LEFT, PIN_GUN_LEFT, PIN_HALL_LEFT),
-      wingRight(PIN_WING_RIGHT, PIN_GUN_RIGHT, PIN_HALL_RIGHT),
+    : wingLeft(PIN_WING_LEFT, PIN_GUN_LEFT, PIN_HALL_LEFT), wingRight(PIN_WING_RIGHT, PIN_GUN_RIGHT, PIN_HALL_RIGHT),
       rotateX(PIN_ROTATE_X, "rotate X"), rotateZ(PIN_ROTATE_Z, "rotate Z") {}
 
 void Gantry::Initialize(Settings &settingsIn) {
@@ -82,14 +81,18 @@ ServoChannel &Gantry::GetChannel(uint8_t index) {
 }
 
 void Gantry::SetRotationX(int angle, bool force) {
-  if (force || wingLeft.IsOpen() && wingRight.IsOpen()) {
+  if (force || (wingLeft.IsOpen() && wingRight.IsOpen())) {
     rotateX.SetAngle(round(90 + (angle + ANGLE_OFFSET_X) * X_AXIS_GEAR_RATIO));
   }
 }
 
+int Gantry::ServoAngleZ(int angle) const {
+  return constrain((int)round(90 + (angle + ANGLE_OFFSET_Z) * Z_AXIS_GEAR_RATIO), 0, 180);
+}
+
 void Gantry::SetRotationZ(int angle, bool force) {
-  if (force || wingLeft.IsOpen() && wingRight.IsOpen()) {
-    rotateZ.SetAngle(round(90 + (angle + ANGLE_OFFSET_Z) * Z_AXIS_GEAR_RATIO));
+  if (force || (wingLeft.IsOpen() && wingRight.IsOpen())) {
+    rotateZ.SetAngle(ServoAngleZ(angle));
   }
 }
 
@@ -214,9 +217,13 @@ void Gantry::OpenWings() {
   wingRight.Open();
 }
 
-Wing& Gantry::GetWingLeft() { return wingLeft; }
+Wing &Gantry::GetWingLeft() {
+  return wingLeft;
+}
 
-Wing& Gantry::GetWingRight() { return wingRight; }
+Wing &Gantry::GetWingRight() {
+  return wingRight;
+}
 
 void Gantry::CloseWings() {
   SetRotationX(0, true);

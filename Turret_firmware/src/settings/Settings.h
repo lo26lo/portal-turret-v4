@@ -61,14 +61,12 @@ enum SettingId {
   FireMs,
   SearchMs,
   AimZ,
+  MaxSpeedCms,
   COUNT
 };
 
 // Scoped, so the enumerators don't collide with Arduino's String class.
-enum class SettingType { Int,
-                         Float,
-                         Bool,
-                         Str };
+enum class SettingType { Int, Float, Bool, Str };
 
 // 63 characters + terminator: the longest WPA2 passphrase.
 constexpr size_t SETTING_STRING_MAX = 64;
@@ -90,10 +88,12 @@ union SettingValue {
 class SettingsEntry {
 public:
   // Numeric settings: min/max bound the value.
-  SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max);
+  SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue,
+                SettingValue min, SettingValue max);
   // Int setting that picks one of a list: values 0..n-1 name the options,
   // separated by '|' (min must be 0 and max n-1).
-  SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue, SettingValue min, SettingValue max, const char *options);
+  SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue,
+                SettingValue min, SettingValue max, const char *options);
   // Bool and string settings: no meaningful range.
   SettingsEntry(const char *key, const char *label, const char *group, SettingType type, SettingValue defaultValue);
 
@@ -114,7 +114,7 @@ bool OptionName(const char *options, int32_t index, char *out, size_t size);
 class Settings {
 public:
   Settings();
-  
+
   SettingsEntry entries[SettingId::COUNT];
 
   // Opens NVS and overwrites values that have been stored before.
@@ -124,7 +124,7 @@ public:
   float GetFloat(SettingId id) const;
   bool GetBool(SettingId id) const;
   const char *GetString(SettingId id) const;
-  
+
   const SettingsEntry *Get(SettingId id) const;
   SettingsEntry *Get(SettingId id);
 

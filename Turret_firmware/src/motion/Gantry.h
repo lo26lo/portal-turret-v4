@@ -16,10 +16,13 @@ public:
   void Update(ulong deltaTime);
   void SetRotationX(int angle, bool force);
   void SetRotationZ(int angle, bool force);
+  // Servo angle (0..180) that a turret rotation Z of `angle` degrees maps to
+  // (offset and gear ratio), for the "aim" report.
+  int ServoAngleZ(int angle) const;
   void OpenWings();
   void CloseWings();
-  Wing& GetWingLeft();
-  Wing& GetWingRight();
+  Wing &GetWingLeft();
+  Wing &GetWingRight();
 
   // Boot step 11: rotations centred and guns retracted. The servos are attached
   // one at a time by Update(), in the order rotate Z, rotate X, gun left, gun right.
@@ -58,8 +61,8 @@ private:
   void ApplyRamp();
   void UpdateHallPower(ulong now);
 
-  float X_AXIS_GEAR_RATIO = 75.0/17.0;
-  float Z_AXIS_GEAR_RATIO = 30.0/15.0;
+  float X_AXIS_GEAR_RATIO = 75.0 / 17.0;
+  float Z_AXIS_GEAR_RATIO = 30.0 / 15.0;
   float ANGLE_OFFSET_X = -3.4;
   float ANGLE_OFFSET_Z = 0;
   ulong servoStaggerMs = 250;

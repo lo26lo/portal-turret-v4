@@ -1,7 +1,6 @@
 #include "AudioLoop.h"
 
-AudioLoop::AudioLoop(const uint8_t *samplesIn, int sampleCountIn, int loopStartSampleIn,
-                     int loopEndSampleIn) {
+AudioLoop::AudioLoop(const uint8_t *samplesIn, int sampleCountIn, int loopStartSampleIn, int loopEndSampleIn) {
   loopStartSample = loopStartSampleIn;
   loopEndSample = loopEndSampleIn;
   samples = samplesIn;
@@ -15,9 +14,13 @@ void AudioLoop::Begin() {
   sampleReadIndex = 0;
 }
 
-bool AudioLoop::IsPlaying() { return isPlaying; }
+bool AudioLoop::IsPlaying() {
+  return isPlaying;
+}
 
-void AudioLoop::Stop() { isLooping = false; }
+void AudioLoop::Stop() {
+  isLooping = false;
+}
 
 void AudioLoop::Read(uint8_t *buffer, int len) {
   for (int i = 0; i < len; i += 2) {
@@ -31,8 +34,7 @@ void AudioLoop::Read(uint8_t *buffer, int len) {
 
       sampleReadIndex++;
 
-      if (!isLooping && loopCounter == 0 &&
-          sampleReadIndex >= loopStartSample) {
+      if (!isLooping && loopCounter == 0 && sampleReadIndex >= loopStartSample) {
         isLooping = true;
       }
 

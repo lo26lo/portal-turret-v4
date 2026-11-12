@@ -158,8 +158,8 @@ bool RotaryEncoder::BeginSoldered() {
     data[i] = Wire.read();
   }
   // Counter kept as it is (no reset write): only differences matter.
-  lastCount = (int32_t)((uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16) |
-                        ((uint32_t)data[3] << 24));
+  lastCount =
+      (int32_t)((uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24));
   return true;
 }
 
@@ -171,23 +171,19 @@ bool RotaryEncoder::UpdateSoldered() {
   for (uint8_t i = 0; i < 5; i++) {
     data[i] = Wire.read();
   }
-  int32_t count = (int32_t)((uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16) |
-                            ((uint32_t)data[3] << 24));
+  int32_t count =
+      (int32_t)((uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24));
   int32_t moved = count - lastCount;
   // Whole detents only; the remainder waits for the next poll.
   steps += moved / SOLDERED_COUNTS_PER_STEP;
   lastCount += (moved / SOLDERED_COUNTS_PER_STEP) * SOLDERED_COUNTS_PER_STEP;
   switch (data[4]) {
-  case SOLDERED_CLICK:
-    Push(logic::PressEvent::ShortPress);
-    break;
+  case SOLDERED_CLICK: Push(logic::PressEvent::ShortPress); break;
   case SOLDERED_DOUBLE_CLICK: // two clicks
     Push(logic::PressEvent::ShortPress);
     Push(logic::PressEvent::ShortPress);
     break;
-  case SOLDERED_LONG_PRESS:
-    Push(logic::PressEvent::LongPress);
-    break;
+  case SOLDERED_LONG_PRESS: Push(logic::PressEvent::LongPress); break;
   default: // idle, turns (the counter covers them), long press release
     break;
   }

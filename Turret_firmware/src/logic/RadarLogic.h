@@ -28,13 +28,24 @@ inline bool IsInZone(int16_t x, int16_t y, int32_t maxDistanceMm, int32_t halfAn
   return distance <= (float)maxDistanceMm && angle <= (float)halfAngleDeg;
 }
 
+// B10: a target moving faster than maxSpeedCms (radial speed, cm/s, either
+// way) is a reflection, a fan or a curtain, not a person: not a target.
+// maxSpeedCms <= 0 = no limit.
+inline bool IsPlausibleSpeed(int16_t speedCms, int32_t maxSpeedCms) {
+  if (maxSpeedCms <= 0) {
+    return true;
+  }
+  int32_t magnitude = speedCms < 0 ? -(int32_t)speedCms : speedCms;
+  return magnitude <= maxSpeedCms;
+}
+
 // One target of a data frame; `present` is false for the 8 zero bytes of an
 // empty slot.
 struct RadarFrameTarget {
   bool present;
-  int16_t x;        // mm, positive to one side of the radar axis
-  int16_t y;        // mm, distance ahead
-  int16_t speed;    // cm/s, signed
+  int16_t x;           // mm, positive to one side of the radar axis
+  int16_t y;           // mm, distance ahead
+  int16_t speed;       // cm/s, signed
   uint16_t resolution; // mm
 };
 

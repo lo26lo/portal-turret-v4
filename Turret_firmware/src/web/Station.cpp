@@ -148,7 +148,9 @@ void Station::Update() {
   }
 }
 
-bool Station::HasTime() { return time(nullptr) > VALID_TIME; }
+bool Station::HasTime() {
+  return time(nullptr) > VALID_TIME;
+}
 
 String Station::LocalTime() {
   if (!HasTime()) {

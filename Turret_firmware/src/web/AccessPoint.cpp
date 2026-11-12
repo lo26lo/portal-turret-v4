@@ -38,4 +38,6 @@ void AccessPoint::Stop() {
   Log.println("WiFi: access point off");
 }
 
-uint8_t AccessPoint::GetClientCount() const { return on ? WiFi.softAPgetStationNum() : 0; }
+uint8_t AccessPoint::GetClientCount() const {
+  return on ? WiFi.softAPgetStationNum() : 0;
+}

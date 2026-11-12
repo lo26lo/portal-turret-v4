@@ -37,7 +37,10 @@ String Actions::PinsReport() const {
            "green LED IO%u: out_sel %u (%s), output %s, level %u, firmware: %s; SD0 0x%08lx, SD clock 0x%08lx; "
            "IO_MUX 19 0x%08lx, 20 0x%08lx, %u 0x%08lx\n"
            "USB: conf0 0x%08lx (pad %s, D+ pull-up %s), frames %u in 20 ms (%s); uptime %lu ms",
-           (unsigned)pin, (unsigned)outSel, outSel == GPIO_SD0_OUT_IDX ? "sigma-delta 0" : outSel == SIG_GPIO_OUT_IDX ? "GPIO" : "other",
+           (unsigned)pin, (unsigned)outSel,
+           outSel == GPIO_SD0_OUT_IDX   ? "sigma-delta 0"
+           : outSel == SIG_GPIO_OUT_IDX ? "GPIO"
+                                        : "other",
            outEnabled ? "enabled" : "DISABLED", (unsigned)outLevel,
            turret->board.IsGreenModulated() ? "modulated" : "GPIO", (unsigned long)REG_READ(GPIO_SIGMADELTA0_REG),
            (unsigned long)REG_READ(GPIO_SIGMADELTA_CG_REG), (unsigned long)REG_READ(IO_MUX_GPIO19_REG),
@@ -119,10 +122,10 @@ String Actions::PinReport(uint8_t pin) const {
     REG_CLR_BIT(GPIO_PIN_MUX_REG[pin], FUN_IE);
   }
 
-  const char *signal = outSel == SIG_GPIO_OUT_IDX ? "GPIO"
+  const char *signal = outSel == SIG_GPIO_OUT_IDX                                       ? "GPIO"
                        : (outSel >= RMT_SIG_OUT0_IDX && outSel <= RMT_SIG_OUT0_IDX + 3) ? "RMT"
-                       : outSel == GPIO_SD0_OUT_IDX ? "sigma-delta 0"
-                                                    : "other";
+                       : outSel == GPIO_SD0_OUT_IDX                                     ? "sigma-delta 0"
+                                                                                        : "other";
   // Pulses from the recorded edges: the line rests low and the sampler starts
   // 200 us before the frame, so even edges rise.
   uint16_t recorded = probe.edges < MAX_EDGES ? probe.edges : MAX_EDGES;
@@ -161,7 +164,9 @@ String Actions::PinReport(uint8_t pin) const {
 
 // ------------------------------------------------------------------ rails (v2)
 
-String Actions::CmdRails(const String &) { return RailsReport(); }
+String Actions::CmdRails(const String &) {
+  return RailsReport();
+}
 
 // "rails": port 0 of the v2 rail expander, as read back from the chip.
 String Actions::RailsReport() const {
@@ -267,8 +272,8 @@ String Actions::CmdSweep(const String &args) {
     sweepStart = millis();
     sweepDuration = ms;
     sweepLastWrite = 0;
-    return String("sweeping ") + turret->gantry.GetChannel(index).GetName() + " 0 -> 180 -> 0 deg in " +
-           String(ms) + " ms";
+    return String("sweeping ") + turret->gantry.GetChannel(index).GetName() + " 0 -> 180 -> 0 deg in " + String(ms) +
+           " ms";
   }
   if (what == "tone") {
     String a, b;
@@ -338,8 +343,7 @@ String Actions::CmdLoadTest(const String &args) {
 void Actions::UpdateLoadTest(ulong now) {
   Gantry &gantry = turret->gantry;
   switch (loadPhase) {
-  case LoadPhase::Off:
-    return;
+  case LoadPhase::Off: return;
   case LoadPhase::Attaching:
     if (!gantry.HasPendingAttach()) {
       Log.printf("loadtest: all servos attached after %lu ms\n", now - loadPhaseAt);

@@ -78,3 +78,8 @@ jobs:
 
       - name: README lists every console command
         run: python scripts/check_commands.py
+
+      - name: Code style (clang-format, .clang-format at the project root)
+        run: |
+          pip install clang-format==19.1.7
+          python scripts/check_format.py

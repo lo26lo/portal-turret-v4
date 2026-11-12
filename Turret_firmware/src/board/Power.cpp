@@ -30,7 +30,9 @@ bool Drive(Rail rail, bool on) {
 
 namespace Power {
 
-bool IsSwitchable() { return BOARD_HAS_EXPANDER != 0; }
+bool IsSwitchable() {
+  return BOARD_HAS_EXPANDER != 0;
+}
 
 #if BOARD_HAS_EXPANDER
 
@@ -91,14 +93,24 @@ bool AllOff() {
   return Expander::AllOff() && ok;
 }
 
-bool IsOn(Rail rail) { return railOn[(uint8_t)rail]; }
+bool IsOn(Rail rail) {
+  return railOn[(uint8_t)rail];
+}
 
 #else // v0.1: rails always on
 
-bool On(Rail) { return true; }
-bool Off(Rail) { return true; }
-bool AllOff() { return true; }
-bool IsOn(Rail) { return true; }
+bool On(Rail) {
+  return true;
+}
+bool Off(Rail) {
+  return true;
+}
+bool AllOff() {
+  return true;
+}
+bool IsOn(Rail) {
+  return true;
+}
 
 #endif
 

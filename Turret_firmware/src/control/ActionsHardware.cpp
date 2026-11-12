@@ -10,7 +10,9 @@
 namespace {
 const ulong TRIM_TEST_MS = 2000; // plan §10.4: trim slider stops after 2 s
 
-const char *Bool(bool value) { return value ? "true" : "false"; }
+const char *Bool(bool value) {
+  return value ? "true" : "false";
+}
 
 const char *PositionName(WingPosition position) {
   switch (position) {
@@ -30,11 +32,10 @@ String Actions::CmdImu(const String &) {
   }
   const sensors_vec_t &g = motion.GetAcceleration();
   const sensors_vec_t &r = motion.GetGyro();
-  return "gravity " + String(g.x, 2) + " " + String(g.y, 2) + " " + String(g.z, 2) +
-         " m/s2, dominant axis " + String(motion.DominantAxis()) + ", ImuUpAxis " +
-         String(turret->settings.GetInt(SettingId::ImuUpAxis)) + ", upright " + Bool(motion.IsUpright()) +
-         "\ngyro " + String(r.x, 3) + " " + String(r.y, 3) + " " + String(r.z, 3) + " rad/s, " +
-         String(motion.GetTemperature(), 1) + " C";
+  return "gravity " + String(g.x, 2) + " " + String(g.y, 2) + " " + String(g.z, 2) + " m/s2, dominant axis " +
+         String(motion.DominantAxis()) + ", ImuUpAxis " + String(turret->settings.GetInt(SettingId::ImuUpAxis)) +
+         ", upright " + Bool(motion.IsUpright()) + "\ngyro " + String(r.x, 3) + " " + String(r.y, 3) + " " +
+         String(r.z, 3) + " rad/s, " + String(motion.GetTemperature(), 1) + " C";
 }
 
 String Actions::CmdHall(const String &) {
@@ -56,8 +57,8 @@ String Actions::CmdInputs(const String &) {
     text += ", button A " + level(PIN_BUTTON_A) + ", button B " + level(PIN_BUTTON_B);
   }
   if (PIN_BUTTON_EXT != PIN_ABSENT) { // active high
-    text += ", remote button J20 (IO" + String(PIN_BUTTON_EXT) + "): " +
-            (digitalRead(PIN_BUTTON_EXT) == HIGH ? "pressed" : "released");
+    text += ", remote button J20 (IO" + String(PIN_BUTTON_EXT) +
+            "): " + (digitalRead(PIN_BUTTON_EXT) == HIGH ? "pressed" : "released");
   }
   return text;
 }
@@ -144,9 +145,13 @@ String Actions::WingOrGun(bool isWing, const String &args) {
   return usage;
 }
 
-String Actions::CmdWing(const String &args) { return WingOrGun(true, args); }
+String Actions::CmdWing(const String &args) {
+  return WingOrGun(true, args);
+}
 
-String Actions::CmdGun(const String &args) { return WingOrGun(false, args); }
+String Actions::CmdGun(const String &args) {
+  return WingOrGun(false, args);
+}
 
 String Actions::CmdWings(const String &args) {
   Gantry &gantry = turret->gantry;
@@ -188,8 +193,8 @@ String Actions::CmdTrim(const String &args) {
   }
   Wing &wing = side == "left" ? turret->gantry.GetWingLeft() : turret->gantry.GetWingRight();
   wing.TestStop(valueText.toInt(), TRIM_TEST_MS);
-  return "wing " + side + " at 1500 " + (valueText.toInt() >= 0 ? "+ " : "- ") +
-         String(abs(valueText.toInt())) + " us for 2 s (not saved: set WingTrimL/R)";
+  return "wing " + side + " at 1500 " + (valueText.toInt() >= 0 ? "+ " : "- ") + String(abs(valueText.toInt())) +
+         " us for 2 s (not saved: set WingTrimL/R)";
 }
 
 // ------------------------------------------------------------------ LEDs

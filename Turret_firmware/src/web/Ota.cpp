@@ -7,7 +7,7 @@
 namespace {
 const ulong RebootDelay = 500;
 const uint32_t ShutdownTimeoutMs = 1000;
-}
+} // namespace
 
 void Ota::Initialize(AsyncWebServer &server, Actions &actionsIn, const char *usernameIn, const char *passwordIn) {
   actions = &actionsIn;
@@ -36,8 +36,7 @@ void Ota::Initialize(AsyncWebServer &server, Actions &actionsIn, const char *use
       },
       // Runs for each chunk as the body arrives, BEFORE the authentication
       // middleware (ESPAsyncWebServer 3.x): credentials are checked here too.
-      [this](AsyncWebServerRequest *request, String filename, size_t index,
-             uint8_t *data, size_t len, bool final) {
+      [this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
         if (index == 0) {
           uploadAccepted = request->authenticate(username.c_str(), password.c_str());
           if (!uploadAccepted) {

@@ -30,6 +30,8 @@ inline uint8_t HallPercent(uint16_t value, int32_t openThreshold, int32_t closed
 }
 
 // A reading at a rail: sensor unplugged or shorted.
-inline bool HallAtRail(uint16_t value) { return value <= 15 || value >= 4080; }
+inline bool HallAtRail(uint16_t value) {
+  return value <= 15 || value >= 4080;
+}
 
 } // namespace logic

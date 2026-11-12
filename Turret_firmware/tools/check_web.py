@@ -150,8 +150,8 @@ def main():
         unwrappable = [i[lang] for i in tree if is_step(i) for lang in ("en", "fr")
                        if mock_menu.wrap(i[lang], max_lines=9)[3] != ""]
         check("wizard steps wrap on three lines", not unwrappable, unwrappable)
-        actions_cpp = open(os.path.join(ROOT, "src", "control", "Actions.cpp"), encoding="utf-8").read()
-        known = set(re.findall(r'^\s*CMD\("([\w-]+)",', actions_cpp, re.M))  # the command table
+        table_h = open(os.path.join(ROOT, "src", "control", "CommandTable.h"), encoding="utf-8").read()
+        known = set(re.findall(r'\{"([\w-]+)",\s*"[^"]*",\s*"[^"]*",\s*"[^"]*",\s*Id::', table_h))  # the command table
         unknown = sorted({i["command"].split()[0] for i in tree if i.get("command")} - known)
         check("every menu command exists in control/Actions.cpp", not unknown, unknown)
         setting_keys = set(keys)

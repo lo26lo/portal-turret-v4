@@ -18,7 +18,9 @@ const ulong HALL_SAMPLE_MS = 50;
 const ulong SUBTITLE_MS = 4000;
 portMUX_TYPE screenLock = portMUX_INITIALIZER_UNLOCKED; // `shown` is read by the web server task
 
-const char *YesNo(bool value, bool french) { return value ? (french ? "oui" : "yes") : (french ? "non" : "no"); }
+const char *YesNo(bool value, bool french) {
+  return value ? (french ? "oui" : "yes") : (french ? "non" : "no");
+}
 
 const char *AxisName(uint8_t axis) {
   static const char *names[] = {"-", "+X", "-X", "+Y", "-Y", "+Z", "-Z"};
@@ -110,8 +112,8 @@ void AppendWifiField(String &out, const char *text) {
 }
 } // namespace
 
-void DebugUi::Initialize(Turret &turretIn, StateMachine &stateMachineIn, Actions &actionsIn,
-                         AccessPoint &accessPointIn, Station &stationIn, SelfTest &selfTestIn) {
+void DebugUi::Initialize(Turret &turretIn, StateMachine &stateMachineIn, Actions &actionsIn, AccessPoint &accessPointIn,
+                         Station &stationIn, SelfTest &selfTestIn) {
   turret = &turretIn;
   stateMachine = &stateMachineIn;
   actions = &actionsIn;
@@ -140,7 +142,9 @@ void DebugUi::ApplySettings() {
   dirty = true;
 }
 
-bool DebugUi::IsMenuActive() const { return turret != nullptr && turret->board.IsBenchMode(); }
+bool DebugUi::IsMenuActive() const {
+  return turret != nullptr && turret->board.IsBenchMode();
+}
 
 logic::Lang DebugUi::Language() const {
   return turret->settings.GetInt(SettingId::Language) == 0 ? logic::Lang::English : logic::Lang::French;
@@ -248,7 +252,9 @@ void DebugUi::Update(ulong now) {
     case StateId::FiringState: subtitle = french ? "Te voilà." : "There you are."; break;
     case StateId::Searching: subtitle = french ? "Je cherche..." : "Searching..."; break;
     case StateId::Disengage: subtitle = french ? "Cible perdue" : "Target lost"; break;
-    case StateId::Idle: subtitle = lastState == StateId::Disengage ? (french ? "Toujours là ?" : "Are you still there?") : ""; break;
+    case StateId::Idle:
+      subtitle = lastState == StateId::Disengage ? (french ? "Toujours là ?" : "Are you still there?") : "";
+      break;
     case StateId::Fault: subtitle = french ? "Erreur critique" : "Critical error"; break;
     case StateId::Manual: subtitle = french ? "Arrêt" : "Shutting down"; break;
     }
@@ -402,8 +408,8 @@ void DebugUi::InfoGraphic(int16_t page, logic::MenuScreen &screen) {
     screen.dataLength = GRAPH_SAMPLES;
     screen.value[0] = (int16_t)(settings.GetInt(side == 0 ? SettingId::HallOpenL : SettingId::HallOpenR) >> 4);
     screen.value[1] = (int16_t)(settings.GetInt(side == 0 ? SettingId::HallCloseL : SettingId::HallCloseR) >> 4);
-    snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "Hall %s %u", side == 0 ? (french ? "G" : "L") : (french ? "D" : "R"),
-             wing.GetLastHall());
+    snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "Hall %s %u",
+             side == 0 ? (french ? "G" : "L") : (french ? "D" : "R"), wing.GetLastHall());
     break;
   }
 
@@ -417,7 +423,8 @@ void DebugUi::InfoGraphic(int16_t page, logic::MenuScreen &screen) {
     FillQr(screen, text.c_str());
     snprintf(screen.line[0], logic::SCREEN_LINE_BYTES, "WiFi");
     snprintf(screen.line[1], logic::SCREEN_LINE_BYTES, "%.10s", accessPoint->GetSsid());
-    snprintf(screen.line[2], logic::SCREEN_LINE_BYTES, "%.10s", strlen(accessPoint->GetSsid()) > 10 ? accessPoint->GetSsid() + 10 : "");
+    snprintf(screen.line[2], logic::SCREEN_LINE_BYTES, "%.10s",
+             strlen(accessPoint->GetSsid()) > 10 ? accessPoint->GetSsid() + 10 : "");
     snprintf(screen.line[3], logic::SCREEN_LINE_BYTES, "%s", qrSize ? "" : (french ? "trop long" : "too long"));
     snprintf(screen.line[4], logic::SCREEN_LINE_BYTES, "%s", french ? "Tour:page" : "Turn:page");
     snprintf(screen.line[5], logic::SCREEN_LINE_BYTES, "%s", french ? "Appui:fin" : "Push:back");
@@ -467,8 +474,8 @@ void DebugUi::InfoLine(int16_t page, uint8_t line, bool french, char *text, size
       }
     } else if (line == 2) {
       ulong seconds = millis() / 1000;
-      snprintf(text, size, "%s: %lu h %02lu min %02lu", french ? "Durée" : "Up", seconds / 3600,
-               (seconds / 60) % 60, seconds % 60);
+      snprintf(text, size, "%s: %lu h %02lu min %02lu", french ? "Durée" : "Up", seconds / 3600, (seconds / 60) % 60,
+               seconds % 60);
     } else {
       snprintf(text, size, "%s", FIRMWARE_VERSION);
     }
@@ -504,9 +511,9 @@ void DebugUi::InfoLine(int16_t page, uint8_t line, bool french, char *text, size
     } else {
       const RadarTarget &target = turret->radar.GetTarget(line - 1);
       if (target.available) {
-        bool inZone = turret->radar.IsInZone(target, settings.GetInt(SettingId::DetectMaxMm),
-                                             settings.GetInt(SettingId::DetectAngle));
-        snprintf(text, size, "%u: x%d y%d %s", line, target.x, target.y, inZone ? "ZONE" : "");
+        // 21 columns: "1: x-1200 y3000 v-25 Z" (x, y mm; v radial speed cm/s; Z = in the zone).
+        snprintf(text, size, "%u: x%d y%d v%d%s", line, target.x, target.y, target.speed,
+                 turret->radar.IsInZone(target) ? " Z" : "");
       } else {
         snprintf(text, size, "%u: -", line);
       }
@@ -538,8 +545,8 @@ void DebugUi::InfoLine(int16_t page, uint8_t line, bool french, char *text, size
   case ui::PageHall: {
     Wing &wing = line < 2 ? gantry.GetWingLeft() : gantry.GetWingRight();
     if (line % 2 == 0) {
-      snprintf(text, size, "%s: %u %s", line == 0 ? (french ? "G" : "L") : (french ? "D" : "R"),
-               wing.GetLastHall(), PositionName(wing.ReadPosition(), french));
+      snprintf(text, size, "%s: %u %s", line == 0 ? (french ? "G" : "L") : (french ? "D" : "R"), wing.GetLastHall(),
+               PositionName(wing.ReadPosition(), french));
     } else {
       Bar(wing.GetLastHall(), text, size);
     }
@@ -579,8 +586,9 @@ void DebugUi::InfoLine(int16_t page, uint8_t line, bool french, char *text, size
       }
       snprintf(text, size, "%s %s", part[0], part[1]);
     } else {
-      snprintf(text, size, "%s", board.IsServoLimited() ? (french ? "Alim PC: 1 servo" : "PC supply: 1 servo")
-                                                        : (french ? "Alim 3 A: tous" : "3 A supply: all"));
+      snprintf(text, size, "%s",
+               board.IsServoLimited() ? (french ? "Alim PC: 1 servo" : "PC supply: 1 servo")
+                                      : (french ? "Alim 3 A: tous" : "3 A supply: all"));
     }
     break;
 
@@ -626,8 +634,9 @@ void DebugUi::InfoLine(int16_t page, uint8_t line, bool french, char *text, size
     } else if (line == 0) {
       snprintf(text, size, "%s", station->GetSsid());
     } else if (line == 1) {
-      snprintf(text, size, "%s", station->IsConnected() ? (french ? "Connecté" : "Connected")
-                                                        : (french ? "Connexion..." : "Connecting..."));
+      snprintf(text, size, "%s",
+               station->IsConnected() ? (french ? "Connecté" : "Connected")
+                                      : (french ? "Connexion..." : "Connecting..."));
     } else if (station->IsConnected()) {
       if (line == 2) {
         snprintf(text, size, "%s %d", station->GetIp(), station->GetRssi()); // address, signal in dBm
@@ -655,9 +664,11 @@ void DebugUi::InfoLine(int16_t page, uint8_t line, bool french, char *text, size
   case ui::PageTime: {
     String time = Station::LocalTime(); // "YYYY-MM-DD HH:MM:SS", empty before NTP
     if (line == 0) {
-      snprintf(text, size, "%s", time.length() ? time.substring(0, 10).c_str() : (french ? "Heure non réglée" : "Time not set"));
+      snprintf(text, size, "%s",
+               time.length() ? time.substring(0, 10).c_str() : (french ? "Heure non réglée" : "Time not set"));
     } else if (line == 1) {
-      snprintf(text, size, "%s", time.length() ? time.substring(11).c_str() : (french ? "(réseau maison)" : "(home network)"));
+      snprintf(text, size, "%s",
+               time.length() ? time.substring(11).c_str() : (french ? "(réseau maison)" : "(home network)"));
     } else if (line == 2) {
       snprintf(text, size, "NTP: %s", YesNo(Station::HasTime(), french));
     } else {
@@ -778,10 +789,9 @@ String DebugUi::ScreenJson() {
   portEXIT_CRITICAL(&screenLock);
 
   String json = String("{\"present\":") + (display.IsPresent() ? "true" : "false") +
-                ",\"menu\":" + (IsMenuActive() ? "true" : "false") +
-                ",\"on\":" + (asleep ? "false" : "true") +
-                ",\"graphic\":" + String((int)copy->graphic) +
-                ",\"highlight\":" + String(copy->highlight) + ",\"lines\":[";
+                ",\"menu\":" + (IsMenuActive() ? "true" : "false") + ",\"on\":" + (asleep ? "false" : "true") +
+                ",\"graphic\":" + String((int)copy->graphic) + ",\"highlight\":" + String(copy->highlight) +
+                ",\"lines\":[";
   for (uint8_t i = 0; i < logic::SCREEN_LINES; i++) {
     json += i ? "," : "";
     AppendJson(json, copy->line[i]);

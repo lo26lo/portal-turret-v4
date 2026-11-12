@@ -72,7 +72,7 @@ public:
   // Debug menu: a "long press" is 0.6 s instead of 3 s.
   void SetNavigationButtons(bool enabled);
   bool IsFactoryResetRequested() const { return factoryReset; } // D3, A + B held at boot (v0.1 only)
-  bool IsReducedMode() const { return reducedMode; }         // D5, reboot loop detected
+  bool IsReducedMode() const { return reducedMode; }            // D5, reboot loop detected
   esp_reset_reason_t GetResetReason() const { return resetReason; }
   static const char *ResetReasonName(esp_reset_reason_t reason);
 

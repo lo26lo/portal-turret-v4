@@ -21,7 +21,12 @@ public:
   bool IsEnabled() const { return enabled; }
   // Outside a test: red ring and guns glowing (Portal), or the turning
   // rainbow of SetRainbow() on every strip. Setting LedEffect.
-  enum class Effect : uint8_t { RedEye = 0, Rainbow = 1 };
+  enum class Effect : uint8_t { RedEye = 0, Rainbow = 1, Eye = 2 };
+  // Effect::Eye (B6): what the turret is doing, set by main from the state
+  // machine every loop. Idle = breathing red, Acquired = steady red, Firing =
+  // blinking red, Searching = cold white.
+  enum class Mood : uint8_t { Idle, Acquired, Firing, Searching };
+  void SetMood(Mood moodIn) { mood = moodIn; }
 
   // LedBright, LedMaxmA and LedEffect; 10 % in reduced mode (D5).
   void ApplySettings(Settings &settings, bool reducedMode);
@@ -42,6 +47,8 @@ public:
 private:
   void Show();
   void DrawRainbow(uint8_t stripMask);
+  void DrawEye();
+  void DrawGunsGlow(uint8_t t);
 
   CRGB centerLeds[9];
   CRGB leftLeds[2];
@@ -50,6 +57,7 @@ private:
   bool testMode = false;
   bool rainbow = false;
   Effect effect = Effect::RedEye;
+  Mood mood = Mood::Idle;
   bool bitPattern = false;
   uint8_t savedBrightness = 255;
   uint8_t testMask = 0;

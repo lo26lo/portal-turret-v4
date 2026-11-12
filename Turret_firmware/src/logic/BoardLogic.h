@@ -112,14 +112,10 @@ inline uint8_t ScaleLevel(uint8_t level, uint8_t percent) {
 // Green LED brightness 0..255 at time now, for a mode, a period and a maximum brightness (%).
 inline uint8_t GreenLedLevel(GreenLedMode mode, uint32_t now, uint32_t periodMs, uint8_t percent) {
   switch (mode) {
-  case GreenLedMode::Breathing:
-    return ScaleLevel(BreathLevel(now, periodMs), percent);
-  case GreenLedMode::Heartbeat:
-    return HeartbeatOn(now, periodMs) ? ScaleLevel(255, percent) : 0;
-  case GreenLedMode::Steady:
-    return ScaleLevel(255, percent);
-  case GreenLedMode::Off:
-    break;
+  case GreenLedMode::Breathing: return ScaleLevel(BreathLevel(now, periodMs), percent);
+  case GreenLedMode::Heartbeat: return HeartbeatOn(now, periodMs) ? ScaleLevel(255, percent) : 0;
+  case GreenLedMode::Steady: return ScaleLevel(255, percent);
+  case GreenLedMode::Off: break;
   }
   return 0;
 }
@@ -173,6 +169,8 @@ private:
 };
 
 // MAX98357A gain: only 9, 12 or 15 dB exist; anything else goes to the nearest.
-inline int32_t RoundAmpGain(int32_t db) { return db <= 10 ? 9 : (db <= 13 ? 12 : 15); }
+inline int32_t RoundAmpGain(int32_t db) {
+  return db <= 10 ? 9 : (db <= 13 ? 12 : 15);
+}
 
 } // namespace logic

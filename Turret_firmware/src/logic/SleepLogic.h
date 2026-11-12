@@ -34,8 +34,8 @@ inline uint32_t SecondsUntilHour(uint32_t secondOfDay, int hour) {
 
 struct SleepInputs {
   SleepMode mode = SleepMode::Never;
-  uint32_t idleMs = 0;           // since the last activity (target, cycle, key)
-  uint32_t inRadarSleepMs = 0;   // time spent in the radar sleep (current == Radar)
+  uint32_t idleMs = 0;            // since the last activity (target, cycle, key)
+  uint32_t inRadarSleepMs = 0;    // time spent in the radar sleep (current == Radar)
   uint32_t radarSleepAfterMs = 0; // RadarSleepMin; 0 = never on its own
   uint32_t deepSleepAfterMs = 0;  // DeepSleepMin; 0 = never on its own
   bool night = false;             // NightSleep on and the clock in the window

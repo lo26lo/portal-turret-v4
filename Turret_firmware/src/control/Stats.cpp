@@ -27,7 +27,9 @@ void Stats::CountCycle() {
   }
 }
 
-void Stats::CountTarget() { sessionTargets++; }
+void Stats::CountTarget() {
+  sessionTargets++;
+}
 
 void Stats::Clear() {
   boots = totalCycles = sessionCycles = sessionTargets = 0;

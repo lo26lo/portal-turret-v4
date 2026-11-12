@@ -8,6 +8,7 @@
 #include <functional>
 
 #include "Turret.h"
+#include "control/CommandTable.h"
 #include "logic/MenuLogic.h"
 #include "web/AccessPoint.h"
 #include "web/Station.h"
@@ -20,32 +21,18 @@ class Sleep;
 // the debug menu. Everything that touches hardware runs in loop(): the web
 // server task only queues command lines (plan §10.2).
 //
-// One command = one row of the COMMANDS table (Actions.cpp): name, usage,
-// one-line help, category, handler and what it needs (test mode, full power).
-// "help" is generated from the table; scripts/check_commands.py checks that
-// the README lists every row. Handlers live in three files by subject:
-// Actions.cpp (dispatch, settings, system, audio, network, status),
-// ActionsHardware.cpp (servos, wings, guns, LEDs, calibration),
-// ActionsLab.cpp (pins, rails, sweeps, load test).
+// One command = one row of commands::TABLE (control/CommandTable.h, pure data,
+// tested natively): name, usage, one-line help, category, id and what it
+// needs (test mode, full power). HANDLERS maps each id to a method, in the
+// order of the table. "help" is generated from the table;
+// scripts/check_commands.py checks that the README lists every row. Handlers
+// live in three files by subject: Actions.cpp (dispatch, settings, system,
+// audio, network, status), ActionsHardware.cpp (servos, wings, guns, LEDs,
+// calibration), ActionsLab.cpp (pins, rails, sweeps, load test).
 class Actions {
 public:
-  // What a command needs before its handler runs (bit mask).
-  enum Needs : uint8_t {
-    None = 0,
-    TestMode = 1,  // state machine stopped (Manual); refused in Fault / Booting
-    FullPower = 2, // refused in debug mode until "power full" (one servo at a time)
-  };
   typedef String (Actions::*Handler)(const String &args);
-  struct Command {
-    const char *name;
-    const char *usage;    // for "help" and the usage answers
-    const char *help;     // one line
-    const char *category; // "help" groups the commands by category
-    Handler handler;
-    uint8_t needs;
-  };
-  static const Command COMMANDS[];
-  static const size_t COMMAND_COUNT;
+  static const Handler HANDLERS[(size_t)commands::Id::Count];
 
   void Initialize(Turret &turret, StateMachine &stateMachine, AccessPoint &accessPoint, Station &station);
   // loop(): serial console input, queued web commands, OTA shutdown, reboot.
@@ -92,13 +79,13 @@ public:
 
 private:
   // ---- Actions.cpp: dispatch, settings, system, audio, network, status
-  const Command *Find(const String &name) const;
   // Tests need the state machine stopped (Manual). False (and a message) if not possible.
   bool EnterTestMode(String &error);
   void ReadConsole();
   void SaveVolume();
   String CmdHelp(const String &args);
   String CmdStatus(const String &args);
+  String CmdAim(const String &args);
   String CmdScan(const String &args);
   String CmdFlt(const String &args);
   String CmdResetReason(const String &args);

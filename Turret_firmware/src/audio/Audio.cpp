@@ -10,8 +10,7 @@
 namespace {
 // Folders of the voice lines on LittleFS, in the order of enum Voice.
 const char *const VOICE_FOLDERS[(int)Voice::Count] = {
-    "/01_activate", "/02_collision", "/04_shutdown", "/05_pickup",
-    "/06_retire",   "/07_search",    "/08_tipped",   "/09",
+    "/01_activate", "/02_collision", "/04_shutdown", "/05_pickup", "/06_retire", "/07_search", "/08_tipped", "/09",
 };
 const char *const VOICE_NAMES[(int)Voice::Count] = {
     "activate", "collision", "shutdown", "pickup", "retire", "search", "tipped", "alarm",
@@ -193,8 +192,8 @@ void Audio::CountVoiceFiles() {
 
 bool Audio::PlayVoice(Voice voice) {
   int index = (int)voice;
-  if (index >= (int)Voice::Count || !i2sRunning || settings == nullptr ||
-      !settings->GetBool(SettingId::Voices) || ShootAudio.IsPlaying() || toneSamplesLeft > 0) {
+  if (index >= (int)Voice::Count || !i2sRunning || settings == nullptr || !settings->GetBool(SettingId::Voices) ||
+      ShootAudio.IsPlaying() || toneSamplesLeft > 0) {
     return false;
   }
   int pick = logic::PickVoiceFile(voiceCount[index], voiceLast[index], esp_random());
@@ -213,8 +212,7 @@ bool Audio::PlayVoice(Voice voice) {
   if (!voiceFile) {
     return false;
   }
-  if (ESP.getFreeHeap() < VOICE_HEAP_NEEDED ||
-      heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < VOICE_BLOCK_NEEDED ||
+  if (ESP.getFreeHeap() < VOICE_HEAP_NEEDED || heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < VOICE_BLOCK_NEEDED ||
       !voiceDecoder.Begin(ReadFile, &voiceFile)) {
     Log.println("Audio: not enough memory for the MP3 decoder");
     voiceFile.close();
@@ -236,8 +234,8 @@ void Audio::StopVoice() {
     // Rest of a block the driver took in part (it takes whole DMA buffers, so
     // this is only a safety net): it stays aligned on its buffers.
     size_t written = 0;
-    i2s_write(I2S_PORT, (const uint8_t *)voiceBlock + voiceBlockSent, sizeof(voiceBlock) - voiceBlockSent,
-              &written, portMAX_DELAY);
+    i2s_write(I2S_PORT, (const uint8_t *)voiceBlock + voiceBlockSent, sizeof(voiceBlock) - voiceBlockSent, &written,
+              portMAX_DELAY);
   }
   voicePlaying = false;
   voiceDecoder.End();
@@ -262,8 +260,7 @@ void Audio::UpdateVoice() {
       return;
     }
     size_t written = 0;
-    i2s_write(I2S_PORT, (const uint8_t *)voiceBlock + voiceBlockSent, sizeof(voiceBlock) - voiceBlockSent,
-              &written, 0);
+    i2s_write(I2S_PORT, (const uint8_t *)voiceBlock + voiceBlockSent, sizeof(voiceBlock) - voiceBlockSent, &written, 0);
     voiceBlockSent += written;
     if (voiceBlockSent < sizeof(voiceBlock)) {
       return; // the DMA is full: the rest at the next loop

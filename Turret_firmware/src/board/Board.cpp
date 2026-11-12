@@ -13,21 +13,23 @@ const char *KEY_BOOT_LOOP = "bootLoop";  // consecutive suspicious boots (D5)
 const char *KEY_BROWNOUTS = "brownouts"; // lifetime brownout resets
 
 const ulong DEBOUNCE_MS = 30;
-const ulong LONG_PRESS_MS = 3000;       // D3: B held 3 s = WiFi on / off
+const ulong LONG_PRESS_MS = 3000;           // D3: B held 3 s = WiFi on / off
 const ulong NAVIGATION_LONG_PRESS_MS = 600; // debug menu: long press of A / B
-const ulong FACTORY_RESET_HOLD_MS = 1000; // A + B must stay held this long at boot
-const ulong STABLE_RUN_MS = 60000;      // D5: counter cleared after 60 s of uptime
-const uint32_t REBOOT_LOOP_LIMIT = 3;   // D5: from 3 suspicious boots in a row
+const ulong FACTORY_RESET_HOLD_MS = 1000;   // A + B must stay held this long at boot
+const ulong STABLE_RUN_MS = 60000;          // D5: counter cleared after 60 s of uptime
+const uint32_t REBOOT_LOOP_LIMIT = 3;       // D5: from 3 suspicious boots in a row
 
-const uint8_t GREEN_SD_CHANNEL = 0;    // sigma-delta channel of the green LED (nothing else uses one)
-const uint32_t GREEN_SD_FREQ = 5000;   // full 256-step cycles per second: modulator clock ~1.3 MHz
-const ulong FAST_BLINK_MS = 100; // factory reset gesture: on and off time
-const ulong RED_BLINK_MS = 250; // on and off time of one blink
-const ulong RED_PAUSE_MS = 1500; // pause between two repetitions of the code
+const uint8_t GREEN_SD_CHANNEL = 0;  // sigma-delta channel of the green LED (nothing else uses one)
+const uint32_t GREEN_SD_FREQ = 5000; // full 256-step cycles per second: modulator clock ~1.3 MHz
+const ulong FAST_BLINK_MS = 100;     // factory reset gesture: on and off time
+const ulong RED_BLINK_MS = 250;      // on and off time of one blink
+const ulong RED_PAUSE_MS = 1500;     // pause between two repetitions of the code
 
 volatile uint32_t powerFaultEdges = 0;
 
-void IRAM_ATTR OnPowerFault() { powerFaultEdges++; }
+void IRAM_ATTR OnPowerFault() {
+  powerFaultEdges++;
+}
 
 // Resets that may come from the power supply or a crash. EXT/SW/DEEPSLEEP are
 // deliberate. On the ESP32-S3 the EN pin (RESET button SW3) reports POWERON,
@@ -40,10 +42,8 @@ bool IsSuspicious(esp_reset_reason_t reason) {
   case ESP_RST_INT_WDT:
   case ESP_RST_TASK_WDT:
   case ESP_RST_WDT:
-  case ESP_RST_UNKNOWN:
-    return true;
-  default:
-    return false;
+  case ESP_RST_UNKNOWN: return true;
+  default: return false;
   }
 }
 } // namespace
@@ -84,7 +84,9 @@ namespace {
 Board *instance = nullptr; // for the static Mark()
 } // namespace
 
-Board::Board() : buttonA(PIN_BUTTON_A), buttonB(PIN_BUTTON_B) { instance = this; }
+Board::Board() : buttonA(PIN_BUTTON_A), buttonB(PIN_BUTTON_B) {
+  instance = this;
+}
 
 void Board::SetNavigationButtons(bool enabled) {
   uint32_t ms = enabled ? NAVIGATION_LONG_PRESS_MS : LONG_PRESS_MS;
@@ -209,9 +211,8 @@ void Board::PrintBanner() {
   Log.println("---- " BOARD_NAME " ----");
   Log.printf("Firmware: %s (built %s %s)\n", FIRMWARE_VERSION, __DATE__, __TIME__);
   Log.printf("Reset reason: %s\n", ResetReasonName(resetReason));
-  Log.printf("Suspicious boots in a row: %u, brownouts: %u%s\n",
-                (unsigned)bootLoopCount, (unsigned)brownoutCount,
-                prefsReady ? "" : " (NVS unavailable)");
+  Log.printf("Suspicious boots in a row: %u, brownouts: %u%s\n", (unsigned)bootLoopCount, (unsigned)brownoutCount,
+             prefsReady ? "" : " (NVS unavailable)");
   if (reducedMode) {
     Log.println("REDUCED MODE: reboot loop detected (servos stay detached)");
   }
@@ -416,7 +417,9 @@ void Board::UpdateRedLed(ulong now) {
   digitalWrite(PIN_LED_RED, (redStep % 2 == 1) ? HIGH : LOW);
 }
 
-bool Board::IsPowerFault() const { return digitalRead(PIN_PWR_FLT) == LOW; }
+bool Board::IsPowerFault() const {
+  return digitalRead(PIN_PWR_FLT) == LOW;
+}
 
 uint32_t Board::TakePowerFaultEdges() {
   noInterrupts();
@@ -447,27 +450,16 @@ bool Board::HasFault(Fault fault) const {
 
 const char *Board::ResetReasonName(esp_reset_reason_t reason) {
   switch (reason) {
-  case ESP_RST_POWERON:
-    return "POWERON (power-up or RESET button)";
-  case ESP_RST_EXT:
-    return "EXT";
-  case ESP_RST_SW:
-    return "SW (restart)";
-  case ESP_RST_PANIC:
-    return "PANIC";
-  case ESP_RST_INT_WDT:
-    return "INT_WDT";
-  case ESP_RST_TASK_WDT:
-    return "TASK_WDT";
-  case ESP_RST_WDT:
-    return "WDT";
-  case ESP_RST_DEEPSLEEP:
-    return "DEEPSLEEP";
-  case ESP_RST_BROWNOUT:
-    return "BROWNOUT";
-  case ESP_RST_SDIO:
-    return "SDIO";
-  default:
-    return "UNKNOWN";
+  case ESP_RST_POWERON: return "POWERON (power-up or RESET button)";
+  case ESP_RST_EXT: return "EXT";
+  case ESP_RST_SW: return "SW (restart)";
+  case ESP_RST_PANIC: return "PANIC";
+  case ESP_RST_INT_WDT: return "INT_WDT";
+  case ESP_RST_TASK_WDT: return "TASK_WDT";
+  case ESP_RST_WDT: return "WDT";
+  case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+  case ESP_RST_BROWNOUT: return "BROWNOUT";
+  case ESP_RST_SDIO: return "SDIO";
+  default: return "UNKNOWN";
   }
 }

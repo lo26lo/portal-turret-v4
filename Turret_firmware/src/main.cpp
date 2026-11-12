@@ -146,6 +146,7 @@ void setup() {
   //    rail goes on now, before UART1 drives the TX line.
   Power::On(Rail::Radar);
   radar.Initialize();
+  radar.ApplySettings(settings); // detection zone (DetectMaxMm, DetectAngle, MaxSpeedCms)
   Board::Mark("step 7 radar");
 
   // 8. Hall sensors: initial wing state. No servo attached yet. v2: Hall rail on first.
@@ -298,8 +299,8 @@ void UpdateFaults() {
   lastTargetCount = targetCount;
 
   // Counted from the start of the radar (v2: its rail may go off and on).
-  bool radarDown = radar.IsRunning() && millis() - radar.GetStartedAt() > RADAR_TIMEOUT_MS &&
-                   !radar.IsAlive(RADAR_TIMEOUT_MS);
+  bool radarDown =
+      radar.IsRunning() && millis() - radar.GetStartedAt() > RADAR_TIMEOUT_MS && !radar.IsAlive(RADAR_TIMEOUT_MS);
   board.SetFault(Fault::Radar, radarDown);
   board.SetFault(Fault::Hall, gantry.HasHallFault());
 
@@ -308,8 +309,8 @@ void UpdateFaults() {
   if (powerFaultEvent) {
     // L5: timestamped, with what was running, before the load is shed.
     String when = Station::HasTime() ? " (" + Station::LocalTime() + ")" : String("");
-    Log.printf("PWR_FLT event #%u at %lu ms%s: %s\n", (unsigned)board.GetPowerFaultCount(), millis(),
-               when.c_str(), actions.LoadSnapshot().c_str());
+    Log.printf("PWR_FLT event #%u at %lu ms%s: %s\n", (unsigned)board.GetPowerFaultCount(), millis(), when.c_str(),
+               actions.LoadSnapshot().c_str());
   }
   bool powerFault = powerFaultEvent || board.IsPowerFault();
   if (powerFault && stateMachine.GetCurrentStateId() != StateId::Fault) {
@@ -357,6 +358,13 @@ void loop() {
     gantry.SetHallPower(Gantry::HallPower::WhileMoving);
   }
   gantry.Update(deltaTime);
+  // B6, LedEffect "living eye": the ring follows the state machine.
+  switch (stateMachine.GetCurrentStateId()) {
+  case StateId::Activate: light.SetMood(Light::Mood::Acquired); break;
+  case StateId::FiringState: light.SetMood(Light::Mood::Firing); break;
+  case StateId::Searching: light.SetMood(Light::Mood::Searching); break;
+  default: light.SetMood(Light::Mood::Idle); break;
+  }
   light.Update(deltaTime);
   motion.Update(deltaTime);
   if (tipWatch.Update(motion.CanCheckUpright(), motion.IsUpright(), currentTime)) {

@@ -2,6 +2,7 @@
 
 #include "Arduino.h"
 #include "logic/RadarLogic.h"
+#include "settings/Settings.h"
 
 #define TRACK_COUNT logic::RADAR_TARGETS
 
@@ -38,11 +39,15 @@ public:
   uint32_t GetByteCount() const { return bytes; }
   uint32_t GetFrameCount() const { return parser.Frames(); }
   uint32_t GetBadFrameCount() const { return parser.BadFrames(); }
-  // Detection zone (A2): in front of the radar, closer than maxDistanceMm and
-  // within +-halfAngleDeg of its axis. x / y in mm, y = distance ahead.
-  bool IsInZone(const RadarTarget &target, int32_t maxDistanceMm, int32_t halfAngleDeg) const;
+  // Detection zone (A2): DetectMaxMm, DetectAngle and MaxSpeedCms (B10: a
+  // target faster than this is a reflection or a fan, 0 = no limit). Read at
+  // boot and after every setting change.
+  void ApplySettings(const Settings &settings);
+  // In front of the radar, closer than the distance, within +-the half angle,
+  // not faster than the speed limit. x / y in mm, y = distance ahead.
+  bool IsInZone(const RadarTarget &target) const;
   // Index of the first live target in the zone, -1 if none or if the radar is silent.
-  int8_t FirstTargetInZone(int32_t maxDistanceMm, int32_t halfAngleDeg) const;
+  int8_t FirstTargetInZone() const;
 
 private:
   void TakeFrame(const logic::RadarFrame &frame);
@@ -52,6 +57,9 @@ private:
   RadarTarget targets[TRACK_COUNT] = {};
   uint8_t targetCount = 0;
   uint32_t bytes = 0;
+  int32_t zoneMaxMm = 3000;
+  int32_t zoneHalfAngleDeg = 45;
+  int32_t zoneMaxSpeedCms = 0;
   ulong lastFrameAt = 0;
   bool running = false;
   ulong startedAt = 0;

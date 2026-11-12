@@ -1,11 +1,12 @@
 #include "Light.h"
 #include "board/Power.h"
+#include "logic/BoardLogic.h" // BreathLevel
 #include "pins.h"
 
 namespace {
 const uint32_t DEFAULT_MAX_MILLIAMPS = 500;
 const uint8_t REDUCED_BRIGHTNESS = 26; // 10 %
-}
+} // namespace
 
 void Light::Initialize() {
   FastLED.addLeds<WS2812, PIN_NEOPIXEL_CENTER, GRB>(centerLeds, 9);
@@ -24,7 +25,9 @@ void Light::SetMaxMilliamps(uint32_t milliamps) {
   FastLED.setMaxPowerInVoltsAndMilliamps(5, milliamps);
 }
 
-void Light::SetBrightness(uint8_t brightness) { FastLED.setBrightness(brightness); }
+void Light::SetBrightness(uint8_t brightness) {
+  FastLED.setBrightness(brightness);
+}
 
 void Light::SetEnabled(bool enabledIn) {
   enabled = enabledIn;
@@ -40,7 +43,8 @@ void Light::SetEnabled(bool enabledIn) {
 void Light::ApplySettings(Settings &settings, bool reducedMode) {
   SetMaxMilliamps(settings.GetInt(SettingId::LedMaxmA));
   SetBrightness(reducedMode ? REDUCED_BRIGHTNESS : settings.GetInt(SettingId::LedBright));
-  effect = settings.GetInt(SettingId::LedEffect) == 1 ? Effect::Rainbow : Effect::RedEye;
+  int32_t value = settings.GetInt(SettingId::LedEffect);
+  effect = value == 1 ? Effect::Rainbow : value == 2 ? Effect::Eye : Effect::RedEye;
 }
 
 void Light::SetTestColor(uint8_t stripMask, CRGB color) {
@@ -104,13 +108,52 @@ void Light::Update(ulong deltaTime) {
     DrawRainbow(7);
     return;
   }
+  if (effect == Effect::Eye) {
+    DrawEye();
+    return;
+  }
 
-  uint8_t t = millis() / 4;
-  uint8_t tri = triwave8(t);
-
-  fill_solid(leftLeds, 2, HeatColor(tri));
-  fill_solid(rightLeds, 2, HeatColor(tri));
+  DrawGunsGlow(millis() / 4);
   fill_solid(centerLeds, 9, CRGB::Red);
+  Show();
+}
+
+// Guns: the flickering fire colour of the upstream firmware.
+void Light::DrawGunsGlow(uint8_t t) {
+  CRGB glow = HeatColor(triwave8(t));
+  fill_solid(leftLeds, 2, glow);
+  fill_solid(rightLeds, 2, glow);
+}
+
+// B6: the eye follows the state machine (Mood, set by main every loop).
+void Light::DrawEye() {
+  uint32_t now = millis();
+  DrawGunsGlow(now / 4);
+  CRGB ring;
+  switch (mood) {
+  case Mood::Idle: {
+    // Breathing red, never fully off (the eye stays visible): the raised
+    // cosine of the green status LED, 4 s per breath.
+    uint8_t level = logic::BreathLevel(now, 4000);
+    ring = CRGB(40 + (uint16_t)level * 215 / 255, 0, 0);
+    break;
+  }
+  case Mood::Acquired: ring = CRGB::Red; break;
+  case Mood::Firing: {
+    // 12 Hz blink; the guns flash bright with it.
+    bool on = (now / 40) % 2 == 0;
+    ring = on ? CRGB::Red : CRGB(60, 0, 0);
+    if (on) {
+      fill_solid(leftLeds, 2, CRGB(255, 160, 60));
+      fill_solid(rightLeds, 2, CRGB(255, 160, 60));
+    }
+    break;
+  }
+  case Mood::Searching:
+    ring = CRGB(110, 150, 255); // cold white-blue: "are you still there?"
+    break;
+  }
+  fill_solid(centerLeds, 9, ring);
   Show();
 }
 

@@ -20,8 +20,7 @@ void IdleState::Update(ulong deltaTime) {
     return;
   }
   // A1 + A2: only a live radar, only a target inside the detection zone.
-  int8_t target = turret->radar.FirstTargetInZone(settings.GetInt(SettingId::DetectMaxMm),
-                                                  settings.GetInt(SettingId::DetectAngle));
+  int8_t target = turret->radar.FirstTargetInZone();
   if (target >= 0) {
     const RadarTarget &t = turret->radar.GetTarget(target);
     Log.printf("Target %d at x %d mm, y %d mm\n", target, t.x, t.y);

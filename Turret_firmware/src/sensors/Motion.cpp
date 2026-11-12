@@ -27,33 +27,29 @@ const char *AxisName(uint8_t axis) {
 }
 } // namespace
 
-void Motion::Initialize(Settings &settingsIn)
-{
-    settings = &settingsIn;
+void Motion::Initialize(Settings &settingsIn) {
+  settings = &settingsIn;
 
-    // The bus is started by I2cBus::Begin() on PIN_SDA / PIN_SCL (IO35 / IO36),
-    // explicitly, before this call (boot step 5). begin_I2C also checks WHO_AM_I.
-    available = imu.begin_I2C(IMU_ADDRESS, &Wire);
-    if (!available)
-    {
-        // Not retried: polling a missing sensor every loop slows audio and servos down
-        Log.println("Motion: LSM6DSOX not found at 0x6A, disabled");
-        return;
-    }
-    // Library defaults, set again so that they do not depend on its version.
-    imu.setAccelRange(LSM6DS_ACCEL_RANGE_4_G);
-    imu.setAccelDataRate(LSM6DS_RATE_104_HZ);
-    imu.setGyroDataRate(LSM6DS_RATE_104_HZ);
+  // The bus is started by I2cBus::Begin() on PIN_SDA / PIN_SCL (IO35 / IO36),
+  // explicitly, before this call (boot step 5). begin_I2C also checks WHO_AM_I.
+  available = imu.begin_I2C(IMU_ADDRESS, &Wire);
+  if (!available) {
+    // Not retried: polling a missing sensor every loop slows audio and servos down
+    Log.println("Motion: LSM6DSOX not found at 0x6A, disabled");
+    return;
+  }
+  // Library defaults, set again so that they do not depend on its version.
+  imu.setAccelRange(LSM6DS_ACCEL_RANGE_4_G);
+  imu.setAccelDataRate(LSM6DS_RATE_104_HZ);
+  imu.setGyroDataRate(LSM6DS_RATE_104_HZ);
 
-    // First reading straight away, so that the boot check has a value.
-    Update(READ_PERIOD_MS);
-    Log.printf("Motion: LSM6DSOX ok, gravity %.1f %.1f %.1f m/s2, dominant axis %s, up axis setting %s\n",
-                  gravity.x, gravity.y, gravity.z, AxisName(DominantAxis()),
-                  AxisName(settings->GetInt(SettingId::ImuUpAxis)));
-    if (settings->GetInt(SettingId::ImuUpAxis) != 0 && !IsUpright())
-    {
-        Log.println("Motion: turret not upright, wings will stay closed");
-    }
+  // First reading straight away, so that the boot check has a value.
+  Update(READ_PERIOD_MS);
+  Log.printf("Motion: LSM6DSOX ok, gravity %.1f %.1f %.1f m/s2, dominant axis %s, up axis setting %s\n", gravity.x,
+             gravity.y, gravity.z, AxisName(DominantAxis()), AxisName(settings->GetInt(SettingId::ImuUpAxis)));
+  if (settings->GetInt(SettingId::ImuUpAxis) != 0 && !IsUpright()) {
+    Log.println("Motion: turret not upright, wings will stay closed");
+  }
 }
 
 // LSM6DSOX registers not covered by the library (datasheet register map).
@@ -90,85 +86,68 @@ bool Motion::ArmWakeup(uint8_t threshold) {
   return ok;
 }
 
-void Motion::Update(ulong deltaTime)
-{
-    if (!available)
-    {
-        return;
-    }
-    sinceRead += deltaTime;
-    if (sinceRead < READ_PERIOD_MS)
-    {
-        return;
-    }
-    sinceRead = 0;
+void Motion::Update(ulong deltaTime) {
+  if (!available) {
+    return;
+  }
+  sinceRead += deltaTime;
+  if (sinceRead < READ_PERIOD_MS) {
+    return;
+  }
+  sinceRead = 0;
 
-    sensors_event_t accelEvent, gyroEvent, tempEvent;
-    // Three pointers: the README's "getEvent() is unchanged" is wrong (plan §2.4).
-    if (!imu.getEvent(&accelEvent, &gyroEvent, &tempEvent))
-    {
-        return;
-    }
-    const sensors_vec_t &a = accelEvent.acceleration;
-    if (!hasReading)
-    {
-        gravity = a;
-        hasReading = true;
-    }
-    else
-    {
-        gravity.x += FILTER * (a.x - gravity.x);
-        gravity.y += FILTER * (a.y - gravity.y);
-        gravity.z += FILTER * (a.z - gravity.z);
-    }
-    gyro = gyroEvent.gyro;
-    temperature = tempEvent.temperature;
+  sensors_event_t accelEvent, gyroEvent, tempEvent;
+  // Three pointers: the README's "getEvent() is unchanged" is wrong (plan §2.4).
+  if (!imu.getEvent(&accelEvent, &gyroEvent, &tempEvent)) {
+    return;
+  }
+  const sensors_vec_t &a = accelEvent.acceleration;
+  if (!hasReading) {
+    gravity = a;
+    hasReading = true;
+  } else {
+    gravity.x += FILTER * (a.x - gravity.x);
+    gravity.y += FILTER * (a.y - gravity.y);
+    gravity.z += FILTER * (a.z - gravity.z);
+  }
+  gyro = gyroEvent.gyro;
+  temperature = tempEvent.temperature;
 }
 
-uint8_t Motion::DominantAxis() const
-{
-    if (!hasReading)
-    {
-        return 0;
+uint8_t Motion::DominantAxis() const {
+  if (!hasReading) {
+    return 0;
+  }
+  uint8_t best = 0;
+  float bestValue = 0;
+  for (uint8_t axis = 1; axis <= 6; axis++) {
+    float value = AxisValue(gravity, axis);
+    if (value > bestValue) {
+      bestValue = value;
+      best = axis;
     }
-    uint8_t best = 0;
-    float bestValue = 0;
-    for (uint8_t axis = 1; axis <= 6; axis++)
-    {
-        float value = AxisValue(gravity, axis);
-        if (value > bestValue)
-        {
-            bestValue = value;
-            best = axis;
-        }
-    }
-    return best;
+  }
+  return best;
 }
 
-bool Motion::IsUpright() const
-{
-    uint8_t upAxis = settings ? settings->GetInt(SettingId::ImuUpAxis) : 0;
-    if (!hasReading || upAxis == 0)
-    {
-        return false;
-    }
-    return AxisValue(gravity, upAxis) >= UPRIGHT_RATIO * ONE_G;
+bool Motion::IsUpright() const {
+  uint8_t upAxis = settings ? settings->GetInt(SettingId::ImuUpAxis) : 0;
+  if (!hasReading || upAxis == 0) {
+    return false;
+  }
+  return AxisValue(gravity, upAxis) >= UPRIGHT_RATIO * ONE_G;
 }
 
-bool Motion::CanDeploy() const
-{
-    if (!available || !hasReading)
-    {
-        return true; // not checkable: red LED code 3 already reports it
-    }
-    if (settings->GetInt(SettingId::ImuUpAxis) == 0)
-    {
-        return true;
-    }
-    return IsUpright();
+bool Motion::CanDeploy() const {
+  if (!available || !hasReading) {
+    return true; // not checkable: red LED code 3 already reports it
+  }
+  if (settings->GetInt(SettingId::ImuUpAxis) == 0) {
+    return true;
+  }
+  return IsUpright();
 }
 
-bool Motion::CanCheckUpright() const
-{
-    return available && hasReading && settings != nullptr && settings->GetInt(SettingId::ImuUpAxis) != 0;
+bool Motion::CanCheckUpright() const {
+  return available && hasReading && settings != nullptr && settings->GetInt(SettingId::ImuUpAxis) != 0;
 }

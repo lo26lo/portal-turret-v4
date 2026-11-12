@@ -37,7 +37,9 @@ enum class MenuKey : uint8_t {
   PushLong,
 };
 
-inline bool IsEncoderKey(MenuKey key) { return key >= MenuKey::Clockwise; }
+inline bool IsEncoderKey(MenuKey key) {
+  return key >= MenuKey::Clockwise;
+}
 
 enum class ItemKind : uint8_t {
   Menu,    // has children (entries whose parent is this one)
@@ -83,7 +85,7 @@ struct MenuScreen {
   char line[SCREEN_LINES][SCREEN_LINE_BYTES]; // 0 = title, 1..4 = content, 5 = hint or answer
   int8_t highlight;                           // content line shown inverted, -1 = none
   Graphic graphic;
-  uint8_t leftPercent;  // Wings: 0 closed .. 100 open
+  uint8_t leftPercent; // Wings: 0 closed .. 100 open
   uint8_t rightPercent;
   int16_t value[8];
   uint8_t dataLength;
@@ -189,7 +191,7 @@ const uint8_t FAULT_COUNT = 6;
 const uint32_t FAULT_ALERT_MS = 5000;
 
 inline const char *FaultName(uint8_t n, Lang lang) {
-  static const char *const en[FAULT_COUNT] = {"Reboot loop", "eFuse fault",       "IMU missing",
+  static const char *const en[FAULT_COUNT] = {"Reboot loop",  "eFuse fault",       "IMU missing",
                                               "Radar silent", "Hall inconsistent", "LittleFS missing"};
   static const char *const fr[FAULT_COUNT] = {"Boucle redémarrage", "Défaut eFuse",    "IMU absente",
                                               "Radar muet",         "Hall incohérent", "LittleFS absent"};
@@ -249,8 +251,8 @@ inline void RenderFaultAlert(MenuScreen &screen, Lang lang, uint8_t faults) {
       count++;
     }
   }
-  snprintf(screen.line[0], SCREEN_LINE_BYTES, "%s", count > 1 ? (french ? "! Défauts" : "! Faults")
-                                                              : (french ? "! Défaut" : "! Fault"));
+  snprintf(screen.line[0], SCREEN_LINE_BYTES, "%s",
+           count > 1 ? (french ? "! Défauts" : "! Faults") : (french ? "! Défaut" : "! Fault"));
   if (lowest != 0) {
     snprintf(screen.line[5], SCREEN_LINE_BYTES, "%s %u", french ? "LED rouge : code" : "Red LED: code", lowest);
   }
@@ -327,9 +329,7 @@ public:
       return;
     }
     switch (mode) {
-    case Mode::Browse:
-      KeyBrowse(key, now);
-      break;
+    case Mode::Browse: KeyBrowse(key, now); break;
     case Mode::Info:
       if (key == MenuKey::A || key == MenuKey::ALong) {
         StepInfo(key == MenuKey::A ? 1 : -1);
@@ -337,18 +337,14 @@ public:
         mode = Mode::Browse;
       }
       break;
-    case Mode::Adjust:
-      KeyAdjust(key, now);
-      break;
+    case Mode::Adjust: KeyAdjust(key, now); break;
     case Mode::Confirm:
       if (key == MenuKey::B) {
         Run(items[active].command, now);
       }
       mode = Mode::Browse;
       break;
-    case Mode::Wizard:
-      KeyWizard(key, now);
-      break;
+    case Mode::Wizard: KeyWizard(key, now); break;
     }
   }
 
@@ -372,7 +368,7 @@ public:
           screen.highlight = 1 + row;
         }
       }
-      Copy(screen.line[5], showAnswer       ? answer
+      Copy(screen.line[5], showAnswer     ? answer
                            : encoderHints ? (french ? "Tourner  Appui:ok" : "Turn  Push:ok")
                                           : (french ? "A:suiv  B:ok" : "A:next  B:ok"));
       return;
@@ -386,8 +382,7 @@ public:
         if (showAnswer) {
           Copy(screen.line[4], answer);
         }
-        Copy(screen.line[5], encoderHints ? (french ? "Appui:retour" : "Push:back")
-                                          : (french ? "B:retour" : "B:back"));
+        Copy(screen.line[5], encoderHints ? (french ? "Appui:retour" : "Push:back") : (french ? "B:retour" : "B:back"));
         return;
       }
       snprintf(screen.line[0], SCREEN_LINE_BYTES, "%s %d/%d", Label(active, lang), wizardStep + 1, n);
@@ -433,9 +428,7 @@ public:
   }
 
 private:
-  const char *Label(int16_t item, Lang lang) const {
-    return lang == Lang::French ? items[item].fr : items[item].en;
-  }
+  const char *Label(int16_t item, Lang lang) const { return lang == Lang::French ? items[item].fr : items[item].en; }
 
   static void Copy(char *target, const char *text) {
     strncpy(target, text, SCREEN_LINE_BYTES - 1);
@@ -507,9 +500,7 @@ private:
       menu = item;
       cursor = 0;
       break;
-    case ItemKind::Command:
-      Run(items[item].command, now);
-      break;
+    case ItemKind::Command: Run(items[item].command, now); break;
     case ItemKind::Confirm:
       active = item;
       mode = Mode::Confirm;

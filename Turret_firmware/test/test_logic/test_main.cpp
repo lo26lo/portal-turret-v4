@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unity.h>
 
+#include "control/CommandTable.h"
 #include "logic/AudioLogic.h"
 #include "logic/BoardLogic.h"
 #include "logic/CycleLogic.h"
@@ -17,6 +18,7 @@
 #include "logic/ServoLogic.h"
 #include "logic/SleepLogic.h"
 #include "ui/MenuTree.h"
+#include "web/PageText.h"
 
 void setUp() {}
 void tearDown() {}
@@ -152,24 +154,24 @@ void test_breath_level() {
     TEST_ASSERT_TRUE(level - previous <= 4);
     previous = level;
   }
-  TEST_ASSERT_EQUAL_UINT8(0, logic::BreathLevel(4294964000u, 4000));    // 4000 * 1073741: still in phase
-  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(4294966000u, 4000));  // 2000 ms into that period
-  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(200, 0));             // period 0 read as 400 ms
+  TEST_ASSERT_EQUAL_UINT8(0, logic::BreathLevel(4294964000u, 4000));   // 4000 * 1073741: still in phase
+  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(4294966000u, 4000)); // 2000 ms into that period
+  TEST_ASSERT_EQUAL_UINT8(255, logic::BreathLevel(200, 0));            // period 0 read as 400 ms
 }
 
 void test_heartbeat() {
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(0, 1200));    // first beat
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(0, 1200)); // first beat
   TEST_ASSERT_TRUE(logic::HeartbeatOn(99, 1200));
   TEST_ASSERT_FALSE(logic::HeartbeatOn(100, 1200)); // gap
   TEST_ASSERT_FALSE(logic::HeartbeatOn(249, 1200));
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(250, 1200));  // second beat
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(250, 1200)); // second beat
   TEST_ASSERT_TRUE(logic::HeartbeatOn(349, 1200));
   TEST_ASSERT_FALSE(logic::HeartbeatOn(350, 1200)); // rest
   TEST_ASSERT_FALSE(logic::HeartbeatOn(1199, 1200));
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(1200, 1200)); // next period
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(1200, 1200));  // next period
   TEST_ASSERT_FALSE(logic::HeartbeatOn(3999, 4000)); // a longer rest with a longer period
   TEST_ASSERT_TRUE(logic::HeartbeatOn(4000, 4000));
-  TEST_ASSERT_TRUE(logic::HeartbeatOn(400, 100));    // period below 350 ms read as 400 ms
+  TEST_ASSERT_TRUE(logic::HeartbeatOn(400, 100)); // period below 350 ms read as 400 ms
 }
 
 void test_green_led_level() {
@@ -241,7 +243,7 @@ void test_upsampler() {
 
 void test_pick_voice_file() {
   TEST_ASSERT_EQUAL_INT(-1, logic::PickVoiceFile(0, -1, 5));
-  TEST_ASSERT_EQUAL_INT(0, logic::PickVoiceFile(1, 0, 7)); // no choice: repeats
+  TEST_ASSERT_EQUAL_INT(0, logic::PickVoiceFile(1, 0, 7));  // no choice: repeats
   TEST_ASSERT_EQUAL_INT(2, logic::PickVoiceFile(4, -1, 6)); // first time: any
   // Never the last one again, and every other one is reachable.
   bool seen[5] = {};
@@ -275,8 +277,8 @@ void test_upsample_factor() {
   TEST_ASSERT_EQUAL_UINT8(2, logic::UpsampleFactor(22050, 44100)); // voice files
   TEST_ASSERT_EQUAL_UINT8(1, logic::UpsampleFactor(44100, 44100)); // fire.mp3
   TEST_ASSERT_EQUAL_UINT8(4, logic::UpsampleFactor(11025, 44100));
-  TEST_ASSERT_EQUAL_UINT8(1, logic::UpsampleFactor(0, 44100));     // unknown yet
-  TEST_ASSERT_EQUAL_UINT8(8, logic::UpsampleFactor(1000, 44100));  // capped
+  TEST_ASSERT_EQUAL_UINT8(1, logic::UpsampleFactor(0, 44100));    // unknown yet
+  TEST_ASSERT_EQUAL_UINT8(8, logic::UpsampleFactor(1000, 44100)); // capped
 }
 
 void test_tip_watch() {
@@ -449,13 +451,15 @@ static void FakeExecute(void *, const char *command, char *answer, size_t size) 
   commandCount++;
   snprintf(answer, size, "ok %s\nsecond line", command);
 }
-static int32_t FakeValue(void *, const char *) { return startValue; }
+static int32_t FakeValue(void *, const char *) {
+  return startValue;
+}
 static void FakeInfo(void *, int16_t page, uint8_t line, logic::Lang, char *text, size_t size) {
   snprintf(text, size, "p%d l%d", page, line);
 }
 
-#define T_ITEM(en, fr, kind, parent, command, save, key, page, min, max, step) \
-  { en, fr, logic::ItemKind::kind, parent, command, save, key, page, min, max, step }
+#define T_ITEM(en, fr, kind, parent, command, save, key, page, min, max, step)                                         \
+  {en, fr, logic::ItemKind::kind, parent, command, save, key, page, min, max, step}
 static const logic::MenuItem TEST_TREE[] = {
     T_ITEM("Root", "Racine", Menu, -1, nullptr, nullptr, nullptr, 0, 0, 0, 0),
     T_ITEM("Ping", "Ping", Command, 0, "ping", nullptr, nullptr, 0, 0, 0, 0),
@@ -814,7 +818,8 @@ void test_wrap_text() {
 static const logic::MenuItem WIZARD_TREE[] = {
     T_ITEM("Root", "Racine", Menu, -1, nullptr, nullptr, nullptr, 0, 0, 0, 0),
     T_ITEM("Setup", "Assistant", Wizard, 0, nullptr, nullptr, nullptr, 0, 0, 0, 0),
-    T_ITEM("Do the first thing, then press B", "Fais la première chose, puis B", Command, 1, "one", nullptr, nullptr, 0, 0, 0, 0),
+    T_ITEM("Do the first thing, then press B", "Fais la première chose, puis B", Command, 1, "one", nullptr, nullptr, 0,
+           0, 0, 0),
     T_ITEM("Second", "Deuxième", Command, 1, "two", nullptr, nullptr, 0, 0, 0, 0),
     T_ITEM("Read this", "Lis ceci", Command, 1, nullptr, nullptr, nullptr, 0, 0, 0, 0),
 };
@@ -855,7 +860,7 @@ void test_menu_wizard() {
   Press(nav, logic::MenuKey::B); // any key leaves
   TEST_ASSERT_TRUE(nav.GetMode() == logic::MenuNav::Mode::Browse);
 
-  Press(nav, logic::MenuKey::B); // in again
+  Press(nav, logic::MenuKey::B);     // in again
   Press(nav, logic::MenuKey::BLong); // leave in the middle
   TEST_ASSERT_TRUE(nav.GetMode() == logic::MenuNav::Mode::Browse);
 }
@@ -988,7 +993,7 @@ void test_aim_angle() {
   TEST_ASSERT_FLOAT_WITHIN(0.1f, 45.0f, logic::AimAngleDeg(1000, 1000, 60));
   TEST_ASSERT_FLOAT_WITHIN(0.1f, -45.0f, logic::AimAngleDeg(-1000, 1000, 60));
   TEST_ASSERT_FLOAT_WITHIN(0.1f, 60.0f, logic::AimAngleDeg(5000, 100, 60)); // bounded
-  TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, logic::AimAngleDeg(1000, 0, 60));   // behind / on the radar
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, logic::AimAngleDeg(1000, 0, 60));    // behind / on the radar
   TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, logic::AimAngleDeg(1000, -500, 60));
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 2.5f, logic::SmoothAim(0, 10, 0.25f));
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 10.0f, logic::SmoothAim(0, 10, 1.0f));
@@ -1006,7 +1011,7 @@ void test_firing_and_search_steps() {
   TEST_ASSERT_TRUE(logic::SearchDecision(false, 3999, 0, 4000) == S::Keep);
   TEST_ASSERT_TRUE(logic::SearchDecision(false, 4000, 0, 4000) == S::GiveUp);
   TEST_ASSERT_TRUE(logic::SearchDecision(false, 0, 0, 0) == S::GiveUp); // SearchMs 0: retire at once
-  TEST_ASSERT_TRUE(logic::SearchDecision(true, 0, 0, 0) == S::Fire);   // but a target still wins
+  TEST_ASSERT_TRUE(logic::SearchDecision(true, 0, 0, 0) == S::Fire);    // but a target still wins
 }
 
 void test_search_sweep() {
@@ -1019,8 +1024,63 @@ void test_search_sweep() {
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, logic::SearchSweepDeg(500, 0, 0, 30)); // no period: centred
 }
 
+// ------------------------------------------------------------------ command table
+
+void test_command_table() {
+  using namespace commands;
+  for (size_t i = 0; i < COUNT; i++) {
+    const Spec &c = TABLE[i];
+    // One row per id, in order; usage starts with the name; nothing empty.
+    TEST_ASSERT_EQUAL_MESSAGE((int)i, (int)c.id, c.name);
+    TEST_ASSERT_EQUAL_MESSAGE(0, strncmp(c.usage, c.name, strlen(c.name)), c.usage);
+    TEST_ASSERT_TRUE_MESSAGE(c.help[0] != '\0' && c.category[0] != '\0', c.name);
+    for (size_t j = 0; j < i; j++) {
+      TEST_ASSERT_TRUE_MESSAGE(strcmp(TABLE[j].name, c.name) != 0, c.name); // unique
+    }
+  }
+  // Categories contiguous: once left, a category never comes back.
+  for (size_t i = 1; i < COUNT; i++) {
+    if (strcmp(TABLE[i].category, TABLE[i - 1].category) == 0) {
+      continue;
+    }
+    for (size_t j = 0; j < i; j++) {
+      TEST_ASSERT_TRUE_MESSAGE(strcmp(TABLE[j].category, TABLE[i].category) != 0, TABLE[i].category);
+    }
+  }
+  TEST_ASSERT_EQUAL_STRING("help", Find("HELP")->name);
+  TEST_ASSERT_EQUAL_STRING("help", Find("?")->name);
+  TEST_ASSERT_EQUAL_STRING("factory-reset", Find("factory-reset")->name);
+  TEST_ASSERT_NULL(Find("nothing"));
+  TEST_ASSERT_TRUE(HasCategory("lab"));
+  TEST_ASSERT_FALSE(HasCategory("kitchen"));
+  TEST_ASSERT_TRUE((Find("loadtest")->needs & TestMode) && (Find("loadtest")->needs & FullPower));
+  TEST_ASSERT_EQUAL(None, Find("servos")->needs);
+}
+
+void test_page_texts() {
+  for (size_t i = 0; i < web::TEXT_COUNT; i++) {
+    const web::Text &t = web::TEXTS[i];
+    TEST_ASSERT_TRUE_MESSAGE(t.key[0] && t.en[0] && t.fr[0], t.key);
+    TEST_ASSERT_TRUE_MESSAGE(strchr(t.key, '"') == nullptr && strchr(t.key, ' ') == nullptr, t.key);
+    for (size_t j = 0; j < i; j++) {
+      TEST_ASSERT_TRUE_MESSAGE(strcmp(web::TEXTS[j].key, t.key) != 0, t.key); // unique
+    }
+  }
+}
+
+void test_plausible_speed() {
+  TEST_ASSERT_TRUE(logic::IsPlausibleSpeed(1500, 0)); // no limit
+  TEST_ASSERT_TRUE(logic::IsPlausibleSpeed(150, 300));
+  TEST_ASSERT_TRUE(logic::IsPlausibleSpeed(-300, 300)); // either way, inclusive
+  TEST_ASSERT_FALSE(logic::IsPlausibleSpeed(301, 300));
+  TEST_ASSERT_FALSE(logic::IsPlausibleSpeed(-32767, 300));
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_command_table);
+  RUN_TEST(test_page_texts);
+  RUN_TEST(test_plausible_speed);
   RUN_TEST(test_radar_parser_nominal_frame);
   RUN_TEST(test_radar_parser_footer_bytes_inside_data);
   RUN_TEST(test_radar_parser_resync_and_bad_frame);

@@ -128,7 +128,7 @@ Size today: about 46 % of the 3.2 MB application partition, 28 % of the RAM. The
 
 **Version**: `scripts/git_version.py` writes `src/version_gen.h` before each build with `git describe --tags --dirty --always` (for example `fd63cb0-dirty`). It appears in the boot banner, in `/api/status` and on the web page. Tag a release (`git tag v0.1`) to get readable versions.
 
-**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2`, `turret2_bringup` and `turret2_v2`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`), `tools/check_web.py` and `scripts/check_commands.py` on every push that touches `Turret_firmware/`.
+**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2`, `turret2_bringup` and `turret2_v2`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`), `tools/check_web.py`, `scripts/check_commands.py` and the code style check `scripts/check_format.py` (clang-format 19, `.clang-format` at the project root; `--fix` formats) on every push that touches `Turret_firmware/`.
 
 ## 4. Boot sequence
 
@@ -234,7 +234,7 @@ MAX98357A on I2S (BCLK IO11, LRCLK IO12, DIN IO10), 44.1 kHz, 16-bit, mono (the 
 
 ### Lights (`light/*`)
 
-WS2812 through the SN74AHCT125 level shifter: ring on IO14 (9 LEDs, GRB; the last one has red and green swapped), left gun IO15 and right gun IO16 (2 LEDs each, RGB). The ring shows red, the guns a flickering fire colour, or a turning rainbow with `LedEffect` = 1. `LedBright`, `LedMaxmA`, test colours from the console or page.
+WS2812 through the SN74AHCT125 level shifter: ring on IO14 (9 LEDs, GRB; the last one has red and green swapped), left gun IO15 and right gun IO16 (2 LEDs each, RGB). The ring shows red, the guns a flickering fire colour; `LedEffect` = 1 is a turning rainbow, `LedEffect` = 2 a *living eye* that follows the state machine (breathing red at rest, steady red on acquisition, blinking during a burst, cold white while searching). `LedBright`, `LedMaxmA`, test colours from the console or page.
 
 ### Settings (`settings/*`)
 
@@ -373,7 +373,9 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `LedEffect` | Lights | 0 | 0..1 | outside a test: 0 red eye (ring red, guns glowing), 1 turning rainbow (ring, guns following LED 1) |
 | `FireMs` | Detection | 3000 | 500..20000 | length of one burst of fire (state `Firing`) |
 | `SearchMs` | Detection | 4000 | 0..30000 | after a burst, how long the turret looks for the target before retiring (state `Searching`); a target back in the zone fires again |
-| `AimZ` | Detection | false | | rotation Z follows the target while firing (±60°) and sweeps ±30° while searching. Off until the direction of the rotation has been checked on the turret (`AngleOffsetZ`, gear ratio) |
+| `AimZ` | Detection | false | | rotation Z follows the target while firing (±60°) and sweeps ±30° while searching. Off until the direction of the rotation has been checked on the turret (`aim` command, `AngleOffsetZ`, gear ratio) |
+| `MaxSpeedCms` | Detection | 0 | 0..2000 | a target whose radial speed (cm/s, either way) is above this is not a target (reflection, fan, curtain); 0 = no limit. A walking person reads under 200 |
+| `LedEffect` = 2 | Lights | | | *Living eye*: ring breathing red at rest, steady red when a target is acquired, blinking red during a burst, cold white while searching; the guns glow as usual (see Lights) |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
 | `GreenLedMode` | Status LEDs | 0 | 0..3 | green LED after boot: 0 breathing, 1 heartbeat, 2 steady, 3 off |
 | `GreenLedPeriod` | Status LEDs | 4000 | 1000..10000 | one breath, or one heartbeat (ms) |
@@ -429,7 +431,7 @@ The header shows the Aperture logo (inline SVG, follows the light / dark theme),
 | `GET /` | the page |
 | `GET /api/status` | JSON: version, uptime, state, reset reason, counters, PWR_FLT, modes, active faults, radar, IMU, Hall, wings, servo pulses (`null` = released), amplifier, WiFi (access point, home network), time, free heap |
 | `GET /api/settings` | the setting table (key, label, group, type, value, default, min, max, `options` for a choice, `reboot`, `secret`) |
-| `GET /api/meta` | the lists the page needs, in the screen language (`Language`): fault names by number, IMU axes, voice names, servo aliases and names, board, version. The page keeps no copy of these lists |
+| `GET /api/meta` | the lists the page needs, in the screen language (`Language`): fault names by number, IMU axes, voice names, servo aliases and names, command categories (for `help <category>`), the page texts (`text`, from `web/PageText.h`: the page is in English or French like the OLED), board, version. The page keeps no copy of these lists |
 | `POST /api/settings` | form fields `key=value`; each becomes a `set` command (answer in the log) |
 | `POST /api/settings/reset` | optional field `group`; all settings otherwise |
 | `POST /api/action` | field `cmd`: any console command |
@@ -451,7 +453,8 @@ USB, 115200 baud. Type `help`.
 
 | Command | Does |
 |---|---|
-| `help` | the commands by category, with their usage (generated from the command table of `control/Actions.cpp`; `scripts/check_commands.py` checks this section against it in the CI) |
+| `help [category]` | the commands by category (Status, Settings, Mechanics, Lights, Audio, Network, Debug, System, Lab), with their usage; one category at a time fits the log tail of the web page. Generated from the command table `control/CommandTable.h` (pure data, tested natively); `scripts/check_commands.py` checks this section against it in the CI |
+| `aim` | what `AimZ` would do, without moving anything: each radar target with its x / y, speed, angle from the radar axis, which side, the rotation Z servo angle it maps to, and whether it is in the zone. Walk to one side of the radar and check the sign before `set AimZ true` |
 | `status` | the status JSON (`radar.bytes` / `frames` / `badFrames` tell a silent radar from a wrong baud rate) |
 | `scan` | I2C scan |
 | `imu` | gravity, dominant axis, upright, gyro, temperature |
@@ -554,7 +557,7 @@ Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`,
 
 The **debug menu can be tried in the browser**: Tests → *Debug screen*, buttons A, A long, B, B long. The simulator walks through the real tree of `src/ui/MenuTree.h`; the information pages show fake values.
 
-**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; radar frame parser: nominal frame, footer bytes inside the data, resync after an acknowledgement, a truncated frame and a stray byte; detection zone; firing cycle: aim angle, burst end across the millis() wrap-around, search decision, search sweep; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain; voice upsampling, file choice, ID3 tag size, "tipped over" watch; sleep; debug menu). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
+**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; radar frame parser: nominal frame, footer bytes inside the data, resync after an acknowledgement, a truncated frame and a stray byte; detection zone; firing cycle: aim angle, burst end across the millis() wrap-around, search decision, search sweep; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain; voice upsampling, file choice, ID3 tag size, "tipped over" watch; sleep; debug menu; the command table of `control/CommandTable.h` and the page texts of `web/PageText.h`: unique keys, usage starting with the name, contiguous categories). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
 
 `tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan, `/api/meta` voices against the firmware and no copy of the lists in the page, an MP3 in every voice folder of `data/`, every debug menu command in the command table) and the JavaScript syntax with Node.js, on the source and on the compacted page that `scripts/embed_page.py` embeds. The CI runs it too.
 

@@ -49,8 +49,8 @@ namespace CrashLog {
 void Begin(esp_reset_reason_t reason) {
   // After a power-up the RTC memory holds garbage: the magic and the bounds
   // tell a valid buffer from noise.
-  bool valid = reason != ESP_RST_POWERON && rtcLog.magic == RTC_MAGIC &&
-               rtcLog.head < RTC_SIZE && rtcLog.filled <= RTC_SIZE;
+  bool valid =
+      reason != ESP_RST_POWERON && rtcLog.magic == RTC_MAGIC && rtcLog.head < RTC_SIZE && rtcLog.filled <= RTC_SIZE;
   if (valid && rtcLog.filled > 0) {
     size_t count = rtcLog.filled;
     size_t start = (rtcLog.head + RTC_SIZE - count) % RTC_SIZE;
@@ -72,7 +72,9 @@ void Begin(esp_reset_reason_t reason) {
   rtcLog.magic = RTC_MAGIC;
 }
 
-const String &PreviousRun() { return previousRun; }
+const String &PreviousRun() {
+  return previousRun;
+}
 
 } // namespace CrashLog
 

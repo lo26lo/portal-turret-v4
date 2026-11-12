@@ -7,7 +7,9 @@ namespace {
 const ulong VOICE_WAIT_MAX_MS = 3500;
 } // namespace
 
-void ActivateRoutine::Initialize(Turret &_turret) { turret = &_turret; }
+void ActivateRoutine::Initialize(Turret &_turret) {
+  turret = &_turret;
+}
 
 int ActivateRoutine::runCoroutine() {
   COROUTINE_BEGIN();

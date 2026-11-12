@@ -25,11 +25,11 @@ enum InfoPage : int16_t {
   PageWifiScan, // strongest networks of the last scan
   PageTime,     // date, time, time zone
   // Pages with a drawing (DebugUi::InfoGraphic)
-  PageRadarView,      // top view: detection zone and targets
-  PageHallGraphLeft,  // curve of the Hall value over the last seconds
+  PageRadarView,     // top view: detection zone and targets
+  PageHallGraphLeft, // curve of the Hall value over the last seconds
   PageHallGraphRight,
-  PageQrWifi,         // QR code to join the turret network
-  PageQrWeb,          // QR code of the web page address
+  PageQrWifi, // QR code to join the turret network
+  PageQrWeb,  // QR code of the web page address
   // Text pages
   PageLog,      // last lines of the log
   PageCrash,    // core dump summary, last lines before the reset
@@ -54,23 +54,18 @@ enum MenuIndex : int16_t {
   MenuWizard, // guided calibration: its children are the steps
 };
 
-#define M_MENU(en, fr, parent) \
-  { en, fr, logic::ItemKind::Menu, parent, nullptr, nullptr, nullptr, 0, 0, 0, 0 }
-#define M_CMD(en, fr, parent, command) \
-  { en, fr, logic::ItemKind::Command, parent, command, nullptr, nullptr, 0, 0, 0, 0 }
-#define M_ASK(en, fr, parent, command) \
-  { en, fr, logic::ItemKind::Confirm, parent, command, nullptr, nullptr, 0, 0, 0, 0 }
-#define M_INFO(en, fr, parent, page) \
-  { en, fr, logic::ItemKind::Info, parent, nullptr, nullptr, nullptr, page, 0, 0, 0 }
-#define M_ADJ(en, fr, parent, format, save, key, min, max, step) \
-  { en, fr, logic::ItemKind::Adjust, parent, format, save, key, 0, min, max, step }
-#define M_WIZ(en, fr, parent) \
-  { en, fr, logic::ItemKind::Wizard, parent, nullptr, nullptr, nullptr, 0, 0, 0, 0 }
+#define M_MENU(en, fr, parent) {en, fr, logic::ItemKind::Menu, parent, nullptr, nullptr, nullptr, 0, 0, 0, 0}
+#define M_CMD(en, fr, parent, command) {en, fr, logic::ItemKind::Command, parent, command, nullptr, nullptr, 0, 0, 0, 0}
+#define M_ASK(en, fr, parent, command) {en, fr, logic::ItemKind::Confirm, parent, command, nullptr, nullptr, 0, 0, 0, 0}
+#define M_INFO(en, fr, parent, page) {en, fr, logic::ItemKind::Info, parent, nullptr, nullptr, nullptr, page, 0, 0, 0}
+#define M_ADJ(en, fr, parent, format, save, key, min, max, step)                                                       \
+  {en, fr, logic::ItemKind::Adjust, parent, format, save, key, 0, min, max, step}
+#define M_WIZ(en, fr, parent) {en, fr, logic::ItemKind::Wizard, parent, nullptr, nullptr, nullptr, 0, 0, 0, 0}
 // Wizard step: the label is the instruction (up to 63 characters, wrapped on
 // three lines); the command runs on a push of the knob (B on the v0.1 buttons;
 // nullptr = nothing to run).
-#define M_STEP(en, fr, parent, command) \
-  { en, fr, logic::ItemKind::Command, parent, command, nullptr, nullptr, 0, 0, 0, 0 }
+#define M_STEP(en, fr, parent, command)                                                                                \
+  {en, fr, logic::ItemKind::Command, parent, command, nullptr, nullptr, 0, 0, 0, 0}
 
 static const logic::MenuItem MENU_TREE[] = {
     // Menus first, in the order of MenuIndex.
@@ -100,8 +95,8 @@ static const logic::MenuItem MENU_TREE[] = {
            "cal hall right closed"),
     M_STEP("Save the Hall thresholds: push", "Enregistrer les seuils Hall : appuie", MenuWizard, "cal hall save"),
     M_STEP("Stand the turret upright, then push", "Pose la tourelle debout, puis appuie", MenuWizard, "cal imu"),
-    M_STEP("Wing trims: Calibration menu, Trim wing L and R", "Trims : menu Calibration, Trim aile G et D",
-           MenuWizard, nullptr),
+    M_STEP("Wing trims: Calibration menu, Trim wing L and R", "Trims : menu Calibration, Trim aile G et D", MenuWizard,
+           nullptr),
 
     // Information
     M_INFO("State", "État", MenuInfo, PageState),
@@ -178,7 +173,8 @@ static const logic::MenuItem MENU_TREE[] = {
     M_ASK("Hall: save", "Hall : enregistrer", MenuCalibration, "cal hall save"),
     M_ASK("IMU: upright now", "IMU : debout", MenuCalibration, "cal imu"),
     M_ADJ("Trim wing L", "Trim aile G", MenuCalibration, "trim left %d", "set WingTrimL %d", "WingTrimL", -200, 200, 5),
-    M_ADJ("Trim wing R", "Trim aile D", MenuCalibration, "trim right %d", "set WingTrimR %d", "WingTrimR", -200, 200, 5),
+    M_ADJ("Trim wing R", "Trim aile D", MenuCalibration, "trim right %d", "set WingTrimR %d", "WingTrimR", -200, 200,
+          5),
 
     // Settings
     M_ADJ("Volume %", "Volume %", MenuSettings, "set Volume %d", nullptr, "Volume", 0, 100, 10),
@@ -195,7 +191,8 @@ static const logic::MenuItem MENU_TREE[] = {
     M_CMD("Screen: normal", "Écran : normal", MenuSettings, "set OledFlip false"),
     M_CMD("Screen: flipped", "Écran : retourné", MenuSettings, "set OledFlip true"),
     M_ADJ("Contrast", "Contraste", MenuSettings, "set OledContrast %d", nullptr, "OledContrast", 0, 255, 15),
-    M_ADJ("Screen off after s", "Veille écran s", MenuSettings, "set OledSleepS %d", nullptr, "OledSleepS", 0, 3600, 60),
+    M_ADJ("Screen off after s", "Veille écran s", MenuSettings, "set OledSleepS %d", nullptr, "OledSleepS", 0, 3600,
+          60),
     M_CMD("Language: English", "Langue : English", MenuSettings, "set Language 0"),
     M_CMD("Language: French", "Langue : français", MenuSettings, "set Language 1"),
 

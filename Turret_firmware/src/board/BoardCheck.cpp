@@ -15,7 +15,9 @@ bool expanderSeen = false;
 bool railsOff = false;
 bool rightBoard = false;
 
-const char *SeenBoardName() { return expanderSeen ? "v2 (expander at 0x20)" : "v0.1 (nothing at 0x20)"; }
+const char *SeenBoardName() {
+  return expanderSeen ? "v2 (expander at 0x20)" : "v0.1 (nothing at 0x20)";
+}
 
 // The other OTA slot, if it holds an app image.
 const esp_partition_t *OtherApp() {
@@ -77,9 +79,15 @@ void Run() {
   rightBoard = expanderSeen == (BOARD_HAS_EXPANDER != 0);
 }
 
-bool IsRightBoard() { return rightBoard; }
-bool HasExpander() { return expanderSeen; }
-bool RailsOff() { return railsOff; }
+bool IsRightBoard() {
+  return rightBoard;
+}
+bool HasExpander() {
+  return expanderSeen;
+}
+bool RailsOff() {
+  return railsOff;
+}
 
 void PrintReport() {
 #if BOARD_HAS_EXPANDER

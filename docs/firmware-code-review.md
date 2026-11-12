@@ -34,7 +34,7 @@ Ce qui a été lu pour la revue du 10.11.2026 : tout `src/` (hors `GunShotAudio.
 | Ampli MAX98357A | `audio/Amp` | ★★★★★ | garder |
 | Décodeur MP3 image par image | `audio/Mp3FrameDecoder` | ★★★★★ | garder |
 | Audio (I²S, tonalités, tir, voix) | `audio/Audio`, `audio/AudioLoop` | ★★★★ | garder |
-| Console et commandes | `control/Actions*`, `scripts/check_commands.py` | ★★★★ (était ★★★) | garder |
+| Console et commandes | `control/Actions*`, `control/CommandTable.h`, `scripts/check_commands.py` | ★★★★★ (★★★ le 10.11, ★★★★ puis ★★★★★ le 12.11) | garder |
 | Auto-test | `control/SelfTest` | ★★★★ | garder |
 | Veilles (radar, profonde, patrouilles) | `control/Sleep` | ★★★★ | garder, à valider sur la v2 |
 | Statistiques | `control/Stats` | ★★★★★ | garder |
@@ -44,9 +44,9 @@ Ce qui a été lu pour la revue du 10.11.2026 : tout `src/` (hors `GunShotAudio.
 | Menu de debug (logique pure) | `logic/MenuLogic.h`, `ui/MenuTree.h` | ★★★★★ | garder |
 | Écran OLED et pages d'information | `ui/DebugUi`, `ui/Display` | ★★★★ | garder |
 | Logique pure et tests natifs | `logic/*.h`, `test/test_logic` | ★★★★★ | garder |
-| Build, CI, scripts | `platformio.ini`, `scripts/`, workflow | ★★★★ | garder |
+| Build, CI, scripts | `platformio.ini`, `scripts/`, `.clang-format`, workflow | ★★★★★ (★★★★ le 10.11 ; style imposé le 12.11) | garder |
 
-Bilan après la 2ᵉ revue : 27 fonctionnalités, 7 à cinq étoiles, **20 à quatre, aucune en dessous**. (1ʳᵉ revue : 16 à quatre et 4 à trois.)
+Bilan au 12.11.2026 : 27 fonctionnalités, **9 à cinq étoiles, 18 à quatre, aucune en dessous**. (1ʳᵉ revue du 10.11 : 7 / 16 / 4 à trois.)
 
 ## Détail par fonctionnalité
 
@@ -265,3 +265,35 @@ Demande : « fais au mieux pour remettre bien ». Les quatre fonctionnalités à
 **Page web — ★★★ → ★★★★.** Source réécrit lisible (CSS et JS indentés, noms complets, une section par onglet, 540 lignes) ; `scripts/embed_page.py` compacte au build (commentaires, indentation, lignes vides : 35 Ko → 29,5 Ko → 9,8 Ko gzip, l'ancien faisait ~9,5 Ko). `throw 0` et les `alert()` remplacés par une barre de message ; les `confirm()` restent pour les actions dangereuses. Les listes viennent de **`GET /api/meta`** (`Actions::MetaJson` : noms des défauts dans la langue de l'écran, axes, voix, servos, carte, version) : la page n'en garde aucune copie, `check_web.py` le vérifie, le simulateur les lit dans les sources. `check_web.py` passe aussi `node --check` sur le script **compacté**. Pas cinq étoiles : la page reste en anglais (les libellés de `/api/meta` sont déjà bilingues, le reste du texte non).
 
 Erreurs de la session : la première version de `SearchSweepDeg` avait une onde triangulaire fausse (corrigée avant compilation, testée) ; un test de débordement de `FiringDone` était faux de ma part (5120 ms et non 1264) ; `check_commands.py` coupait les cellules sur les `\|` échappés du README ; `check_web.py` cherchait encore `command == "…"` dans `Actions.cpp`.
+
+### 12.11.2026 — Relecture de la reprise du 10.11
+
+Relecture du code écrit le 10.11, avant tout essai sur la carte.
+
+**Trouvé et corrigé :**
+- **Voix `search` jamais jouée.** `Audio::PlayVoice` refuse une voix tant que `ShootAudio.IsPlaying()`, et la queue du bruit de tir (la fin de l'échantillon après `Stop()`) joue encore à l'entrée de `Searching` : la ligne était refusée à chaque fois. Même piège pour `SearchMs = 0` : `Disengage` lançait *retire* sur la queue du tir (l'ancien `Firing` attendait la fin du son avant de passer la main). `SearchingState` joue maintenant la voix une fois le tir terminé et ne cède à `Disengage` qu'à ce moment-là.
+- **Saut de la rotation Z** entre tir et recherche : le balayage partait de 0° alors que la visée pouvait être à 40°. `FiringState::LastAimDeg()` sert de point de départ au balayage, atteint en douceur (`SmoothAim`), et la rafale suivante repart de là.
+- `check_commands.py` vérifie aussi que chaque usage commence par le nom, que l'aide et la catégorie ne sont pas vides, et que les catégories sont contiguës (sinon `help` imprime deux fois le titre).
+
+**Vu, laissé tel quel :**
+- `help` fait ~4 Ko ; le journal RAM lu par la page en fait 4 Ko aussi : sur la page, le début de l'aide est coupé. Idée ci-dessous (`help <catégorie>`).
+- `DebugUi` garde ses noms de servos à 4 lettres (`wngl`) pour tenir sur 21 colonnes : une 2ᵉ liste, assumée.
+- Les coroutines d'`Activate` et `Disengage` ne sont pas testées nativement (AceRoutine).
+
+Notes inchangées. `turret2` compile (35,7 %). Toujours rien d'essayé sur la carte.
+
+### 12.11.2026 (2ᵉ entrée) — Les sept idées faites
+
+À la demande de l'utilisateur (« fais 1 à 7 »). Compilé pour les deux cartes, contrôles passés (voir la fin de l'entrée), rien d'essayé sur la carte.
+
+1. **`aim`** (catégorie Status) : chaque cible du radar avec x / y, vitesse, angle depuis l'axe, côté, angle du servo de rotation Z correspondant (`Gantry::ServoAngleZ`, nouveau) et « in zone » ; rien ne bouge. `/api/status` a `aim.on` / `aim.deg` ; la page l'affiche à côté du radar.
+2. **`help [catégorie]`** : une catégorie tient dans le journal de 4 Ko lu par la page ; `/api/meta` sert la liste des catégories, l'onglet Tests a un sélecteur + bouton « Aide » qui bascule sur le journal.
+3. **Vitesse radar (B10, premier pas)** : réglage `MaxSpeedCms` (0 = sans limite) ; `logic::IsPlausibleSpeed` testé ; la zone (distance, angle, vitesse) est maintenant **dans `Radar`** (`ApplySettings`, `FirstTargetInZone()` sans argument) : les quatre appelants ne répètent plus les lectures de réglages. La page radar de l'OLED montre la vitesse (`v-25`).
+4. **Œil vivant (B6)** : `LedEffect` = 2 ; `Light::Mood` posé par `main` depuis la machine à états : respiration rouge au repos (`BreathLevel` de la LED verte, réutilisé), rouge fixe en acquisition, clignotement 12 Hz au tir avec éclairs des canons, blanc froid en recherche.
+5. **Page bilingue** : `web/PageText.h` (≈70 textes en / fr, table pure testée : clés uniques, rien de vide), servie dans `/api/meta` → `text` selon `Language` ; la page applique `data-i18n` / `data-i18n-placeholder` et `t(clé, repli)` pour les libellés d'état ; l'anglais reste écrit dans la page comme repli. Le simulateur lit la table dans les sources.
+6. **`.clang-format` + CI** : style LLVM à 2 espaces, 120 colonnes ; `scripts/check_format.py` (`--fix` pour formater, utilise le `clang-format` du PATH ou celui de `pip install clang-format`) ; **tout `src/` et `test/` reformaté** (98 fichiers, hors données et générés) : les trois styles n'en font plus qu'un. La CI installe clang-format 19.1.7 et refuse un fichier non formaté.
+7. **Table de commandes testable** : `control/CommandTable.h` est de la donnée pure (`commands::TABLE`, `Id`, `Needs`, `Find`, `HasCategory`), sans Arduino ; `Actions::HANDLERS[]` fait correspondre un `Id` à une méthode avec un `static_assert` sur la taille ; test natif `test_command_table` (ids dans l'ordre, usage commençant par le nom, noms uniques, catégories contiguës, `Find` insensible à la casse). `check_commands.py` et `check_web.py` lisent cet en-tête.
+
+Piège de la session : le reformatage a plié les lignes longues de la table, et les deux scripts qui la lisaient à la ligne ont cessé de trouver cinq commandes ; leurs expressions acceptent maintenant une ligne pliée (`\s*` entre les champs, ancrage sur `Id::`). Mon erreur : `python` dans le shell est le Python système, sans clang-format ; les scripts de style se lancent avec celui de PlatformIO (`~/.platformio/penv/Scripts/python.exe`), noté dans le journal.
+
+Notes : la console passe à **★★★★★** (table pure testée, `help` paginé, trois fichiers, CI), la page web reste ★★★★ (bilingue, mais textes libres des `small` et messages encore en anglais), le radar reste ★★★★ (vitesse exploitée, toujours pas vu de trame réelle), le build/CI passe à **★★★★★** (format imposé).

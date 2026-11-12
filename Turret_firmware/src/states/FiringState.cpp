@@ -8,9 +8,12 @@ const float AIM_MAX_DEG = 60.0f;
 const float AIM_ALPHA = 0.25f; // share of the way to the target per loop
 } // namespace
 
+float FiringState::lastAimDeg = 0;
+
 void FiringState::OnActivate() {
   BaseState::OnActivate();
   startedAt = millis();
+  aimDeg = lastAimDeg; // continue from where Searching left the rotation
   turret->audio.ShootAudio.Begin();
 }
 
@@ -26,13 +29,13 @@ void FiringState::Aim(Turret &turret, float &aimDeg) {
   if (!settings.GetBool(SettingId::AimZ)) {
     return;
   }
-  int8_t index = turret.radar.FirstTargetInZone(settings.GetInt(SettingId::DetectMaxMm),
-                                                 settings.GetInt(SettingId::DetectAngle));
+  int8_t index = turret.radar.FirstTargetInZone();
   if (index < 0) {
     return;
   }
   const RadarTarget &target = turret.radar.GetTarget(index);
   aimDeg = logic::SmoothAim(aimDeg, logic::AimAngleDeg(target.x, target.y, AIM_MAX_DEG), AIM_ALPHA);
+  lastAimDeg = aimDeg;
   turret.gantry.SetRotationZ((int)lroundf(aimDeg), false);
 }
 

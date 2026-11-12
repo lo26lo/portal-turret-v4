@@ -38,7 +38,7 @@ public:
   bool HasHallFault() const { return hallFault; }
   // The last movement ended on the 2 s timeout instead of the Hall threshold.
   bool LastMoveTimedOut() const { return lastTimedOut; }
-  Gun& GetGun();
+  Gun &GetGun();
   ServoChannel &GetChannel() { return channel; }
 
 private:

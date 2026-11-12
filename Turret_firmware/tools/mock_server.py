@@ -229,6 +229,13 @@ def simulate():
                 state["servos"]["wingl"] = state["servos"]["wingr"] = None
 
 
+def page_texts():
+    text = open(os.path.join(ROOT, "src", "web", "PageText.h"), encoding="utf-8").read()
+    french = int(setting("Language")["value"]) == 1
+    rows = re.findall(r'\{"([^"]+)",\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"\}', text, re.S)
+    return {key: (fr if french else en) for key, en, fr in rows}
+
+
 def meta():
     """GET /api/meta (Actions::MetaJson): the lists of the page, read from the sources."""
     audio_cpp = open(os.path.join(ROOT, "src", "audio", "Audio.cpp"), encoding="utf-8").read()
@@ -243,6 +250,9 @@ def meta():
         "axes": ["off", "+X", "-X", "+Y", "-Y", "+Z", "-Z"],
         "voices": voices,
         "servos": [{"alias": a, "name": n} for a, n in zip(aliases, names)],
+        "categories": ["Status", "Settings", "Mechanics", "Lights", "Audio", "Network", "Debug", "System", "Lab"],
+        # web/PageText.h, in the language of the Language setting (1 = French).
+        "text": page_texts(),
         "board": "Turret2 v0.1 (mock)", "version": "mock",
     }
 

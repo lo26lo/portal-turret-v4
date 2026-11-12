@@ -1,0 +1,23 @@
+# Turret2 firmware: the style most of src/ already follows (LLVM base, two
+# spaces, attached braces, 120 columns). Checked in the CI:
+#   clang-format --dry-run --Werror on src/ and test/ (GunShotAudio.h and the
+#   generated page_gz.h excluded). Format a file: clang-format -i <file>.
+BasedOnStyle: LLVM
+IndentWidth: 2
+ColumnLimit: 120
+AccessModifierOffset: -2
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Attach
+PointerAlignment: Right
+SortIncludes: false
+IncludeBlocks: Preserve
+AlignConsecutiveAssignments: false
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 1
+ReflowComments: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+AlignArrayOfStructures: None

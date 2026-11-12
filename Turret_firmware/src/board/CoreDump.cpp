@@ -48,9 +48,13 @@ void Begin() {
   Log.printf("Core dump found (%u bytes): %s\n", (unsigned)imageSize, summary.c_str());
 }
 
-size_t Size() { return imageSize; }
+size_t Size() {
+  return imageSize;
+}
 
-const String &Summary() { return summary; }
+const String &Summary() {
+  return summary;
+}
 
 size_t Read(size_t offset, uint8_t *buffer, size_t length) {
   const esp_partition_t *partition = Partition();

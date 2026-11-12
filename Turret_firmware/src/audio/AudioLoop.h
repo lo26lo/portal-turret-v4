@@ -3,15 +3,15 @@
 #include <Arduino.h>
 
 class AudioLoop {
- public:
-  AudioLoop(const uint8_t* samplesIn, int sampleCountIn, int loopStartSampleIn, int loopEndSampleIn);
-  void Read(uint8_t* buffer, int len);
+public:
+  AudioLoop(const uint8_t *samplesIn, int sampleCountIn, int loopStartSampleIn, int loopEndSampleIn);
+  void Read(uint8_t *buffer, int len);
   void Begin();
   void Stop();
   bool IsPlaying();
 
- private:
-  const uint8_t* samples;
+private:
+  const uint8_t *samples;
   int sampleReadIndex = 0;
   int loopCounter = 0;
   int loopStartSample = 0;

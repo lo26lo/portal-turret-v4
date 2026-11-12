@@ -52,6 +52,24 @@ void Gantry::ApplyRamp() {
   wingRight.GetGun().GetChannel().SetRamp(ramp);
 }
 
+const char *Gantry::ChannelAlias(uint8_t index) {
+  static const char *const aliases[CHANNEL_COUNT] = {"rotz", "rotx", "gunl", "gunr", "wingl", "wingr"};
+  return index < CHANNEL_COUNT ? aliases[index] : "?";
+}
+
+int Gantry::ChannelIndex(const String &name) {
+  if (name.length() == 1 && isDigit(name[0])) {
+    int index = name.toInt();
+    return index < CHANNEL_COUNT ? index : -1;
+  }
+  for (uint8_t i = 0; i < CHANNEL_COUNT; i++) {
+    if (name.equalsIgnoreCase(ChannelAlias(i))) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 ServoChannel &Gantry::GetChannel(uint8_t index) {
   switch (index) {
   case 0: return rotateZ;

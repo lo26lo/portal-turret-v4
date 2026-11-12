@@ -41,9 +41,6 @@ const char *NAMES_FR[SelfTest::ENTRY_COUNT] = {
     "Hall gauche", "Hall droit", "LittleFS", "OLED", "point d'accès WiFi", "ampli",
     "LEDs (regarder)", "son (écouter)", "servo rotation Z", "servo rotation X", "servo canon G",
     "servo canon D", "aile gauche", "aile droite"};
-// Console names of the servos tested one by one (EntryRotZ .. EntryGunRight).
-const char *SERVO_NAMES[] = {"rotz", "rotx", "gunl", "gunr"};
-
 const ulong WING_TIMEOUT_MS = 5000; // attach wait + 2 s movement timeout, with margin
 } // namespace
 
@@ -187,7 +184,8 @@ void SelfTest::Update(ulong now) {
     }
   } else if (entry >= EntryRotZ && entry <= EntryGunRight) {
     // Attach, move a little, come back, release. OK = the eFuse did not react.
-    const char *name = SERVO_NAMES[entry - EntryRotZ];
+    // Gantry channels 0..3 are rotate Z, rotate X, gun left, gun right: the order of the entries.
+    const char *name = Gantry::ChannelAlias(entry - EntryRotZ);
     char command[24];
     if (sub == 0) {
       snprintf(command, sizeof(command), "servo %s 100", name);

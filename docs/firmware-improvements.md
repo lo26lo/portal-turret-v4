@@ -22,7 +22,9 @@ Créé le 26.09.2026. Ce fichier **est versionné** (contrairement à `docs/firm
    - **Fusion doit être ouvert**, avec son serveur MCP actif, pour que l'outil réponde ;
    - visible dans une nouvelle conversation ; pour le retirer : `claude mcp remove fusion -s user`.
 
-## État actuel — 02.11.2026
+## État actuel — 10.11.2026
+
+- **10.11.2026** : revue complète du code ([firmware-code-review.md](firmware-code-review.md), notes par fonctionnalité, plus rien sous ★★★★) ; cycle de tir complété (état `Searching`, réglages `FireMs` / `SearchMs` / `AimZ`), analyseur radar à longueur fixe avec compteurs (`radar.bytes` / `frames` / `badFrames` dans `status`, pour le défaut 4), console en table de commandes (`help` généré, `scripts/check_commands.py` en CI), page web réécrite lisible et compactée au build, listes servies par `/api/meta`. **Pas essayé sur la carte** (débranchée ce jour-là) : à faire en premier à la prochaine session, puis `set AimZ true` pour vérifier le sens de la rotation Z. Non commité au moment de l'écriture.
 
 - **Carte v2 routée** (projet maître hors dépôt, `Desktop\Turret2_v2_6c\`) : **6 couches**, DRC 0 erreur / 0 non connecté, **pas encore commandée**. État réel, règles, écarts avec le plan : [carte-v2-etat.md](carte-v2-etat.md). Ouvertures de pochoir sur H1, H2 et H3 (recto et verso) ajoutées le 01.11.2026.
 - **Le brochage de l'ESP32 a changé au routage** : le tableau du §5 de [carte-v2-plan.md](carte-v2-plan.md) est périmé, la référence est **le tableau ci-dessous** (relevé dans le PCB le 01.11.2026). La mesure du courant et de la tension sur IO4 / IO5 (entrée du 24.10.2026) **n'est pas implantée**.
@@ -120,7 +122,7 @@ Inchangés : USB D− / D+ (IO19 / IO20), UART0 (IO43 / IO44, J16), IO45 / IO46 
 |---|---|---|---|
 | I1 | A1 radar muet, A2 repos + zone de détection, D4 version git, D2 CI GitHub Actions | fait | 26.09.2026 ; build `turret2` / `turret2_bringup` OK, `tools/check_web.py` 22/22 ; CI GitHub **réussie** au 1ᵉʳ passage (run 36265316764, commit `a54d633`, 5 min 42 dont 5 min 21 de compilation sans cache) |
 | I2 | A3 journal de crash + coredump, A4 watchdog, D1 tests natifs | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27 ; 12 tests natifs **réussis dans la CI** |
-| I3 | B1 visée, B3 mode recherche, C1 vue radar | à faire | dépend de I1 (zone de détection) |
+| I3 | B1 visée, B3 mode recherche, C1 vue radar | **écrit** (10.11.2026, 2ᵉ entrée), compilé, **à essayer sur la tourelle** | B1 : réglage `AimZ`, **faux par défaut** tant que le sens de la rotation Z n'est pas vérifié ; B3 : état `Searching`, `SearchMs` ; C1 : vue radar faite dans IM (page OLED) et sur la page web (compteurs) ; logique dans `logic/CycleLogic.h`, testée |
 | I4 | B2 répliques vocales, C4 gestion des sons, B4 prise en main / renversement | à faire | |
 | IL | L1–L5 : aides firmware pour les expériences (repères LED, balayages, motif NeoPixel, cycle de charge, PWR_FLT horodaté) | fait | 26.09.2026, `cf57922` ; build OK, `check_web.py` 27/27, CI verte |
 | IM | M1–M7 : mode debug avec écran OLED sur J11, navigation par les boutons A / B, pages d'information, tests, calibration | fait | 05.10.2026, commits `83544a4` puis `8a88267` (tâche d'affichage + dix idées d'écran) ; passé avant I3 à la demande de l'utilisateur ; `check_web.py` 40/40 ; **CI verte** (run 37303638236) avec 24 tests natifs ; 19.10.2026 : blocage au boot corrigé, écran 0,96" vu fonctionner (mode normal) ; menus du mode debug pas encore essayés sur l'écran |
@@ -148,9 +150,9 @@ Effort : S = quelques heures, M = une journée, L = plusieurs jours.
 
 | # | Quoi | Détail | Effort |
 |---|---|---|---|
-| B1 | **Visée réelle** | le radar (LD2450 / RD-03D) donne x / y en mm : angle = atan2(x, y) → rotation Z qui suit la cible (lissée), bornée ; aujourd'hui les rotations restent centrées | M |
+| B1 | **Visée réelle** | le radar (LD2450 / RD-03D) donne x / y en mm : angle = atan2(x, y) → rotation Z qui suit la cible (lissée), bornée. **Écrit le 10.11.2026** (`AimZ`, `logic::AimAngleDeg` / `SmoothAim`, ±60°) ; faux par défaut jusqu'à la vérification du sens sur la tourelle | M |
 | B2 | **Répliques vocales** | « Target acquired », « Are you still there? », « Searching », « I see you », « Hello friend »… lues depuis LittleFS (1,5 Mo) avec le décodeur MP3 déjà compilé. **Fichiers audio jamais commités** (droits Valve) : envoyés depuis la page (C4) | M |
-| B3 | **Mode recherche** | cible perdue → balayage gauche / droite quelques secondes, puis fermeture | S |
+| B3 | **Mode recherche** | cible perdue → balayage gauche / droite quelques secondes, puis fermeture. **Écrit le 10.11.2026** : état `Searching` (voix `07_search`, `SearchMs`, balayage ±30° avec `AimZ`, cible revenue → nouvelle rafale) | S |
 | B4 | **Prise en main / renversement** | l'IMU détecte soulèvement ou basculement : canons rentrés, réplique « Put me down! » | S |
 | B5 | **Personnalités** | normale, « défectueuse », amicale (ne tire jamais), au choix dans la page | M |
 | B6 | **Œil laser** | effets de la LED centrale de l'anneau : respiration au repos, fixe à l'acquisition, clignote au tir | S |
@@ -1229,3 +1231,25 @@ D'après le tableau §2.7 d'[AMELIORATIONS_V2.md](AMELIORATIONS_V2.md) ; sur les
 **Puis** (demande de l'utilisateur) : **arc-en-ciel qui tourne**, mode de test LED : `led rainbow` (tout) ou `led ring|left|right|all rainbow` ; `Light::SetRainbow` : `fill_rainbow` sur les 9 LEDs de l'anneau (un tour de roue chromatique), teinte + 1 toutes les 8 ms (un tour en ~2 s), canons à la couleur de la LED 1 ; `led off` pour sortir. Bouton « rainbow » sur la page web (outils LED). Compilé, `check_web.py` OK, flashé sur la v0.1 et lancé.
 
 **Puis** (« lance-le pour qu'il tourne indéfiniment au démarrage ») : réglage **`LedEffect`** (groupe Lights, ajouté en fin de table : 0 « Red eye », défaut, comportement Portal ; 1 « Turning rainbow ») ; `Light::Effect`, lu dans `ApplySettings` (démarrage et chaque changement) ; hors test, l'arc-en-ciel remplace l'anneau rouge et le feu des canons ; un test (`led …`) passe toujours devant, un défaut éteint toujours les LEDs. Compilé (`turret2` et `turret2_v2`), `check_web.py` OK ; flashé sur la v0.1, `set LedEffect 1`, relu après redémarrage : 1.
+
+### 10.11.2026 — Revue complète du code, notation par fonctionnalité
+
+Demande de l'utilisateur : relire tout le firmware, noter chaque fonctionnalité sur 5 étoiles dans un journal, et repenser ce qui est sous 4. Résultat dans **[firmware-code-review.md](firmware-code-review.md)** (versionné) : 27 fonctionnalités, 7 à cinq étoiles, 16 à quatre, **4 à repenser** (★★★) avec une proposition chacune :
+
+1. **Machine à états** : `ManualState` vide avec du code commenté, durée de tir 3000 ms en dur et `millis() <` non protégé dans `FIringState.cpp` (faute de casse du nom), journal d'état en double, et surtout la tourelle **ne vise jamais** (`SetRotationX/Z` seulement à 0) ni ne cherche (`07_search` inutilisée). Proposition : logique de cycle pure et testée (`logic/CycleLogic.h`), état Searching, visée en Firing, `FireMs` / `SearchMs` réglables.
+2. **Analyseur radar** : deux automates sur chaque octet, fin de trame reconnue sur `55 CC` sans contrôle de longueur, `uint8_t writeIndex` sur 256 octets. Proposition : automate à longueur fixe dans `logic/RadarLogic.h`, compteur de trames rejetées, tests natifs ; occasion d'élucider le défaut 4 de la carte v0.1.
+3. **Console** : `Actions.cpp` 1345 lignes, `Execute()` en chaîne de `if`, aide et README tenus à la main, trois listes de noms de servos. Proposition : table de commandes (nom, usage, méthode, condition) qui génère `Help()` et le README, fichier découpé par domaine.
+4. **Page web** : source déjà compacté, `throw 0`, listes dupliquées avec le firmware, pas de traduction. Proposition : source lisible compacté par `embed_page.py`, libellés servis par l'API.
+
+Rien modifié dans le code. Le document de revue tient un tableau à mettre à jour à chaque nouvelle revue (entrée datée, jamais réécrite).
+
+### 10.11.2026 (2ᵉ entrée) — Les quatre points de la revue repris
+
+« Fais au mieux pour remettre bien » : les quatre fonctionnalités à ★★★ de [firmware-code-review.md](firmware-code-review.md) sont reprises (détail et nouvelles notes dans sa 2ᵉ entrée, toutes à ★★★★) :
+
+- **Cycle de tir** : `logic/CycleLogic.h` (pur, testé), état **Searching** (voix `07_search`, cible revenue → nouvelle rafale, `SearchMs` sans cible → repli), réglages `FireMs`, `SearchMs`, **`AimZ`** (visée par la rotation Z en tir, balayage en recherche ; **faux par défaut, sens à vérifier sur la tourelle** : B1 et B3 du catalogue). `FIringState.cpp` → `FiringState.cpp`, `ManualState.cpp` supprimé, cycles comptés à l'activation.
+- **Radar** : `logic::RadarParser` à longueur fixe, trames fausses comptées, 3 tests natifs ; `radar.bytes` / `frames` / `badFrames` dans `status` et sur la page, pour le défaut 4.
+- **Console** : table de commandes (`Actions::COMMANDS`), `help` généré, `Actions.cpp` découpé en trois, une seule liste d'alias de servos (`Gantry::ChannelAlias`), `scripts/check_commands.py` en CI (README ↔ table).
+- **Page web** : source lisible, compacté par `embed_page.py` (9,8 Ko gzip), barre de message au lieu des `alert()`, listes servies par **`GET /api/meta`**, `check_web.py` étendu (méta, script compacté).
+
+Compilé `turret2` et `turret2_v2`, `check_web.py` et `check_commands.py` OK ; tests natifs en CI seulement. **Carte non branchée : rien essayé sur le matériel.** À faire à la prochaine session avec la carte : `help`, `status` (compteurs radar), un cycle `demo` avec `power full`, puis `set AimZ true` pour vérifier le sens de la rotation Z.

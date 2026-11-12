@@ -2,7 +2,7 @@
 
 > **Ce plan et le firmware actuel visent la carte v0.1.** La carte v2 (routée le 01.11.2026) a un autre brochage et d'autres règles de sécurité : [carte-v2-etat.md](carte-v2-etat.md) §4.
 
-Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décisions D1 à D7 tranchées (§9), **plus de compatibilité Wemos / V4** (Turret2 uniquement), page web de configuration ajoutée (§10, lot 12). Le suivi de l'exécution (ce qui est fait, en cours, les erreurs) est dans le journal de bord `docs/firmware-journal.md`, **local (non versionné)** : le lire avant de reprendre le travail.
+Rédigé le 24.09.2026. **Mis à jour le 24.09.2026 (2ᵉ session)** : décisions D1 à D7 tranchées (§9), **plus de compatibilité Wemos / V4** (Turret2 uniquement), page web de configuration ajoutée (§10, lot 12). Le suivi de l'exécution (ce qui est fait, en cours, les erreurs) est dans le journal de bord `docs/firmware-journal.md`, **local (non versionné)** : le lire avant de reprendre le travail. Depuis le 26.09.2026, les améliorations qui suivent ces lots sont dans [firmware-improvements.md](firmware-improvements.md) (versionné) ; depuis le 10.11.2026, la qualité du code est notée fonctionnalité par fonctionnalité dans [firmware-code-review.md](firmware-code-review.md).
 
 > **État au 26.09.2026** : les lots 1 à 12 de ce plan sont faits (commit `7a20d46`), puis les améliorations de [firmware-improvements.md](firmware-improvements.md) (lots I1, I2, IL). Ce plan reste le document de **conception** ; ce que le firmware fait réellement est décrit dans [../Turret_firmware/README.md](../Turret_firmware/README.md). Écarts décidés en cours de route :
 > - §10.2 : l'authentification HTTP Basic couvre **aussi la page** (sinon elle s'afficherait puis chacune de ses requêtes échouerait) ; seules les URL de détection du portail captif en sont exemptées ;
@@ -220,7 +220,8 @@ Turret_firmware/src/audio/Amp.{h,cpp}                SD + gain en open-drain, s�
 Turret_firmware/src/sensors/Motion.*                 LSM6DSOX uniquement (ADXL345 supprimé)
 Turret_firmware/src/motion/Gantry.*                  attache échelonnée, homing, trims, politique de maintien des servos (D6)
 Turret_firmware/src/states/BootState, FaultState     boot réel + état de défaut
-Turret_firmware/src/control/Actions.{h,cpp}          actions de test communes à la console série et à la page web (servo, LED, tonalité, gain…)
+Turret_firmware/src/control/Actions{,Hardware,Lab}.cpp  commandes communes à la console série, au menu de debug et à la page web : table de commandes (10.11.2026), réglages, système, audio, réseau ; servos, ailes, canons, LED, voix, calibration ; aides de labo
+Turret_firmware/src/states/SearchingState            recherche de la cible après une rafale (10.11.2026) ; décisions dans logic/CycleLogic.h
 Turret_firmware/src/web/TurretWebServer.*            API JSON + authentification (§10)
 Turret_firmware/src/web/page/index.html              page de configuration, compilée dans le firmware (gzip, PROGMEM)
 ```
@@ -269,7 +270,7 @@ Périphériques branchés un par un ; chaque étape doit passer avant la suivant
 | G | capteurs Hall | valeurs brutes aimant près / loin → réglage des seuils | à faire (repos : gauche 353, droite 187) |
 | H | servos, un par un puis tous | courant crête au wattmètre ; PWR_FLT ; aucun reset ; cas pire : 6 servos + audio + LEDs | à faire ; les 4 servos s'attachent déjà au boot en mode normal → SW1 fermé (mode debug) tant qu'on est sur l'USB du PC |
 | I | radar | trames reçues, cibles cohérentes | **échec** : aucune trame (branchement J5 / TX-RX à vérifier) |
-| J | tout | cycle complet Idle → Activate → Firing → Disengage ; OTA ; USB déporté J1 (jamais deux hôtes à la fois) | à faire |
+| J | tout | cycle complet Idle → Activate → Firing → Searching (depuis le 10.11.2026) → Disengage ; OTA ; USB déporté J1 (jamais deux hôtes à la fois) | à faire |
 
 ---
 

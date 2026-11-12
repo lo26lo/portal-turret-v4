@@ -4,7 +4,6 @@
 #include "sensors/Radar.h"
 
 void IdleState::OnActivate() {
-  Log.println("IdleState");
   BaseState::OnActivate();
   enteredAt = millis();
 }

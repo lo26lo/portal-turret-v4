@@ -1,7 +1,12 @@
 #include "board/Log.h"
 #include "Radar.h"
-#include "logic/RadarLogic.h"
 #include "pins.h"
+
+namespace {
+// No complete frame for this long: the targets in memory are stale (radar
+// unplugged or hung). The LD2450 (and the RD-03D) send about 10 frames per second.
+const ulong STALE_MS = 1000;
+} // namespace
 
 void Radar::Initialize() {
   Serial1.begin(256000, SERIAL_8N1, PIN_RADAR_RX, PIN_RADAR_TX);
@@ -16,35 +21,55 @@ void Radar::End() {
   Serial1.end();
   pinMode(PIN_RADAR_TX, INPUT);
   running = false;
-  // Parser back to "waiting for a header", targets forgotten.
-  readingData = false;
-  readingAck = false;
-  writeIndex = headerIndex = footerIndex = ackHeaderIndex = ackFooterIndex = 0;
-  for (uint8_t i = 0; i < TRACK_COUNT; i++) {
-    radarTargets[i].available = false;
-  }
-  radarTargetCount = 0;
+  parser.Reset();
+  ClearTargets();
 }
 
-namespace {
-// No complete frame for this long: the targets in memory are stale (radar
-// unplugged or hung). The LD2450 (and the RD-03D) send about 10 frames per second.
-const ulong STALE_MS = 1000;
-} // namespace
+void Radar::ClearTargets() {
+  for (uint8_t i = 0; i < TRACK_COUNT; i++) {
+    targets[i].available = false;
+  }
+  targetCount = 0;
+}
 
 void Radar::Update(ulong deltaTime) {
   if (!running) {
     return;
   }
-  UpdateSerialData();
-
-  // A1: a silent radar must not keep its last target alive forever.
-  if (frameSeen && radarTargetCount > 0 && millis() - lastSensorUpdateTime > STALE_MS) {
-    for (uint8_t i = 0; i < TRACK_COUNT; i++) {
-      radarTargets[i].available = false;
+  while (Serial1.available()) {
+    bytes++;
+    if (parser.Feed((uint8_t)Serial1.read())) {
+      TakeFrame(parser.Frame());
     }
-    radarTargetCount = 0;
+  }
+  // A1: a silent radar must not keep its last target alive forever.
+  if (targetCount > 0 && millis() - lastFrameAt > STALE_MS) {
+    ClearTargets();
     Log.println("Radar: no frame for 1 s, targets cleared");
+  }
+}
+
+void Radar::TakeFrame(const logic::RadarFrame &frame) {
+  uint8_t previousCount = targetCount;
+  targetCount = 0;
+  for (uint8_t i = 0; i < TRACK_COUNT; i++) {
+    const logic::RadarFrameTarget &in = frame.target[i];
+    RadarTarget &out = targets[i];
+    out.available = in.present;
+    if (!in.present) {
+      continue;
+    }
+    out.previousX = out.x;
+    out.previousY = out.y;
+    out.x = in.x;
+    out.y = in.y;
+    out.speed = in.speed;
+    out.resolution = in.resolution;
+    targetCount++;
+  }
+  lastFrameAt = millis();
+  if (targetCount != previousCount) {
+    Log.printf("Radar: %u target(s)\n", targetCount);
   }
 }
 
@@ -57,126 +82,13 @@ int8_t Radar::FirstTargetInZone(int32_t maxDistanceMm, int32_t halfAngleDeg) con
     return -1;
   }
   for (uint8_t i = 0; i < TRACK_COUNT; i++) {
-    if (IsInZone(radarTargets[i], maxDistanceMm, halfAngleDeg)) {
+    if (IsInZone(targets[i], maxDistanceMm, halfAngleDeg)) {
       return i;
     }
   }
   return -1;
 }
 
-const RadarTarget &Radar::GetTarget(uint8_t index) const {
-  return radarTargets[index % TRACK_COUNT];
-}
+const RadarTarget &Radar::GetTarget(uint8_t index) const { return targets[index % TRACK_COUNT]; }
 
-void Radar::UpdateSerialData() {
-  while (Serial1.available()) {
-    int byte = Serial1.read();
-
-    if (!readingAck) {
-      if (byte == ackHeader[ackHeaderIndex]) {
-        ackHeaderIndex++;
-        if (ackHeaderIndex == 4) {
-          ackHeaderIndex = 0;
-          readingAck = true;
-          writeIndex = 0;
-        }
-      } else {
-        ackHeaderIndex = 0;
-      }
-    } else {
-      messageBuffer[writeIndex++] = byte;
-      if (byte == ackFooter[ackFooterIndex]) {
-        ackFooterIndex++;
-        if (ackFooterIndex == 4) {
-          readingAck = false;
-          ackFooterIndex = 0;
-          ackHeaderIndex = 0;
-          writeIndex = 0;
-        }
-      }
-    }
-
-    if (!readingData) {
-      if (byte == messageHeader[headerIndex]) {
-        headerIndex++;
-        if (headerIndex == 4) {
-          headerIndex = 0;
-          readingData = true;
-          writeIndex = 0;
-        }
-      } else {
-        headerIndex = 0;
-      }
-    } else {
-      messageBuffer[writeIndex++] = byte;
-      if (byte == messageFooter[footerIndex]) {
-        footerIndex++;
-        if (footerIndex == 2) {
-          previousRadarTargetCount = radarTargetCount;
-          frameSeen = true;
-          lastSensorUpdateTime = millis();
-          radarTargetCount = 0;
-          readingData = false;
-          writeIndex -= 2;
-
-          for (uint8_t i = 0; i < TRACK_COUNT; i++) {
-            uint8_t index = i * 8;
-
-            uint8_t combinedBytes = 0;
-
-            for (uint8_t b = 0; b < 8; b++) {
-              combinedBytes = combinedBytes | messageBuffer[index + b];
-            }
-
-            RadarTarget radarTarget = radarTargets[i];
-            if (combinedBytes != 0x00) {
-              // Valid target;
-
-              // Sign in bit 15 (set = positive): logic/RadarLogic.h, tested natively.
-              int16_t x = logic::DecodeLd2450(messageBuffer[index], messageBuffer[index + 1]);
-              int16_t y = logic::DecodeLd2450(messageBuffer[index + 2], messageBuffer[index + 3]);
-              int16_t speed = logic::DecodeLd2450(messageBuffer[index + 4], messageBuffer[index + 5]);
-              uint16_t resolution = (uint16_t)(messageBuffer[index + 6] |
-                                               (messageBuffer[index + 7] << 8));
-
-              radarTarget.previousX = radarTarget.x;
-              radarTarget.previousY = radarTarget.y;
-              radarTarget.x = x;
-              radarTarget.y = y;
-              radarTarget.speed = speed;
-              radarTarget.resolution = resolution;
-              radarTarget.available = true;
-
-              radarTargetCount++;
-            } else {
-              radarTarget.available = false;
-            }
-
-            radarTargets[i] = radarTarget;
-
-            lastSensorUpdateTime = millis();
-          }
-
-          if (previousRadarTargetCount != radarTargetCount) {
-            Log.print("Radar Target Count Changed: ");
-            Log.println(radarTargetCount);
-          }
-
-          footerIndex = 0;
-          headerIndex = 0;
-          writeIndex = 0;
-        }
-      } else {
-        footerIndex = 0;
-      }
-    }
-  }
-}
-
-bool Radar::IsAlive(ulong maxAgeMs) const {
-  return frameSeen && millis() - lastSensorUpdateTime < maxAgeMs;
-}
-
-uint8_t Radar::GetTargetCount() {
-  return radarTargetCount;
-}
+bool Radar::IsAlive(ulong maxAgeMs) const { return HasSeenFrame() && millis() - lastFrameAt < maxAgeMs; }

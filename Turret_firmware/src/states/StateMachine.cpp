@@ -5,9 +5,10 @@ void StateMachine::Initialize(Turret &turretIn) {
   bootState.Initialize(this, turretIn);
   idleState.Initialize(this, turretIn);
   activateState.Initialize(this, turretIn);
+  firingState.Initialize(this, turretIn);
+  searchingState.Initialize(this, turretIn);
   disengageState.Initialize(this, turretIn);
   manualState.Initialize(this, turretIn);
-  firingState.Initialize(this, turretIn);
   faultState.Initialize(this, turretIn);
 }
 
@@ -15,10 +16,9 @@ void StateMachine::GoToState(StateId nextStateId) {
   if (currentState) {
     currentState->OnDeactivate();
   }
-
   currentState = GetState(nextStateId);
   currentStateId = nextStateId;
-
+  Log.printf("State: %s\n", StateName(nextStateId));
   if (currentState) {
     currentState->OnActivate();
   }
@@ -26,31 +26,14 @@ void StateMachine::GoToState(StateId nextStateId) {
 
 BaseState *StateMachine::GetState(StateId stateId) {
   switch (stateId) {
-  case StateId::Booting:
-    Log.println("Bootstate");
-    return &bootState;
-    break;
-  case StateId::Activate:
-    Log.println("ActivateState");
-    return &activateState;
-    break;
-  case StateId::FiringState:
-    Log.println("FiringState");
-    return &firingState;
-    break;
-  case StateId::Disengage:
-    Log.println("DisengageState");
-    return &disengageState;
-    break;
-  case StateId::Idle:
-    Log.println("IdleState");
-    return &idleState;
-  case StateId::Manual:
-    Log.println("ManualState");
-    return &manualState;
-  case StateId::Fault:
-    Log.println("FaultState");
-    return &faultState;
+  case StateId::Booting: return &bootState;
+  case StateId::Idle: return &idleState;
+  case StateId::Activate: return &activateState;
+  case StateId::FiringState: return &firingState;
+  case StateId::Searching: return &searchingState;
+  case StateId::Disengage: return &disengageState;
+  case StateId::Manual: return &manualState;
+  case StateId::Fault: return &faultState;
   }
   return nullptr;
 }
@@ -61,6 +44,7 @@ const char *StateMachine::StateName(StateId id) {
   case StateId::Idle: return "Idle";
   case StateId::Activate: return "Activate";
   case StateId::FiringState: return "Firing";
+  case StateId::Searching: return "Searching";
   case StateId::Disengage: return "Disengage";
   case StateId::Manual: return "Manual";
   case StateId::Fault: return "Fault";

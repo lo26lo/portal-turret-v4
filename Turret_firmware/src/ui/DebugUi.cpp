@@ -246,6 +246,7 @@ void DebugUi::Update(ulong now) {
     case StateId::Booting: subtitle = french ? "Mode sentinelle activé" : "Sentry mode activated"; break;
     case StateId::Activate: subtitle = french ? "Cible acquise" : "Target acquired"; break;
     case StateId::FiringState: subtitle = french ? "Te voilà." : "There you are."; break;
+    case StateId::Searching: subtitle = french ? "Je cherche..." : "Searching..."; break;
     case StateId::Disengage: subtitle = french ? "Cible perdue" : "Target lost"; break;
     case StateId::Idle: subtitle = lastState == StateId::Disengage ? (french ? "Toujours là ?" : "Are you still there?") : ""; break;
     case StateId::Fault: subtitle = french ? "Erreur critique" : "Critical error"; break;

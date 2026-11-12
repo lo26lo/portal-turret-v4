@@ -58,6 +58,9 @@ enum SettingId {
   WakeImuLevel,
   HallPower,
   LedEffect,
+  FireMs,
+  SearchMs,
+  AimZ,
   COUNT
 };
 

@@ -111,10 +111,15 @@ def main():
         audio_cpp = open(os.path.join(ROOT, "src", "audio", "Audio.cpp"), encoding="utf-8").read()
         table = lambda name: re.search(name + r"\[[^\]]*\] = \{(.*?)\};", audio_cpp, re.S).group(1)
         firmware_voices = set(re.findall(r'"(\w+)"', table("VOICE_NAMES")))
+        # The page fills its lists from /api/meta (no copy of the firmware lists in the page).
+        code, body, _ = request(base, "/api/meta")
+        meta = json.loads(body)
+        check("meta served", code == 200 and {"faults", "axes", "voices", "servos"} <= set(meta))
+        check("meta voices = firmware voices", len(firmware_voices) == 8 and set(meta["voices"]) == firmware_voices,
+              sorted(set(meta["voices"]) ^ firmware_voices))
         page = open(os.path.join(ROOT, "src", "web", "page", "index.html"), encoding="utf-8").read()
-        page_voices = set(re.findall(r"<option>(\w+)</option>", re.search(r'<select id="vc">(.*?)</select>', page).group(1)))
-        check("page voices = firmware voices", len(firmware_voices) == 8 and page_voices == firmware_voices,
-              sorted(page_voices ^ firmware_voices))
+        check("page has no copy of the lists", "activate</option>" not in page and '"IMU missing"' not in page)
+        check("page uses /api/meta", "/api/meta" in page)
         folders = re.findall(r'"/(\w+)"', table("VOICE_FOLDERS"))
         data = os.path.join(ROOT, "data")
         empty = [f for f in folders if not os.path.isdir(os.path.join(data, f))
@@ -146,7 +151,7 @@ def main():
                        if mock_menu.wrap(i[lang], max_lines=9)[3] != ""]
         check("wizard steps wrap on three lines", not unwrappable, unwrappable)
         actions_cpp = open(os.path.join(ROOT, "src", "control", "Actions.cpp"), encoding="utf-8").read()
-        known = set(re.findall(r'command == "([\w-]+)"', actions_cpp))
+        known = set(re.findall(r'^\s*CMD\("([\w-]+)",', actions_cpp, re.M))  # the command table
         unknown = sorted({i["command"].split()[0] for i in tree if i.get("command")} - known)
         check("every menu command exists in control/Actions.cpp", not unknown, unknown)
         setting_keys = set(keys)
@@ -190,12 +195,16 @@ def main():
     node = shutil.which("node")
     if node:
         html = open(os.path.join(ROOT, "src", "web", "page", "index.html"), encoding="utf-8").read()
-        script = re.search(r"<script>(.*)</script>", html, re.S).group(1)
-        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
-            f.write(script)
-        result = subprocess.run([node, "--check", f.name], capture_output=True, text=True)
-        os.unlink(f.name)
-        check("page JavaScript syntax", result.returncode == 0, result.stderr.strip())
+        # The same compaction as scripts/embed_page.py: what the firmware really serves.
+        compacted = re.sub(r"/\*.*?\*/", "", re.sub(r"<!--.*?-->", "", html, flags=re.S), flags=re.S)
+        compacted = "\n".join(l.strip() for l in compacted.splitlines() if l.strip() and not l.strip().startswith("//"))
+        for name, text in (("page JavaScript syntax", html), ("compacted page JavaScript syntax", compacted)):
+            script = re.search(r"<script>(.*)</script>", text, re.S).group(1)
+            with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
+                f.write(script)
+            result = subprocess.run([node, "--check", f.name], capture_output=True, text=True)
+            os.unlink(f.name)
+            check(name, result.returncode == 0, result.stderr.strip())
     else:
         print("skip  page JavaScript syntax (node not found)")
 

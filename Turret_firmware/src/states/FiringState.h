@@ -1,26 +1,21 @@
 #pragma once
 
-#include <AceRoutine.h>
-
 #include "BaseState.h"
 #include "StateId.h"
 
-class FiringRoutine : public ace_routine::Coroutine {
- public:
-  void Initialize(Turret& turret);
-  int runCoroutine() override;
-
- private:
-  Turret* turret = nullptr;
-  ulong shootingStartTime = 0;
-};
-
+// Burst of fire: gunshot sound with its loop for FireMs, rotation Z following
+// the target (AimZ). Then Searching decides whether to fire again or retire.
 class FiringState : public BaseState {
- public:
-  void Initialize(StateMachine* stateMachine, Turret& turret) override;
+public:
   void OnActivate() override;
+  void OnDeactivate() override;
   void Update(ulong deltaTime) override;
 
- private:
-  FiringRoutine firingRoutine;
+  // Rotation Z towards the first target in the zone, smoothed; nothing if
+  // AimZ is off or no target. aimDeg is the caller's smoothed angle.
+  static void Aim(Turret &turret, float &aimDeg);
+
+private:
+  ulong startedAt = 0;
+  float aimDeg = 0;
 };

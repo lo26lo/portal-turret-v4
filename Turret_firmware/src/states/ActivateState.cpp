@@ -29,6 +29,7 @@ void ActivateState::Initialize(StateMachine *stateMachine, Turret &turret) {
 
 void ActivateState::OnActivate() {
   BaseState::OnActivate();
+  turret->stats.CountCycle(); // one cycle = one deployment, however many bursts follow
   activateRoutine.reset();
 }
 

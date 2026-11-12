@@ -46,6 +46,11 @@ public:
   // Servo outputs, in attach priority order (plan §3.2 step 11).
   static const uint8_t CHANNEL_COUNT = 6;
   ServoChannel &GetChannel(uint8_t index);
+  // Console alias of a channel ("rotz", "rotx", "gunl", "gunr", "wingl",
+  // "wingr"), the one list for the commands, the self-test and the status JSON.
+  static const char *ChannelAlias(uint8_t index);
+  // Index of an alias (any case) or of a digit "0".."5", -1 if unknown.
+  static int ChannelIndex(const String &name);
 
 private:
   void RunAttachSchedule(ulong now);

@@ -1,267 +1,664 @@
 <!DOCTYPE html>
+<!--
+  Portal Turret web page (plan §10). One file, no framework, no Internet:
+  scripts/embed_page.py strips the indentation and the comments and gzips it
+  into src/web/page_gz.h at build time, so write it readable here.
+  The lists (fault names, axes, voices, servos) come from GET /api/meta, the
+  settings from GET /api/settings: the firmware is the only source of truth.
+  Tested without the board by tools/check_web.py (tools/mock_server.py).
+-->
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal Turret</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cmask id='ap'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3Cg fill='%23000'%3E%3Cpolygon points='69.6,50.0 59.8,67.0 40.2,67.0 30.4,50.0 40.2,33.0 59.8,33.0'/%3E%3Cpolygon points='41.9,64.0 110.0,64.0 110.0,67.0 41.9,67.0'/%3E%3Cpolygon points='33.8,50.0 67.9,109.0 65.3,110.5 31.2,51.5'/%3E%3Cpolygon points='41.9,36.0 7.9,95.0 5.3,93.5 39.3,34.5'/%3E%3Cpolygon points='58.1,36.0 -10.0,36.0 -10.0,33.0 58.1,33.0'/%3E%3Cpolygon points='66.2,50.0 32.1,-9.0 34.7,-10.5 68.8,48.5'/%3E%3Cpolygon points='58.1,64.0 92.1,5.0 94.7,6.5 60.7,65.5'/%3E%3C/g%3E%3C/mask%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e07a10' mask='url(%23ap)'/%3E%3C/svg%3E">
-<style>
-:root{--bg:#f4f4f2;--card:#fff;--fg:#1d1d1f;--muted:#6b6b70;--line:#dcdcdf;--accent:#e07a10;--bad:#c62828;--ok:#2e7d32}
-@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1f1f23;--fg:#ececef;--muted:#9a9aa2;--line:#34343a;--accent:#f0932b;--bad:#ef5350;--ok:#66bb6a}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-header h1{font-size:17px;margin:0;flex:1}
-header .logo{width:28px;height:28px;flex:none}
-nav{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg)}
-nav button{white-space:nowrap}
-main{max-width:760px;margin:0 auto;padding:0 16px 40px}
-section{display:none}section.on{display:block}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0}
-.card h2{font-size:15px;margin:0 0 8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
-.kv span{display:block;color:var(--muted);font-size:12px}
-.badge{padding:2px 8px;border-radius:10px;background:var(--line);font-size:13px}
-.bad{color:var(--bad)}.okc{color:var(--ok)}
-.warn{background:var(--bad);color:#fff;padding:8px 12px;border-radius:8px;margin-top:12px}
-button,input,select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:6px 10px}
-button{cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button:active{transform:translateY(1px)}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
-.field{display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
-.field:first-of-type{border-top:0}
-.field label{font-size:14px}.field small{grid-column:1/-1;color:var(--muted)}
-.field input{width:9em}.field input[type=text],.field input[type=password]{width:12em}
-pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:60vh;overflow:auto;margin:0}
-input[type=range]{width:100%}
-.scr{font:14px/1.25 ui-monospace,Consolas,monospace;background:#000;color:#9fe8ff;padding:6px 8px;border-radius:6px;width:23ch;max-height:none;white-space:pre}
-.scr b{background:#9fe8ff;color:#000;font-weight:normal;display:inline-block;width:21ch}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Portal Turret</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cmask id='ap'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23fff'/%3E%3Cg fill='%23000'%3E%3Cpolygon points='69.6,50.0 59.8,67.0 40.2,67.0 30.4,50.0 40.2,33.0 59.8,33.0'/%3E%3Cpolygon points='41.9,64.0 110.0,64.0 110.0,67.0 41.9,67.0'/%3E%3Cpolygon points='33.8,50.0 67.9,109.0 65.3,110.5 31.2,51.5'/%3E%3Cpolygon points='41.9,36.0 7.9,95.0 5.3,93.5 39.3,34.5'/%3E%3Cpolygon points='58.1,36.0 -10.0,36.0 -10.0,33.0 58.1,33.0'/%3E%3Cpolygon points='66.2,50.0 32.1,-9.0 34.7,-10.5 68.8,48.5'/%3E%3Cpolygon points='58.1,64.0 92.1,5.0 94.7,6.5 60.7,65.5'/%3E%3C/g%3E%3C/mask%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e07a10' mask='url(%23ap)'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f4f4f2; --card: #fff; --fg: #1d1d1f; --muted: #6b6b70; --line: #dcdcdf;
+      --accent: #e07a10; --bad: #c62828; --ok: #2e7d32;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141416; --card: #1f1f23; --fg: #ececef; --muted: #9a9aa2; --line: #34343a;
+        --accent: #f0932b; --bad: #ef5350; --ok: #66bb6a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    header h1 { font-size: 17px; margin: 0; flex: 1; }
+    header .logo { width: 28px; height: 28px; flex: none; }
+    nav { display: flex; gap: 4px; overflow-x: auto; padding: 8px 16px; background: var(--bg); }
+    nav button { white-space: nowrap; }
+    main { max-width: 760px; margin: 0 auto; padding: 0 16px 40px; }
+    section { display: none; }
+    section.on { display: block; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .card h2 { font-size: 15px; margin: 0 0 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; }
+    .kv span { display: block; color: var(--muted); font-size: 12px; }
+    .badge { padding: 2px 8px; border-radius: 10px; background: var(--line); font-size: 13px; }
+    .bad { color: var(--bad); }
+    .okc { color: var(--ok); }
+    .warn { background: var(--bad); color: #fff; padding: 8px 12px; border-radius: 8px; margin-top: 12px; }
+    /* Message bar: answers and errors of the page itself (no alert()). */
+    #message { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: 90%; z-index: 3; background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; }
+    #message.bad { background: var(--bad); color: #fff; }
+    button, input, select { font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
+    button { cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button:active { transform: translateY(1px); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+    .field { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+    .field:first-of-type { border-top: 0; }
+    .field label { font-size: 14px; }
+    .field small { grid-column: 1 / -1; color: var(--muted); }
+    .field input { width: 9em; }
+    .field input[type=text], .field input[type=password] { width: 12em; }
+    pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; max-height: 60vh; overflow: auto; margin: 0; }
+    input[type=range] { width: 100%; }
+    .scr { font: 14px/1.25 ui-monospace, Consolas, monospace; background: #000; color: #9fe8ff; padding: 6px 8px; border-radius: 6px; width: 23ch; max-height: none; white-space: pre; }
+    .scr b { background: #9fe8ff; color: #000; font-weight: normal; display: inline-block; width: 21ch; }
+  </style>
 </head>
 <body>
-<header><svg class="logo" viewBox="0 0 100 100" aria-hidden="true"><mask id="ap"><circle cx="50" cy="50" r="50" fill="#fff"/><g fill="#000"><polygon points="69.6,50.0 59.8,67.0 40.2,67.0 30.4,50.0 40.2,33.0 59.8,33.0"/><polygon points="41.9,64.0 110.0,64.0 110.0,67.0 41.9,67.0"/><polygon points="33.8,50.0 67.9,109.0 65.3,110.5 31.2,51.5"/><polygon points="41.9,36.0 7.9,95.0 5.3,93.5 39.3,34.5"/><polygon points="58.1,36.0 -10.0,36.0 -10.0,33.0 58.1,33.0"/><polygon points="66.2,50.0 32.1,-9.0 34.7,-10.5 68.8,48.5"/><polygon points="58.1,64.0 92.1,5.0 94.7,6.5 60.7,65.5"/></g></mask><circle cx="50" cy="50" r="50" fill="currentColor" mask="url(#ap)"/></svg><h1>Portal Turret</h1><span id="state" class="badge">…</span><span id="faults"></span></header>
-<nav id="tabs"></nav>
-<main>
-<div id="cdwarn" class="warn" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>
-<div id="pwwarn" class="warn" hidden>The WiFi password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
+  <header>
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true"><mask id="ap"><circle cx="50" cy="50" r="50" fill="#fff"/><g fill="#000"><polygon points="69.6,50.0 59.8,67.0 40.2,67.0 30.4,50.0 40.2,33.0 59.8,33.0"/><polygon points="41.9,64.0 110.0,64.0 110.0,67.0 41.9,67.0"/><polygon points="33.8,50.0 67.9,109.0 65.3,110.5 31.2,51.5"/><polygon points="41.9,36.0 7.9,95.0 5.3,93.5 39.3,34.5"/><polygon points="58.1,36.0 -10.0,36.0 -10.0,33.0 58.1,33.0"/><polygon points="66.2,50.0 32.1,-9.0 34.7,-10.5 68.8,48.5"/><polygon points="58.1,64.0 92.1,5.0 94.7,6.5 60.7,65.5"/></g></mask><circle cx="50" cy="50" r="50" fill="currentColor" mask="url(#ap)"/></svg>
+    <h1>Portal Turret</h1>
+    <span id="state" class="badge">…</span>
+    <span id="faults"></span>
+  </header>
+  <nav id="tabs"></nav>
+  <main>
+    <div id="coredumpWarning" class="warn" hidden>The turret crashed: a core dump is stored. See Maintenance → Crash report.</div>
+    <div id="passwordWarning" class="warn" hidden>The WiFi password is still the factory one. Change <b>ApPassword</b> in Settings → WiFi.</div>
 
-<section id="t-status">
-<div class="card" id="wificard"><h2>Home WiFi</h2>
-<div class="row" id="wifistate">…</div>
-<div id="wifiform">
-<div class="row"><button id="scan">Scan</button><select id="nets" style="flex:1"><option value="">– choose a network –</option></select></div>
-<div class="row"><input id="ssid" placeholder="network name" style="flex:1"><input id="pass" type="password" placeholder="password" style="flex:1"><button class="primary" id="join">Connect</button></div>
-<small>For the clock (NTP) and access from your home network. The turret's own network stays on.</small>
-</div></div>
-<div class="card"><h2>Status</h2><div class="grid" id="status"></div></div>
-<div class="card"><h2>Sleep</h2>
-<div class="row" id="sleepstate">…</div>
-<div class="row"><button data-cmd="sleep radar">Radar sleep now</button><button id="deepnow">Deep sleep now</button><button class="primary" data-cmd="sleep off">Wake up</button></div>
-<small>Radar sleep: the radar keeps watching, everything else rests; a target, the knob, PROG or <i>Wake up</i> wakes the turret. Deep sleep (v2 board): almost nothing draws current; the turret wakes up when moved, on PROG, at the end of the night or for a patrol, and this page is unreachable until then. Delays, night, WiFi and patrols: Settings tab, group <i>Sleep</i>.</small>
-</div>
-</section>
+    <section id="tab-status">
+      <div class="card" id="wifiCard">
+        <h2>Home WiFi</h2>
+        <div class="row" id="wifiState">…</div>
+        <div id="wifiForm">
+          <div class="row">
+            <button id="scanButton">Scan</button>
+            <select id="networks" style="flex:1"><option value="">– choose a network –</option></select>
+          </div>
+          <div class="row">
+            <input id="ssid" placeholder="network name" style="flex:1">
+            <input id="password" type="password" placeholder="password" style="flex:1">
+            <button class="primary" id="joinButton">Connect</button>
+          </div>
+          <small>For the clock (NTP) and access from your home network. The turret's own network stays on.</small>
+        </div>
+      </div>
+      <div class="card"><h2>Status</h2><div class="grid" id="status"></div></div>
+      <div class="card">
+        <h2>Sleep</h2>
+        <div class="row" id="sleepState">…</div>
+        <div class="row">
+          <button data-cmd="sleep radar">Radar sleep now</button>
+          <button id="deepSleepButton">Deep sleep now</button>
+          <button class="primary" data-cmd="sleep off">Wake up</button>
+        </div>
+        <small>Radar sleep: the radar keeps watching, everything else rests; a target, the knob, PROG or <i>Wake up</i> wakes the turret. Deep sleep (v2 board): almost nothing draws current; the turret wakes up when moved, on PROG, at the end of the night or for a patrol, and this page is unreachable until then. Delays, night, WiFi and patrols: Settings tab, group <i>Sleep</i>.</small>
+      </div>
+    </section>
 
-<section id="t-settings"><div id="settings"></div></section>
+    <section id="tab-settings"><div id="settings"></div></section>
 
-<section id="t-calib">
-<div class="card"><h2>Hall sensors</h2>
-<div class="grid"><div class="kv"><span>Left (live)</span><b id="hl">–</b></div><div class="kv"><span>Right (live)</span><b id="hr">–</b></div></div>
-<div class="row"><button data-cap="L,open">Left open</button><button data-cap="L,closed">Left closed</button><button data-cap="R,open">Right open</button><button data-cap="R,closed">Right closed</button></div>
-<div class="row" id="caps"></div>
-<div class="row"><button class="primary" id="hallsave">Compute and save thresholds</button></div>
-<small>Move each wing by hand (or with Tests), capture both positions, then save. Thresholds are set at 25 % and 75 % between the two values.</small>
-</div>
-<div class="card"><h2>IMU</h2>
-<div class="row">Dominant axis: <b id="axis">–</b>, setting: <b id="axisset">–</b></div>
-<div class="row"><button class="primary" id="imucap">The turret stands upright: capture</button><button id="imuoff">Disable the check</button></div>
-</div>
-<div class="card"><h2>Wing trims</h2>
-<small>Runs the wing at its stop point for 2 s. Adjust until it does not move, then save.</small>
-<div class="row">Left <b id="tlv">0</b> µs</div><input type="range" id="tl" min="-200" max="200" step="5">
-<div class="row">Right <b id="trv">0</b> µs</div><input type="range" id="tr" min="-200" max="200" step="5">
-<div class="row"><button class="primary" id="trimsave">Save trims</button></div>
-</div>
-</section>
+    <section id="tab-calib">
+      <div class="card">
+        <h2>Hall sensors</h2>
+        <div class="grid">
+          <div class="kv"><span>Left (live)</span><b id="hallLeft">–</b></div>
+          <div class="kv"><span>Right (live)</span><b id="hallRight">–</b></div>
+        </div>
+        <div class="row">
+          <button data-capture="L,open">Left open</button>
+          <button data-capture="L,closed">Left closed</button>
+          <button data-capture="R,open">Right open</button>
+          <button data-capture="R,closed">Right closed</button>
+        </div>
+        <div class="row" id="captures"></div>
+        <div class="row"><button class="primary" id="hallSaveButton">Compute and save thresholds</button></div>
+        <small>Move each wing by hand (or with Tests), capture both positions, then save. Thresholds are set at 25 % and 75 % between the two values.</small>
+      </div>
+      <div class="card">
+        <h2>IMU</h2>
+        <div class="row">Dominant axis: <b id="axis">–</b>, setting: <b id="axisSetting">–</b></div>
+        <div class="row">
+          <button class="primary" id="imuCaptureButton">The turret stands upright: capture</button>
+          <button id="imuOffButton">Disable the check</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Wing trims</h2>
+        <small>Runs the wing at its stop point for 2 s. Adjust until it does not move, then save.</small>
+        <div class="row">Left <b id="trimLeftValue">0</b> µs</div>
+        <input type="range" id="trimLeft" min="-200" max="200" step="5">
+        <div class="row">Right <b id="trimRightValue">0</b> µs</div>
+        <input type="range" id="trimRight" min="-200" max="200" step="5">
+        <div class="row"><button class="primary" id="trimSaveButton">Save trims</button></div>
+      </div>
+    </section>
 
-<section id="t-tests">
-<div class="card"><h2>Debug screen</h2>
-<pre id="scr" class="scr"></pre>
-<div class="row"><button data-key="ccw">&#8634; Turn</button><button data-key="cw">Turn &#8635;</button><button data-key="push">Push</button><button data-key="hold">Push held</button><span id="scrinfo" style="color:var(--muted)"></span></div>
-<small>Same keys as the knob: turn = previous / next (or value &minus; / +), push = enter / OK, push held = back. Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
-</div>
-<div class="card"><h2>Self-test</h2>
-<div class="row"><button data-cmd="selftest quick">Quick (nothing moves)</button><button id="stfull">Full (LEDs, sound, servos, wings)</button><button id="stref">Report</button></div>
-<pre id="strep">–</pre>
-<small>OK / FAIL / SKIP (could not be tested) / CHECK (look at the LEDs, listen to the tone).</small>
-</div>
-<div class="card"><h2>Tests</h2><small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
-<div class="row"><button data-cmd="wings open">Wings open</button><button data-cmd="wings close">Wings close</button><button data-cmd="guns extend">Guns out</button><button data-cmd="guns retract">Guns in</button></div>
-<div class="row"><button data-cmd="tone 1000 500">Tone 1 kHz</button><button data-cmd="mute">Mute / unmute</button><button data-cmd="gain 9">9 dB</button><button data-cmd="gain 12">12 dB</button><button data-cmd="gain 15">15 dB</button></div>
-<div class="row"><select id="vc"><option>activate</option><option>retire</option><option>search</option><option>tipped</option><option>pickup</option><option>collision</option><option>shutdown</option><option>alarm</option></select><button id="vcgo">Play voice</button><button data-cmd="voice stop">Stop voice</button><button data-cmd="voice">Voice files</button></div>
-<div class="row"><button data-cmd="led all FF0000">LEDs red</button><button data-cmd="led all 00FF00">green</button><button data-cmd="led all 0000FF">blue</button><button data-cmd="led all FFFFFF">white</button><button data-cmd="led rainbow">rainbow</button><button data-cmd="led off">LEDs normal</button></div>
-<div class="row"><select id="sv"><option value="rotz">rotate Z</option><option value="rotx">rotate X</option><option value="gunl">gun left</option><option value="gunr">gun right</option><option value="wingl">wing left</option><option value="wingr">wing right</option></select><input id="svv" value="90" size="5"><button id="svgo">Send</button><button id="svoff">Off</button></div>
-<div class="row"><button data-cmd="scan">I2C scan</button><button data-cmd="imu">IMU</button><button data-cmd="hall">Hall</button><button data-cmd="demo">Demo cycle</button><button class="primary" data-cmd="resume">Resume</button></div>
-<div class="row"><input id="cmd" placeholder="console command (help)" style="flex:1"><button id="cmdgo">Run</button></div>
-<small>Answers appear in the Log tab.</small>
-</div>
-</section>
+    <section id="tab-tests">
+      <div class="card">
+        <h2>Debug screen</h2>
+        <pre id="screen" class="scr"></pre>
+        <div class="row">
+          <button data-key="ccw">&#8634; Turn</button>
+          <button data-key="cw">Turn &#8635;</button>
+          <button data-key="push">Push</button>
+          <button data-key="hold">Push held</button>
+          <span id="screenInfo" style="color:var(--muted)"></span>
+        </div>
+        <small>Same keys as the knob: turn = previous / next (or value &minus; / +), push = enter / OK, push held = back. Menu in debug mode only (SW1 closed at power-up); otherwise a status page.</small>
+      </div>
+      <div class="card">
+        <h2>Self-test</h2>
+        <div class="row">
+          <button data-cmd="selftest quick">Quick (nothing moves)</button>
+          <button id="selfTestFullButton">Full (LEDs, sound, servos, wings)</button>
+          <button id="selfTestReportButton">Report</button>
+        </div>
+        <pre id="selfTestReport">–</pre>
+        <small>OK / FAIL / SKIP (could not be tested) / CHECK (look at the LEDs, listen to the tone).</small>
+      </div>
+      <div class="card">
+        <h2>Tests</h2>
+        <small>Tests stop the state machine (Manual). “Resume” homes and returns to Idle.</small>
+        <div class="row">
+          <button data-cmd="wings open">Wings open</button>
+          <button data-cmd="wings close">Wings close</button>
+          <button data-cmd="guns extend">Guns out</button>
+          <button data-cmd="guns retract">Guns in</button>
+        </div>
+        <div class="row">
+          <button data-cmd="tone 1000 500">Tone 1 kHz</button>
+          <button data-cmd="mute">Mute / unmute</button>
+          <button data-cmd="gain 9">9 dB</button>
+          <button data-cmd="gain 12">12 dB</button>
+          <button data-cmd="gain 15">15 dB</button>
+        </div>
+        <div class="row">
+          <select id="voice"></select>
+          <button id="voicePlayButton">Play voice</button>
+          <button data-cmd="voice stop">Stop voice</button>
+          <button data-cmd="voice">Voice files</button>
+        </div>
+        <div class="row">
+          <button data-cmd="led all FF0000">LEDs red</button>
+          <button data-cmd="led all 00FF00">green</button>
+          <button data-cmd="led all 0000FF">blue</button>
+          <button data-cmd="led all FFFFFF">white</button>
+          <button data-cmd="led rainbow">rainbow</button>
+          <button data-cmd="led off">LEDs normal</button>
+        </div>
+        <div class="row">
+          <select id="servo"></select>
+          <input id="servoValue" value="90" size="5">
+          <button id="servoSendButton">Send</button>
+          <button id="servoOffButton">Off</button>
+        </div>
+        <div class="row">
+          <button data-cmd="scan">I2C scan</button>
+          <button data-cmd="imu">IMU</button>
+          <button data-cmd="hall">Hall</button>
+          <button data-cmd="demo">Demo cycle</button>
+          <button class="primary" data-cmd="resume">Resume</button>
+        </div>
+        <div class="row">
+          <input id="command" placeholder="console command (help)" style="flex:1">
+          <button id="commandButton">Run</button>
+        </div>
+        <small>Answers appear in the Log tab.</small>
+      </div>
+    </section>
 
-<section id="t-log">
-<div class="card"><div class="row"><h2 style="flex:1;margin:0">Log</h2><label><input type="checkbox" id="logauto" checked> auto</label><button id="logref">Refresh</button></div><pre id="log"></pre></div>
-</section>
+    <section id="tab-log">
+      <div class="card">
+        <div class="row">
+          <h2 style="flex:1;margin:0">Log</h2>
+          <label><input type="checkbox" id="logAuto" checked> auto</label>
+          <button id="logRefreshButton">Refresh</button>
+        </div>
+        <pre id="log"></pre>
+      </div>
+    </section>
 
-<section id="t-maint">
-<div class="card"><h2>Firmware update</h2>
-<div class="row"><input type="file" id="fw" accept=".bin"><button class="primary" id="fwgo">Upload</button></div>
-<small id="fwmsg">The turret stops before the upload and reboots afterwards.</small>
-</div>
-<div class="card"><h2>Crash report</h2>
-<div class="row" id="crashinfo">–</div>
-<div class="row"><button id="crashlog">Log of the previous run</button><a id="cddl" href="/api/coredump" download="coredump.elf"><button>Download core dump</button></a><button id="cderase">Erase core dump</button></div>
-<pre id="crashtext" hidden></pre>
-<small>Decode with the firmware.elf of the same build: espcoredump.py --chip esp32s3 info_corefile -c coredump.elf firmware.elf</small>
-</div>
-<div class="card"><h2>System</h2>
-<div class="row"><button id="reboot">Reboot</button><button id="factory">Reset all settings</button></div>
-</div>
-</section>
-</main>
-<script>
-const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
-const TABS=[["status","Status"],["settings","Settings"],["calib","Calibration"],["tests","Tests"],["log","Log"],["maint","Maintenance"]];
-const FAULTS={1:"brownout / reboot loop",2:"eFuse",3:"IMU missing",4:"radar silent",5:"Hall sensor",6:"LittleFS"};
-const AXES=["off","+X","-X","+Y","-Y","+Z","-Z"];
-let tab="status",st=null,cap={},wifiEdit=false;
+    <section id="tab-maint">
+      <div class="card">
+        <h2>Firmware update</h2>
+        <div class="row">
+          <input type="file" id="firmwareFile" accept=".bin">
+          <button class="primary" id="firmwareUploadButton">Upload</button>
+        </div>
+        <small id="firmwareMessage">The turret stops before the upload and reboots afterwards.</small>
+      </div>
+      <div class="card">
+        <h2>Crash report</h2>
+        <div class="row" id="crashInfo">–</div>
+        <div class="row">
+          <button id="crashLogButton">Log of the previous run</button>
+          <a id="coredumpLink" href="/api/coredump" download="coredump.elf"><button>Download core dump</button></a>
+          <button id="coredumpEraseButton">Erase core dump</button>
+        </div>
+        <pre id="crashText" hidden></pre>
+        <small>Decode with the firmware.elf of the same build: espcoredump.py --chip esp32s3 info_corefile -c coredump.elf firmware.elf</small>
+      </div>
+      <div class="card">
+        <h2>System</h2>
+        <div class="row">
+          <button id="rebootButton">Reboot</button>
+          <button id="factoryResetButton">Reset all settings</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="message" hidden></div>
 
-function post(url,data){return fetch(url,{method:"POST",body:new URLSearchParams(data)})}
-function act(cmd){return post("/api/action",{cmd}).then(()=>setTimeout(loadLog,400))}
-function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+  <script>
+    // ---------------------------------------------------------------- helpers
+    const byId = (id) => document.getElementById(id);
+    const all = (selector) => document.querySelectorAll(selector);
+    const TABS = [["status", "Status"], ["settings", "Settings"], ["calib", "Calibration"],
+                  ["tests", "Tests"], ["log", "Log"], ["maint", "Maintenance"]];
 
-function show(t){tab=t;$$("section").forEach(s=>s.classList.toggle("on",s.id=="t-"+t));$$("nav button").forEach(b=>b.classList.toggle("primary",b.dataset.t==t));if(t=="settings")loadSettings();if(t=="log")loadLog();if(t=="tests")loadScreen()}
-$("#tabs").innerHTML=TABS.map(([k,v])=>`<button data-t="${k}">${v}</button>`).join("");
-$$("nav button").forEach(b=>b.onclick=()=>show(b.dataset.t));
+    // Lists from the firmware (GET /api/meta); defaults until it answers.
+    let meta = {faults: {}, axes: ["off", "+X", "-X", "+Y", "-Y", "+Z", "-Z"], voices: [], servos: []};
+    let currentTab = "status";
+    let status = null;       // last GET /api/status
+    let settingsList = [];   // last GET /api/settings
+    let captures = {};       // Hall captures: {Lopen: 1234, ...}
+    let wifiEditing = false; // the home WiFi form stays open while editing
+    let messageTimer = 0;
 
-function kv(k,v,c){return `<div class="kv"><span>${k}</span><b class="${c||""}">${v}</b></div>`}
-function up(ms){let s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);return h?`${h} h ${m%60} min`:m?`${m} min ${s%60} s`:`${s} s`}
-async function loadStatus(){
- try{st=await (await fetch("/api/status")).json()}catch(e){$("#state").textContent="offline";return}
- $("#state").textContent=st.state;
- $("#faults").innerHTML=st.faults.map(n=>`<span class="badge bad">${n} ${FAULTS[n]}</span>`).join(" ");
- $("#pwwarn").hidden=!st.wifi.defaultPassword;
- const cr=st.crash||{coredump:0,previousLog:false,summary:""};
- $("#cdwarn").hidden=!cr.coredump;
- $("#crashinfo").textContent=cr.coredump?`Core dump: ${cr.coredump} bytes, ${cr.summary}`:"No core dump."+(cr.previousLog?" A log of the previous run is available.":"");
- $("#cddl").hidden=!cr.coredump;$("#cderase").hidden=!cr.coredump;$("#crashlog").hidden=!cr.previousLog;
- const sv=Object.entries(st.servos).map(([k,v])=>`${k} ${v===null?"–":v}`).join(", ");
- $("#status").innerHTML=[
-  kv("Uptime",up(st.uptimeMs)),kv("Reset",esc(st.resetReason)),kv("PWR_FLT",st.pwrFlt?"LOW":"ok",st.pwrFlt?"bad":"okc"),
-  kv("Mode",st.benchMode?"bench":st.reducedMode?"reduced":"normal"),kv("Brownouts / loops",st.brownouts+" / "+st.bootLoopCount),kv("eFuse events",st.powerFaults),
-  kv("Radar",st.radar.alive?st.radar.targets+" target(s)":"silent",st.radar.alive?"":"bad"),
-  kv("IMU",st.imu.available?(st.imu.upright?"upright":"axis "+AXES[st.imu.dominantAxis]):"missing",st.imu.available?"":"bad"),
-  kv("Hall L / R",st.hall.powered===false?"off (powered while a wing moves)":st.hall.left+" / "+st.hall.right,st.hall.fault?"bad":""),
-  kv("Wings",(st.wings.moving?"moving":(st.wings.leftOpen||st.wings.rightOpen)?"open":"closed")),
-  kv("Amp",st.amp.gainDb+" dB"+(st.amp.muted?", muted":st.amp.running?"":", off")),
-  kv("WiFi",esc(st.wifi.ssid)+", "+st.wifi.clients+" client(s)"),
-  kv("Home network",!st.wifi.sta.enabled?"not configured":st.wifi.sta.connected?esc(st.wifi.sta.ip)+" ("+st.wifi.sta.rssi+" dBm)":"connecting…",st.wifi.sta.enabled&&!st.wifi.sta.connected?"bad":""),
-  kv("Time",st.time?esc(st.time):"not set"),kv("Free heap",Math.round(st.freeHeap/1024)+" kB"),
-  kv("Cycles",st.stats?st.stats.cycles+" (+"+st.stats.sessionCycles+"), "+st.stats.boots+" boots":"–"),
-  kv("Firmware",esc(st.version))].join("")+`<div class="kv" style="grid-column:1/-1"><span>Servos (µs, – = released)</span><b>${sv}</b></div>`;
- const sta=st.wifi.sta;
- $("#wifistate").innerHTML=!sta.enabled?"Not connected to a home network yet.":sta.connected?
-  `Connected to <b>${esc(sta.ssid)}</b>: <a href="http://${esc(sta.ip)}/">${esc(sta.ip)}</a> or <a href="http://portal-turret.local/">portal-turret.local</a> <button id="wifichange">Change</button>`:
-  `Connecting to <b>${esc(sta.ssid)}</b>… (check the password if this lasts)`;
- if(sta.connected&&!wifiEdit)$("#wifiform").hidden=true;else $("#wifiform").hidden=false;
- const ch=$("#wifichange");if(ch)ch.onclick=()=>{wifiEdit=true;$("#wifiform").hidden=false};
- const sl=st.sleep;
- if(sl){
-  const lv={awake:"Awake",radar:"Radar sleep",deep:"Deep sleep"}[sl.level]||sl.level;
-  const nx=sl.nextS<0?"":sl.level==="awake"?` · radar sleep in ${up(sl.nextS*1000)}`:sl.patrol?` · patrol ends in ${up(sl.nextS*1000)}`:` · deep sleep in ${up(sl.nextS*1000)}`;
-  $("#sleepstate").innerHTML=`<b>${lv}</b>${sl.mode===0?" · sleep off in the settings":""}${nx}${sl.night?" · night":""}`;
-  $("#deepnow").disabled=!sl.deepAllowed;
- }
- $("#hl").textContent=st.hall.left;$("#hr").textContent=st.hall.right;
- $("#axis").textContent=AXES[st.imu.dominantAxis]||"–";
-}
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+    }
 
-async function loadSettings(){
- const list=await (await fetch("/api/settings")).json(),groups={};
- list.forEach(s=>(groups[s.group]=groups[s.group]||[]).push(s));
- window.S=list;
- const ax=list.find(s=>s.key=="ImuUpAxis");if(ax)$("#axisset").textContent=AXES[ax.value];
- $("#settings").innerHTML=Object.entries(groups).map(([g,items])=>`<div class="card" data-g="${esc(g)}"><h2>${esc(g)}</h2>`+
-  items.map(s=>{const t=s.secret?"password":s.type=="string"?"text":"number";
-   const lim=s.min!==undefined?` min="${s.min}" max="${s.max}"`:"";
-   const inp=s.options?`<select data-k="${s.key}">${s.options.map((o,n)=>`<option value="${n}"${n==s.value?" selected":""}>${esc(o)}</option>`).join("")}</select>`:
-    s.type=="bool"?`<input type="checkbox" data-k="${s.key}" ${s.value?"checked":""}>`:`<input type="${t}" data-k="${s.key}" value="${esc(s.value)}"${lim}${s.secret?' placeholder="unchanged"':""}>`;
-   return `<div class="field"><label>${esc(s.label)}</label><span>${inp} ${s.secret?"":`<button data-def="${s.key}" title="default">↺</button>`}</span><small>${s.key}${s.secret?"":" · default "+esc(s.options?s.options[s.default]:s.default)}${s.min!==undefined&&!s.options?" · "+s.min+"…"+s.max:""}${s.reboot?" · applied at the next boot":""}</small></div>`}).join("")+
-  `<div class="row"><button class="primary" data-save>Save</button><button data-reset>Defaults for ${esc(g)}</button></div></div>`).join("");
- $$("[data-def]").forEach(b=>b.onclick=()=>{const s=S.find(x=>x.key==b.dataset.def),i=$(`[data-k="${s.key}"]`);if(i.type=="checkbox")i.checked=s.default;else i.value=s.default});
- $$("[data-save]").forEach(b=>b.onclick=()=>saveGroup(b.closest(".card")));
- $$("[data-reset]").forEach(b=>b.onclick=()=>{const g=b.closest(".card").dataset.g;if(confirm("Reset "+g+" to defaults?"))post("/api/settings/reset",{group:g}).then(()=>setTimeout(loadSettings,500))});
-}
-async function saveGroup(card){
- const data={};
- card.querySelectorAll("[data-k]").forEach(i=>{const s=S.find(x=>x.key==i.dataset.k);let v=i.type=="checkbox"?(i.checked?"true":"false"):i.value;
-  if(s.secret){if(v==="")return;const lo=s.key=="WebPassword"?4:8;if(v.length<lo||v.length>63){alert(s.key+": "+lo+" to 63 characters");throw 0}}
-  if(s.key=="WebUser"&&(!v||v.length>32||v.includes(":"))){alert("WebUser: 1 to 32 characters, without “:”");throw 0}
-  if(String(s.value)!==v)data[s.key]=v});
- if(!Object.keys(data).length)return;
- if(data.ApSsid||data.ApPassword)alert("WiFi changes apply at the next boot. Reconnect to “"+(data.ApSsid||st.wifi.ssid)+"” with the new password afterwards.");
- if(data.WebUser||data.WebPassword)alert("The web page login changes at the next boot: the browser asks for it again then.");
- await post("/api/settings",data);setTimeout(loadSettings,500);
-}
+    // Message bar at the bottom, a few seconds; `bad` colours it red.
+    function showMessage(text, bad) {
+      const bar = byId("message");
+      bar.textContent = text;
+      bar.className = bad ? "bad" : "";
+      bar.hidden = false;
+      clearTimeout(messageTimer);
+      messageTimer = setTimeout(() => { bar.hidden = true; }, bad ? 6000 : 3000);
+    }
 
-$$("[data-cap]").forEach(b=>b.onclick=()=>{if(!st)return;const[side,pos]=b.dataset.cap.split(",");cap[side+pos]=side=="L"?st.hall.left:st.hall.right;
- $("#caps").textContent=Object.entries(cap).map(([k,v])=>k+" "+v).join(", ")});
-$("#hallsave").onclick=()=>{const d={};for(const s of["L","R"]){const o=cap[s+"open"],c=cap[s+"closed"];if(o===undefined||c===undefined)continue;
- if(Math.abs(o-c)<200){alert(s+": open and closed values too close");return}
- d["HallOpen"+s]=Math.round(c+0.75*(o-c));d["HallClose"+s]=Math.round(c+0.25*(o-c))}
- if(!Object.keys(d).length){alert("Capture open and closed first");return}
- post("/api/settings",d).then(()=>{alert("Saved: "+JSON.stringify(d));loadSettings()})};
-$("#imucap").onclick=()=>{if(!st||!st.imu.available||!st.imu.dominantAxis){alert("No IMU reading");return}post("/api/settings",{ImuUpAxis:st.imu.dominantAxis}).then(loadSettings)};
-$("#imuoff").onclick=()=>post("/api/settings",{ImuUpAxis:0}).then(loadSettings);
-for(const[id,side]of[["tl","left"],["tr","right"]]){const r=$("#"+id);r.value=0;r.oninput=()=>$("#"+id+"v").textContent=r.value;r.onchange=()=>act(`trim ${side} ${r.value}`)}
-$("#trimsave").onclick=()=>post("/api/settings",{WingTrimL:$("#tl").value,WingTrimR:$("#tr").value}).then(()=>alert("Trims saved"));
+    function post(url, data) {
+      return fetch(url, {method: "POST", body: new URLSearchParams(data)});
+    }
 
-$("#scan").onclick=async()=>{const b=$("#scan");b.disabled=true;b.textContent="Scanning…";await post("/api/action",{cmd:"wifi scan"});
- let r={scanning:true,networks:[]};for(let i=0;i<20;i++){await new Promise(z=>setTimeout(z,1000));r=await (await fetch("/api/wifi/scan")).json();if(!r.scanning&&i>1)break}
- r.networks.sort((a,b)=>b.rssi-a.rssi);
- $("#nets").innerHTML=`<option value="">– ${r.networks.length} network(s) –</option>`+r.networks.map(n=>`<option value="${esc(n.ssid)}">${esc(n.ssid)} (${n.rssi} dBm${n.secure?"":", open"})</option>`).join("");
- b.disabled=false;b.textContent="Scan"};
-$("#nets").onchange=()=>{if($("#nets").value){$("#ssid").value=$("#nets").value;$("#pass").focus()}};
-$("#join").onclick=async()=>{const ssid=$("#ssid").value.trim(),pass=$("#pass").value;
- if(!ssid||ssid.length>32){alert("Network name: 1 to 32 characters");return}
- if(pass&&(pass.length<8||pass.length>63)){alert("WiFi password: 8 to 63 characters (empty for an open network)");return}
- await post("/api/settings",{StaSsid:ssid,StaPassword:pass});await act("wifi join");wifiEdit=false;$("#pass").value=""};
-async function loadScreen(){let s;try{s=await (await fetch("/api/screen")).json()}catch(e){return}
- $("#scr").innerHTML=(s.lines||[]).map((l,i)=>(i==0||i==s.highlight)?`<b>${esc(l)||" "}</b>`:esc(l)).join("\n");
- $("#scrinfo").textContent=(s.present?"OLED connected":"no OLED")+(s.menu?"":" · normal mode")+(s.on===false?" · asleep":"")+(s.graphic?" · drawing on the OLED, text version here":"")}
-$$("[data-key]").forEach(b=>b.onclick=()=>post("/api/action",{cmd:"key "+b.dataset.key}).then(()=>setTimeout(loadScreen,150)));
-async function loadSelfTest(){$("#strep").textContent=await (await fetch("/api/selftest")).text()}
-$("#stref").onclick=loadSelfTest;
-$("#stfull").onclick=()=>{if(confirm("Full self-test: the servos and the wings will move. Go?"))act("selftest")};
-$("#deepnow").onclick=()=>{if(confirm("Deep sleep: this page and the console stop answering until the turret wakes up (moved, PROG, end of the night or patrol). Go?"))act("sleep deep")};
-$$("[data-cmd]").forEach(b=>b.onclick=()=>act(b.dataset.cmd));
-$("#svgo").onclick=()=>act(`servo ${$("#sv").value} ${$("#svv").value}`);
-$("#vcgo").onclick=()=>act("voice "+$("#vc").value);
-$("#svoff").onclick=()=>act(`servo ${$("#sv").value} off`);
-$("#cmdgo").onclick=()=>{const c=$("#cmd").value.trim();if(c)act(c)};
-$("#cmd").onkeydown=e=>{if(e.key=="Enter")$("#cmdgo").click()};
+    // One console command; its answer goes to the log (loop() executes it).
+    function runCommand(command) {
+      return post("/api/action", {cmd: command}).then(() => setTimeout(loadLog, 400));
+    }
 
-async function loadLog(){const p=$("#log");const bottom=p.scrollTop+p.clientHeight>=p.scrollHeight-8;p.textContent=await (await fetch("/api/log")).text();if(bottom)p.scrollTop=p.scrollHeight}
-$("#logref").onclick=loadLog;
+    function uptime(ms) {
+      const s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+      return h ? `${h} h ${m % 60} min` : m ? `${m} min ${s % 60} s` : `${s} s`;
+    }
 
-$("#crashlog").onclick=async()=>{const p=$("#crashtext");p.textContent=await (await fetch("/api/crashlog")).text();p.hidden=false};
-$("#cderase").onclick=()=>{if(confirm("Erase the core dump? Download it first if you want to analyse it."))post("/api/coredump/erase",{})};
-$("#reboot").onclick=()=>{if(confirm("Reboot the turret?"))post("/api/reboot",{})};
-$("#factory").onclick=()=>{if(confirm("Reset ALL settings, including the WiFi password?"))post("/api/settings/reset",{}).then(()=>setTimeout(loadSettings,500))};
-$("#fwgo").onclick=()=>{const f=$("#fw").files[0];if(!f)return;const x=new XMLHttpRequest(),fd=new FormData();fd.append("firmware",f);
- x.upload.onprogress=e=>$("#fwmsg").textContent="Uploading "+Math.round(100*e.loaded/e.total)+" %";
- x.onload=()=>$("#fwmsg").textContent=x.status+": "+x.responseText;x.onerror=()=>$("#fwmsg").textContent="Upload failed";
- x.open("POST","/update");x.send(fd)};
+    function keyValue(key, value, cssClass) {
+      return `<div class="kv"><span>${key}</span><b class="${cssClass || ""}">${value}</b></div>`;
+    }
 
-show("status");loadStatus();loadSettings();
-setInterval(()=>{if(document.hidden)return;loadStatus();if(tab=="log"&&$("#logauto").checked)loadLog();if(tab=="tests"){loadScreen();if(st&&st.selfTest&&(st.selfTest.running||st.selfTest.run&&$("#strep").textContent=="–"))loadSelfTest()}},1000);
-</script>
+    // ---------------------------------------------------------------- tabs
+    function showTab(tab) {
+      currentTab = tab;
+      all("section").forEach((s) => s.classList.toggle("on", s.id === "tab-" + tab));
+      all("nav button").forEach((b) => b.classList.toggle("primary", b.dataset.tab === tab));
+      if (tab === "settings") loadSettings();
+      if (tab === "log") loadLog();
+      if (tab === "tests") loadScreen();
+    }
+    byId("tabs").innerHTML = TABS.map(([key, label]) => `<button data-tab="${key}">${label}</button>`).join("");
+    all("nav button").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
+
+    // ---------------------------------------------------------------- meta
+    async function loadMeta() {
+      try {
+        meta = await (await fetch("/api/meta")).json();
+      } catch (e) {
+        return; // the defaults above do
+      }
+      byId("voice").innerHTML = meta.voices.map((v) => `<option>${escapeHtml(v)}</option>`).join("");
+      byId("servo").innerHTML = meta.servos.map((s) => `<option value="${escapeHtml(s.alias)}">${escapeHtml(s.name)}</option>`).join("");
+    }
+
+    // ---------------------------------------------------------------- status tab
+    async function loadStatus() {
+      try {
+        status = await (await fetch("/api/status")).json();
+      } catch (e) {
+        byId("state").textContent = "offline";
+        return;
+      }
+      const st = status;
+      byId("state").textContent = st.state;
+      byId("faults").innerHTML = st.faults.map((n) => `<span class="badge bad">${n} ${escapeHtml(meta.faults[n] || "")}</span>`).join(" ");
+      byId("passwordWarning").hidden = !st.wifi.defaultPassword;
+
+      const crash = st.crash || {coredump: 0, previousLog: false, summary: ""};
+      byId("coredumpWarning").hidden = !crash.coredump;
+      byId("crashInfo").textContent = crash.coredump
+        ? `Core dump: ${crash.coredump} bytes, ${crash.summary}`
+        : "No core dump." + (crash.previousLog ? " A log of the previous run is available." : "");
+      byId("coredumpLink").hidden = !crash.coredump;
+      byId("coredumpEraseButton").hidden = !crash.coredump;
+      byId("crashLogButton").hidden = !crash.previousLog;
+
+      const servos = Object.entries(st.servos).map(([name, us]) => `${name} ${us === null ? "–" : us}`).join(", ");
+      const radar = st.radar;
+      const radarText = radar.alive ? radar.targets + " target(s)"
+        : radar.bytes === 0 ? "silent (no byte received)"
+        : radar.frames === 0 ? `silent (${radar.bytes} bytes, no frame: baud rate?)`
+        : "silent";
+      const sta = st.wifi.sta;
+      byId("status").innerHTML = [
+        keyValue("Uptime", uptime(st.uptimeMs)),
+        keyValue("Reset", escapeHtml(st.resetReason)),
+        keyValue("PWR_FLT", st.pwrFlt ? "LOW" : "ok", st.pwrFlt ? "bad" : "okc"),
+        keyValue("Mode", st.benchMode ? "bench" : st.reducedMode ? "reduced" : "normal"),
+        keyValue("Brownouts / loops", st.brownouts + " / " + st.bootLoopCount),
+        keyValue("eFuse events", st.powerFaults),
+        keyValue("Radar", radarText + (radar.badFrames ? `, ${radar.badFrames} bad frame(s)` : ""), radar.alive ? "" : "bad"),
+        keyValue("IMU", st.imu.available ? (st.imu.upright ? "upright" : "axis " + meta.axes[st.imu.dominantAxis]) : "missing", st.imu.available ? "" : "bad"),
+        keyValue("Hall L / R", st.hall.powered === false ? "off (powered while a wing moves)" : st.hall.left + " / " + st.hall.right, st.hall.fault ? "bad" : ""),
+        keyValue("Wings", st.wings.moving ? "moving" : (st.wings.leftOpen || st.wings.rightOpen) ? "open" : "closed"),
+        keyValue("Amp", st.amp.gainDb + " dB" + (st.amp.muted ? ", muted" : st.amp.running ? "" : ", off")),
+        keyValue("WiFi", escapeHtml(st.wifi.ssid) + ", " + st.wifi.clients + " client(s)"),
+        keyValue("Home network", !sta.enabled ? "not configured" : sta.connected ? escapeHtml(sta.ip) + " (" + sta.rssi + " dBm)" : "connecting…", sta.enabled && !sta.connected ? "bad" : ""),
+        keyValue("Time", st.time ? escapeHtml(st.time) : "not set"),
+        keyValue("Free heap", Math.round(st.freeHeap / 1024) + " kB"),
+        keyValue("Cycles", st.stats ? st.stats.cycles + " (+" + st.stats.sessionCycles + "), " + st.stats.boots + " boots" : "–"),
+        keyValue("Firmware", escapeHtml(st.version)),
+      ].join("") + `<div class="kv" style="grid-column:1/-1"><span>Servos (µs, – = released)</span><b>${servos}</b></div>`;
+
+      byId("wifiState").innerHTML = !sta.enabled ? "Not connected to a home network yet."
+        : sta.connected
+          ? `Connected to <b>${escapeHtml(sta.ssid)}</b>: <a href="http://${escapeHtml(sta.ip)}/">${escapeHtml(sta.ip)}</a> or <a href="http://portal-turret.local/">portal-turret.local</a> <button id="wifiChangeButton">Change</button>`
+          : `Connecting to <b>${escapeHtml(sta.ssid)}</b>… (check the password if this lasts)`;
+      byId("wifiForm").hidden = sta.connected && !wifiEditing;
+      const change = byId("wifiChangeButton");
+      if (change) change.onclick = () => { wifiEditing = true; byId("wifiForm").hidden = false; };
+
+      const sleep = st.sleep;
+      if (sleep) {
+        const level = {awake: "Awake", radar: "Radar sleep", deep: "Deep sleep"}[sleep.level] || sleep.level;
+        const next = sleep.nextS < 0 ? ""
+          : sleep.level === "awake" ? ` · radar sleep in ${uptime(sleep.nextS * 1000)}`
+          : sleep.patrol ? ` · patrol ends in ${uptime(sleep.nextS * 1000)}`
+          : ` · deep sleep in ${uptime(sleep.nextS * 1000)}`;
+        byId("sleepState").innerHTML = `<b>${level}</b>${sleep.mode === 0 ? " · sleep off in the settings" : ""}${next}${sleep.night ? " · night" : ""}`;
+        byId("deepSleepButton").disabled = !sleep.deepAllowed;
+      }
+      byId("hallLeft").textContent = st.hall.left;
+      byId("hallRight").textContent = st.hall.right;
+      byId("axis").textContent = meta.axes[st.imu.dominantAxis] || "–";
+    }
+
+    // ---------------------------------------------------------------- settings tab
+    async function loadSettings() {
+      settingsList = await (await fetch("/api/settings")).json();
+      const groups = {};
+      settingsList.forEach((s) => (groups[s.group] = groups[s.group] || []).push(s));
+      const upAxis = settingsList.find((s) => s.key === "ImuUpAxis");
+      if (upAxis) byId("axisSetting").textContent = meta.axes[upAxis.value];
+
+      function field(s) {
+        const inputType = s.secret ? "password" : s.type === "string" ? "text" : "number";
+        const limits = s.min !== undefined ? ` min="${s.min}" max="${s.max}"` : "";
+        let input;
+        if (s.options) {
+          input = `<select data-key="${s.key}">` +
+            s.options.map((o, n) => `<option value="${n}"${n === s.value ? " selected" : ""}>${escapeHtml(o)}</option>`).join("") +
+            "</select>";
+        } else if (s.type === "bool") {
+          input = `<input type="checkbox" data-key="${s.key}" ${s.value ? "checked" : ""}>`;
+        } else {
+          input = `<input type="${inputType}" data-key="${s.key}" value="${escapeHtml(s.value)}"${limits}${s.secret ? ' placeholder="unchanged"' : ""}>`;
+        }
+        const defaultText = s.secret ? "" : " · default " + escapeHtml(s.options ? s.options[s.default] : s.default);
+        const rangeText = s.min !== undefined && !s.options ? " · " + s.min + "…" + s.max : "";
+        const rebootText = s.reboot ? " · applied at the next boot" : "";
+        const resetButton = s.secret ? "" : `<button data-default="${s.key}" title="default">↺</button>`;
+        return `<div class="field"><label>${escapeHtml(s.label)}</label><span>${input} ${resetButton}</span>` +
+               `<small>${s.key}${defaultText}${rangeText}${rebootText}</small></div>`;
+      }
+
+      byId("settings").innerHTML = Object.entries(groups).map(([group, items]) =>
+        `<div class="card" data-group="${escapeHtml(group)}"><h2>${escapeHtml(group)}</h2>` + items.map(field).join("") +
+        `<div class="row"><button class="primary" data-save>Save</button><button data-reset>Defaults for ${escapeHtml(group)}</button></div></div>`
+      ).join("");
+
+      all("[data-default]").forEach((b) => {
+        b.onclick = () => {
+          const s = settingsList.find((x) => x.key === b.dataset.default);
+          const input = document.querySelector(`[data-key="${s.key}"]`);
+          if (input.type === "checkbox") input.checked = s.default; else input.value = s.default;
+        };
+      });
+      all("[data-save]").forEach((b) => { b.onclick = () => saveGroup(b.closest(".card")); });
+      all("[data-reset]").forEach((b) => {
+        b.onclick = () => {
+          const group = b.closest(".card").dataset.group;
+          if (confirm("Reset " + group + " to defaults?")) {
+            post("/api/settings/reset", {group}).then(() => setTimeout(loadSettings, 500));
+          }
+        };
+      });
+    }
+
+    // Checks the fields of one group and posts the ones that changed.
+    async function saveGroup(card) {
+      const data = {};
+      for (const input of card.querySelectorAll("[data-key]")) {
+        const s = settingsList.find((x) => x.key === input.dataset.key);
+        const value = input.type === "checkbox" ? (input.checked ? "true" : "false") : input.value;
+        if (s.secret) {
+          if (value === "") continue; // "unchanged"
+          const shortest = s.key === "WebPassword" ? 4 : 8;
+          if (value.length < shortest || value.length > 63) {
+            showMessage(`${s.key}: ${shortest} to 63 characters`, true);
+            return;
+          }
+        }
+        if (s.key === "WebUser" && (!value || value.length > 32 || value.includes(":"))) {
+          showMessage("WebUser: 1 to 32 characters, without “:”", true);
+          return;
+        }
+        if (String(s.value) !== value) data[s.key] = value;
+      }
+      if (!Object.keys(data).length) {
+        showMessage("Nothing changed");
+        return;
+      }
+      if (data.ApSsid || data.ApPassword) {
+        showMessage("WiFi changes apply at the next boot. Reconnect to “" + (data.ApSsid || status.wifi.ssid) + "” with the new password afterwards.");
+      } else if (data.WebUser || data.WebPassword) {
+        showMessage("The web page login changes at the next boot: the browser asks for it again then.");
+      } else {
+        showMessage("Saved: " + Object.keys(data).join(", "));
+      }
+      await post("/api/settings", data);
+      setTimeout(loadSettings, 500);
+    }
+
+    // ---------------------------------------------------------------- calibration tab
+    all("[data-capture]").forEach((b) => {
+      b.onclick = () => {
+        if (!status) return;
+        const [side, position] = b.dataset.capture.split(",");
+        captures[side + position] = side === "L" ? status.hall.left : status.hall.right;
+        byId("captures").textContent = Object.entries(captures).map(([k, v]) => k + " " + v).join(", ");
+      };
+    });
+    byId("hallSaveButton").onclick = () => {
+      const data = {};
+      for (const side of ["L", "R"]) {
+        const open = captures[side + "open"], closed = captures[side + "closed"];
+        if (open === undefined || closed === undefined) continue;
+        if (Math.abs(open - closed) < 200) {
+          showMessage(side + ": open and closed values too close", true);
+          return;
+        }
+        data["HallOpen" + side] = Math.round(closed + 0.75 * (open - closed));
+        data["HallClose" + side] = Math.round(closed + 0.25 * (open - closed));
+      }
+      if (!Object.keys(data).length) {
+        showMessage("Capture open and closed first", true);
+        return;
+      }
+      post("/api/settings", data).then(() => { showMessage("Saved: " + JSON.stringify(data)); loadSettings(); });
+    };
+    byId("imuCaptureButton").onclick = () => {
+      if (!status || !status.imu.available || !status.imu.dominantAxis) {
+        showMessage("No IMU reading", true);
+        return;
+      }
+      post("/api/settings", {ImuUpAxis: status.imu.dominantAxis}).then(loadSettings);
+    };
+    byId("imuOffButton").onclick = () => post("/api/settings", {ImuUpAxis: 0}).then(loadSettings);
+    for (const [id, side] of [["trimLeft", "left"], ["trimRight", "right"]]) {
+      const slider = byId(id);
+      slider.value = 0;
+      slider.oninput = () => { byId(id + "Value").textContent = slider.value; };
+      slider.onchange = () => runCommand(`trim ${side} ${slider.value}`);
+    }
+    byId("trimSaveButton").onclick = () =>
+      post("/api/settings", {WingTrimL: byId("trimLeft").value, WingTrimR: byId("trimRight").value}).then(() => showMessage("Trims saved"));
+
+    // ---------------------------------------------------------------- home WiFi
+    byId("scanButton").onclick = async () => {
+      const button = byId("scanButton");
+      button.disabled = true;
+      button.textContent = "Scanning…";
+      await post("/api/action", {cmd: "wifi scan"});
+      let result = {scanning: true, networks: []};
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        result = await (await fetch("/api/wifi/scan")).json();
+        if (!result.scanning && i > 1) break;
+      }
+      result.networks.sort((a, b) => b.rssi - a.rssi);
+      byId("networks").innerHTML = `<option value="">– ${result.networks.length} network(s) –</option>` +
+        result.networks.map((n) => `<option value="${escapeHtml(n.ssid)}">${escapeHtml(n.ssid)} (${n.rssi} dBm${n.secure ? "" : ", open"})</option>`).join("");
+      button.disabled = false;
+      button.textContent = "Scan";
+    };
+    byId("networks").onchange = () => {
+      if (byId("networks").value) {
+        byId("ssid").value = byId("networks").value;
+        byId("password").focus();
+      }
+    };
+    byId("joinButton").onclick = async () => {
+      const ssid = byId("ssid").value.trim(), password = byId("password").value;
+      if (!ssid || ssid.length > 32) {
+        showMessage("Network name: 1 to 32 characters", true);
+        return;
+      }
+      if (password && (password.length < 8 || password.length > 63)) {
+        showMessage("WiFi password: 8 to 63 characters (empty for an open network)", true);
+        return;
+      }
+      await post("/api/settings", {StaSsid: ssid, StaPassword: password});
+      await runCommand("wifi join");
+      wifiEditing = false;
+      byId("password").value = "";
+    };
+
+    // ---------------------------------------------------------------- tests tab
+    async function loadScreen() {
+      let screen;
+      try {
+        screen = await (await fetch("/api/screen")).json();
+      } catch (e) {
+        return;
+      }
+      byId("screen").innerHTML = (screen.lines || []).map((line, i) =>
+        (i === 0 || i === screen.highlight) ? `<b>${escapeHtml(line) || " "}</b>` : escapeHtml(line)).join("\n");
+      byId("screenInfo").textContent = (screen.present ? "OLED connected" : "no OLED") +
+        (screen.menu ? "" : " · normal mode") + (screen.on === false ? " · asleep" : "") +
+        (screen.graphic ? " · drawing on the OLED, text version here" : "");
+    }
+    all("[data-key]").forEach((b) => {
+      b.onclick = () => post("/api/action", {cmd: "key " + b.dataset.key}).then(() => setTimeout(loadScreen, 150));
+    });
+    async function loadSelfTest() {
+      byId("selfTestReport").textContent = await (await fetch("/api/selftest")).text();
+    }
+    byId("selfTestReportButton").onclick = loadSelfTest;
+    byId("selfTestFullButton").onclick = () => {
+      if (confirm("Full self-test: the servos and the wings will move. Go?")) runCommand("selftest");
+    };
+    byId("deepSleepButton").onclick = () => {
+      if (confirm("Deep sleep: this page and the console stop answering until the turret wakes up (moved, PROG, end of the night or patrol). Go?")) runCommand("sleep deep");
+    };
+    all("[data-cmd]").forEach((b) => { b.onclick = () => runCommand(b.dataset.cmd); });
+    byId("servoSendButton").onclick = () => runCommand(`servo ${byId("servo").value} ${byId("servoValue").value}`);
+    byId("servoOffButton").onclick = () => runCommand(`servo ${byId("servo").value} off`);
+    byId("voicePlayButton").onclick = () => runCommand("voice " + byId("voice").value);
+    byId("commandButton").onclick = () => {
+      const command = byId("command").value.trim();
+      if (command) runCommand(command);
+    };
+    byId("command").onkeydown = (e) => { if (e.key === "Enter") byId("commandButton").click(); };
+
+    // ---------------------------------------------------------------- log tab
+    async function loadLog() {
+      const pre = byId("log");
+      const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 8;
+      pre.textContent = await (await fetch("/api/log")).text();
+      if (atBottom) pre.scrollTop = pre.scrollHeight;
+    }
+    byId("logRefreshButton").onclick = loadLog;
+
+    // ---------------------------------------------------------------- maintenance tab
+    byId("crashLogButton").onclick = async () => {
+      const pre = byId("crashText");
+      pre.textContent = await (await fetch("/api/crashlog")).text();
+      pre.hidden = false;
+    };
+    byId("coredumpEraseButton").onclick = () => {
+      if (confirm("Erase the core dump? Download it first if you want to analyse it.")) post("/api/coredump/erase", {});
+    };
+    byId("rebootButton").onclick = () => { if (confirm("Reboot the turret?")) post("/api/reboot", {}); };
+    byId("factoryResetButton").onclick = () => {
+      if (confirm("Reset ALL settings, including the WiFi password?")) {
+        post("/api/settings/reset", {}).then(() => setTimeout(loadSettings, 500));
+      }
+    };
+    byId("firmwareUploadButton").onclick = () => {
+      const file = byId("firmwareFile").files[0];
+      if (!file) return;
+      const request = new XMLHttpRequest(), form = new FormData();
+      form.append("firmware", file);
+      request.upload.onprogress = (e) => { byId("firmwareMessage").textContent = "Uploading " + Math.round(100 * e.loaded / e.total) + " %"; };
+      request.onload = () => { byId("firmwareMessage").textContent = request.status + ": " + request.responseText; };
+      request.onerror = () => { byId("firmwareMessage").textContent = "Upload failed"; };
+      request.open("POST", "/update");
+      request.send(form);
+    };
+
+    // ---------------------------------------------------------------- start
+    showTab("status");
+    loadMeta().then(loadStatus);
+    loadSettings();
+    setInterval(() => {
+      if (document.hidden) return;
+      loadStatus();
+      if (currentTab === "log" && byId("logAuto").checked) loadLog();
+      if (currentTab === "tests") {
+        loadScreen();
+        const test = status && status.selfTest;
+        if (test && (test.running || (test.run && byId("selfTestReport").textContent === "–"))) loadSelfTest();
+      }
+    }, 1000);
+  </script>
 </body>
 </html>

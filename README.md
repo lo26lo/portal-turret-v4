@@ -181,7 +181,8 @@ docs/carte-v2-*.md         board v2: as-routed state, plan, KiCad guide (French)
 Turret_firmware/           Turret2 firmware (PlatformIO project) — see Turret_firmware/README.md
 docs/firmware-plan.md      firmware design; docs/firmware-improvements.md: improvement plan and log
 docs/experiments.md        measurement notebook (oscilloscope, PPK2), no hardware change
-.github/workflows/         CI: firmware build, native tests, web page check on every push
+.github/workflows/         CI: firmware build (v0.1 and v2), native tests, web page check, README command check on every push
+docs/firmware-code-review.md  code review of the firmware, one rating per feature (10.11.2026)
 Fork/                      upstream firmware, kept unchanged for reference
 Pictures/                  photos and renders
 ```

@@ -75,3 +75,6 @@ jobs:
 
       - name: Web page check (simulated turret)
         run: python tools/check_web.py
+
+      - name: README lists every console command
+        run: python scripts/check_commands.py

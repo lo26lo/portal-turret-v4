@@ -10,6 +10,7 @@
 #include "states/FiringState.h"
 #include "states/IdleState.h"
 #include "states/ManualState.h"
+#include "states/SearchingState.h"
 #include "states/StateId.h"
 
 class StateMachine {
@@ -29,6 +30,7 @@ private:
   IdleState idleState;
   ActivateState activateState;
   FiringState firingState;
+  SearchingState searchingState;
   DisengageState disengageState;
   ManualState manualState;
   FaultState faultState;

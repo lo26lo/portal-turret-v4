@@ -10,6 +10,7 @@
 
 #include "logic/AudioLogic.h"
 #include "logic/BoardLogic.h"
+#include "logic/CycleLogic.h"
 #include "logic/HallLogic.h"
 #include "logic/MenuLogic.h"
 #include "logic/RadarLogic.h"
@@ -900,8 +901,132 @@ void test_real_menu_tree() {
   TEST_ASSERT_EQUAL_STRING("Sound", ui::MENU_TREE[ui::MenuSound].en);
 }
 
+// ------------------------------------------------------------------ radar parser
+
+// One target at (x, y) mm, speed cm/s, resolution mm, LD2450 encoding.
+static void PutTarget(uint8_t *b, int16_t x, int16_t y, int16_t speed, uint16_t resolution) {
+  auto put = [](uint8_t *p, int16_t v) {
+    uint16_t magnitude = (uint16_t)(v < 0 ? -v : v);
+    p[0] = magnitude & 0xFF;
+    p[1] = (uint8_t)((magnitude >> 8) | (v >= 0 ? 0x80 : 0x00));
+  };
+  put(b, x);
+  put(b + 2, y);
+  put(b + 4, speed);
+  b[6] = resolution & 0xFF;
+  b[7] = resolution >> 8;
+}
+
+static int FeedAll(logic::RadarParser &parser, const uint8_t *data, size_t length) {
+  int frames = 0;
+  for (size_t i = 0; i < length; i++) {
+    frames += parser.Feed(data[i]) ? 1 : 0;
+  }
+  return frames;
+}
+
+void test_radar_parser_nominal_frame() {
+  uint8_t frame[30] = {0xAA, 0xFF, 0x03, 0x00};
+  memset(frame + 4, 0, 24);
+  PutTarget(frame + 4, -120, 1500, -25, 360);
+  frame[28] = 0x55;
+  frame[29] = 0xCC;
+  logic::RadarParser parser;
+  TEST_ASSERT_EQUAL_INT(1, FeedAll(parser, frame, sizeof(frame)));
+  TEST_ASSERT_EQUAL_UINT32(1, parser.Frames());
+  TEST_ASSERT_EQUAL_UINT32(0, parser.BadFrames());
+  const logic::RadarFrame &f = parser.Frame();
+  TEST_ASSERT_TRUE(f.target[0].present);
+  TEST_ASSERT_EQUAL_INT16(-120, f.target[0].x);
+  TEST_ASSERT_EQUAL_INT16(1500, f.target[0].y);
+  TEST_ASSERT_EQUAL_INT16(-25, f.target[0].speed);
+  TEST_ASSERT_EQUAL_UINT16(360, f.target[0].resolution);
+  TEST_ASSERT_FALSE(f.target[1].present);
+  TEST_ASSERT_FALSE(f.target[2].present);
+}
+
+void test_radar_parser_footer_bytes_inside_data() {
+  // x = 0x4C55 with its sign bit: bytes 55 CC right at the start of the payload.
+  uint8_t frame[30] = {0xAA, 0xFF, 0x03, 0x00, 0x55, 0xCC};
+  memset(frame + 6, 0, 22);
+  frame[28] = 0x55;
+  frame[29] = 0xCC;
+  logic::RadarParser parser;
+  TEST_ASSERT_EQUAL_INT(1, FeedAll(parser, frame, sizeof(frame)));
+  TEST_ASSERT_EQUAL_INT16(0x4C55, parser.Frame().target[0].x);
+  TEST_ASSERT_EQUAL_UINT32(0, parser.BadFrames());
+}
+
+void test_radar_parser_resync_and_bad_frame() {
+  uint8_t good[30] = {0xAA, 0xFF, 0x03, 0x00};
+  memset(good + 4, 0, 24);
+  PutTarget(good + 4, 10, 20, 0, 1);
+  good[28] = 0x55;
+  good[29] = 0xCC;
+  // An acknowledgement, a truncated frame (no footer: the next header follows),
+  // then a good frame.
+  uint8_t ack[] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFF, 0x01, 0x04, 0x03, 0x02, 0x01};
+  logic::RadarParser parser;
+  TEST_ASSERT_EQUAL_INT(0, FeedAll(parser, ack, sizeof(ack)));
+  TEST_ASSERT_EQUAL_INT(0, FeedAll(parser, good, 28)); // header + payload, cut before the footer
+  TEST_ASSERT_EQUAL_INT(1, FeedAll(parser, good, 30)); // AA where 55 was expected: dropped, resync
+  TEST_ASSERT_EQUAL_UINT32(1, parser.BadFrames());
+  TEST_ASSERT_EQUAL_UINT32(1, parser.Frames());
+  TEST_ASSERT_EQUAL_INT16(10, parser.Frame().target[0].x);
+  // Two frames back to back, then a lone stray byte.
+  TEST_ASSERT_EQUAL_INT(1, FeedAll(parser, good, 30));
+  parser.Feed(0x42);
+  TEST_ASSERT_EQUAL_INT(1, FeedAll(parser, good, 30));
+  TEST_ASSERT_EQUAL_UINT32(3, parser.Frames());
+  TEST_ASSERT_EQUAL_UINT32(1, parser.BadFrames());
+}
+
+// ------------------------------------------------------------------ firing cycle
+
+void test_aim_angle() {
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, logic::AimAngleDeg(0, 1000, 60));
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 45.0f, logic::AimAngleDeg(1000, 1000, 60));
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, -45.0f, logic::AimAngleDeg(-1000, 1000, 60));
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 60.0f, logic::AimAngleDeg(5000, 100, 60)); // bounded
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, logic::AimAngleDeg(1000, 0, 60));   // behind / on the radar
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, logic::AimAngleDeg(1000, -500, 60));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 2.5f, logic::SmoothAim(0, 10, 0.25f));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 10.0f, logic::SmoothAim(0, 10, 1.0f));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, logic::SmoothAim(0, 10, 0.0f));
+}
+
+void test_firing_and_search_steps() {
+  TEST_ASSERT_FALSE(logic::FiringDone(1000, 1000, 3000));
+  TEST_ASSERT_FALSE(logic::FiringDone(3999, 1000, 3000));
+  TEST_ASSERT_TRUE(logic::FiringDone(4000, 1000, 3000));
+  TEST_ASSERT_FALSE(logic::FiringDone(0xFFFFFF00u, 0xFFFFFF10u, 3000)); // now before the start: not done
+  TEST_ASSERT_TRUE(logic::FiringDone(0x00000400u, 0xFFFFF000u, 3000));  // across the wrap-around (5120 ms)
+  using S = logic::SearchStep;
+  TEST_ASSERT_TRUE(logic::SearchDecision(true, 100, 0, 4000) == S::Fire);
+  TEST_ASSERT_TRUE(logic::SearchDecision(false, 3999, 0, 4000) == S::Keep);
+  TEST_ASSERT_TRUE(logic::SearchDecision(false, 4000, 0, 4000) == S::GiveUp);
+  TEST_ASSERT_TRUE(logic::SearchDecision(false, 0, 0, 0) == S::GiveUp); // SearchMs 0: retire at once
+  TEST_ASSERT_TRUE(logic::SearchDecision(true, 0, 0, 0) == S::Fire);   // but a target still wins
+}
+
+void test_search_sweep() {
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, logic::SearchSweepDeg(0, 0, 4000, 30));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 30.0f, logic::SearchSweepDeg(1000, 0, 4000, 30));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, logic::SearchSweepDeg(2000, 0, 4000, 30));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, -30.0f, logic::SearchSweepDeg(3000, 0, 4000, 30));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, logic::SearchSweepDeg(4000, 0, 4000, 30));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 15.0f, logic::SearchSweepDeg(500, 0, 4000, 30));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, logic::SearchSweepDeg(500, 0, 0, 30)); // no period: centred
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_radar_parser_nominal_frame);
+  RUN_TEST(test_radar_parser_footer_bytes_inside_data);
+  RUN_TEST(test_radar_parser_resync_and_bad_frame);
+  RUN_TEST(test_aim_angle);
+  RUN_TEST(test_firing_and_search_steps);
+  RUN_TEST(test_search_sweep);
   RUN_TEST(test_menu_render_root);
   RUN_TEST(test_menu_next_previous_wrap_and_scroll);
   RUN_TEST(test_menu_command_and_answer);

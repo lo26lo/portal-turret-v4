@@ -229,6 +229,24 @@ def simulate():
                 state["servos"]["wingl"] = state["servos"]["wingr"] = None
 
 
+def meta():
+    """GET /api/meta (Actions::MetaJson): the lists of the page, read from the sources."""
+    audio_cpp = open(os.path.join(ROOT, "src", "audio", "Audio.cpp"), encoding="utf-8").read()
+    voices = re.findall(r'"(\w+)"', re.search(r"VOICE_NAMES\[[^\]]*\] = \{(.*?)\};", audio_cpp, re.S).group(1))
+    gantry_cpp = open(os.path.join(ROOT, "src", "motion", "Gantry.cpp"), encoding="utf-8").read()
+    aliases = re.findall(r'"(\w+)"', re.search(r"aliases\[CHANNEL_COUNT\] = \{(.*?)\};", gantry_cpp, re.S).group(1))
+    names = ["rotate Z", "rotate X", "gun left", "gun right", "wing left", "wing right"]
+    return {
+        "lang": "en",
+        "faults": {"1": "Reboot loop", "2": "eFuse fault", "3": "IMU missing", "4": "Radar silent",
+                   "5": "Hall inconsistent", "6": "LittleFS missing"},
+        "axes": ["off", "+X", "-X", "+Y", "-Y", "+Z", "-Z"],
+        "voices": voices,
+        "servos": [{"alias": a, "name": n} for a, n in zip(aliases, names)],
+        "board": "Turret2 v0.1 (mock)", "version": "mock",
+    }
+
+
 def status():
     uptime = int((time.time() - start) * 1000)
     faults = []
@@ -248,7 +266,8 @@ def status():
         "bootLoopCount": 1, "brownouts": 0, "powerFaults": state["powerFaults"],
         "pwrFlt": state["pwrFlt"], "benchMode": False, "reducedMode": False,
         "faults": faults,
-        "radar": {"alive": state["radar"], "targets": targets},
+        "radar": {"alive": state["radar"], "targets": targets, "bytes": 123456 if state["radar"] else 0,
+                  "frames": 4115 if state["radar"] else 0, "badFrames": 0},
         "imu": {"available": state["imu"], "gravity": [0.12, -9.78, 0.35] if state["imu"] else [0, 0, 0],
                 "dominantAxis": 4 if state["imu"] else 0, "upright": state["imu"] and axis == 4,
                 "temperature": 31.5},
@@ -606,6 +625,8 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/status":
             with lock:
                 self.reply(200, json.dumps(status()))
+        elif self.path == "/api/meta":
+            self.reply(200, json.dumps(meta()))
         elif self.path == "/api/settings":
             with lock:
                 rows = [dict(s, value="" if s.get("secret") else s["value"],

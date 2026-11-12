@@ -116,6 +116,13 @@ Settings::Settings()
           {"HallPower", "Hall sensors powered", "Sleep", SettingType::Int, (int32_t)1, (int32_t)0, (int32_t)1, "Always|While a wing moves (v2)"},
           // Light::Effect: what the LEDs show outside a test.
           {"LedEffect", "LED effect", "Lights", SettingType::Int, (int32_t)0, (int32_t)0, (int32_t)1, "Red eye|Turning rainbow"},
+          // Firing cycle (logic/CycleLogic.h): a burst, then a search for the target.
+          {"FireMs", "Burst of fire (ms)", "Detection", SettingType::Int, (int32_t)3000, (int32_t)500, (int32_t)20000},
+          {"SearchMs", "Search for the target after a burst (ms, 0 = retire at once)", "Detection", SettingType::Int, (int32_t)4000, (int32_t)0, (int32_t)30000},
+          // B1: rotation Z follows the target (firing) and sweeps (searching).
+          // Off by default: the direction of the rotation against the radar x axis
+          // has not been checked on a turret yet (AngleOffsetZ / the gear ratio).
+          {"AimZ", "Rotation Z follows the target (check the direction first)", "Detection", SettingType::Bool, false},
       },
       prefsReady(false) {}
 

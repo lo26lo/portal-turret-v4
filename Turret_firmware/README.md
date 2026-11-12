@@ -52,6 +52,7 @@ scripts/git_version.py      pre-build: firmware version from git into src/versio
 tools/mock_server.py        web page test bench (simulated turret, no board needed)
 tools/mock_menu.py          debug menu for the simulator (reads src/ui/MenuTree.h)
 tools/check_web.py          automatic check of the page and API against the simulator
+scripts/check_commands.py   checks that section 11 of this README lists every command of the command table
 test/test_logic/            native unit tests of src/logic (pio test -e native)
 ../.github/workflows/       CI: build + checks on every push
 data/                       LittleFS image (pio run -t uploadfs): the 55 voice lines of upstream
@@ -64,7 +65,7 @@ src/
   board/I2cBus.*            I2C start on IO35/IO36, bus recovery, scan
   board/Log.*               console output: Serial + 4 kB RAM buffer (GET /api/log) + 2 kB crash log in RTC memory
   board/CoreDump.*          core dump in flash: summary, download, erase
-  logic/*.h                 pure logic without Arduino (radar decoding and zone, Hall, buttons, LED code, gain, debug menu navigation), tested natively
+  logic/*.h                 pure logic without Arduino (radar frame parser and zone, firing cycle, Hall, buttons, LED code, gain, sleep, debug menu navigation), tested natively
   ui/MenuTree.h             debug menu tree, English and French (pure data)
   ui/Display.*              OLED 128x64 on J11 (U8g2: SSD1306, SSD1309, SH1106)
   ui/DebugUi.*              debug menu and status page: information pages, hooks to the commands
@@ -81,8 +82,10 @@ src/
   sensors/Motion.*          LSM6DSOX IMU, orientation
   sensors/Radar.*           HLK-LD2450 / RD-03D frame parser (UART1, 256000 baud)
   settings/Settings.*       setting table, NVS storage
-  states/*                  state machine: Booting, Idle, Activate, Firing, Disengage, Manual, Fault
-  control/Actions.*         command interpreter shared by console, buttons and web page; status JSON
+  states/*                  state machine: Booting, Idle, Activate, Firing, Searching, Disengage, Manual, Fault
+  control/Actions*          command interpreter shared by console, buttons, debug menu and web page: command table and dispatch,
+                            settings, system, audio, network, status JSON (Actions.cpp); servos, wings, guns, LEDs, voice,
+                            calibration (ActionsHardware.cpp); pins, rails, sweeps, load test (ActionsLab.cpp)
   control/SelfTest.*        self-test: passive checks, then LEDs, sound, servos and wings, with a report
   control/Stats.*           usage counters (boots and cycles in NVS, targets and last cycle since boot)
   web/AccessPoint.*         turret access point (WPA2) + captive portal DNS
@@ -125,7 +128,7 @@ Size today: about 46 % of the 3.2 MB application partition, 28 % of the RAM. The
 
 **Version**: `scripts/git_version.py` writes `src/version_gen.h` before each build with `git describe --tags --dirty --always` (for example `fd63cb0-dirty`). It appears in the boot banner, in `/api/status` and on the web page. Tag a release (`git tag v0.1`) to get readable versions.
 
-**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2`, `turret2_bringup` and `turret2_v2`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`) and `tools/check_web.py` on every push that touches `Turret_firmware/`.
+**Continuous integration**: `.github/workflows/firmware.yml` builds `turret2`, `turret2_bringup` and `turret2_v2`, checks that every `#include` matches the file name exactly (Linux is case sensitive), runs the native tests (`pio test -e native`), `tools/check_web.py` and `scripts/check_commands.py` on every push that touches `Turret_firmware/`.
 
 ## 4. Boot sequence
 
@@ -157,12 +160,13 @@ PWR_FLT low at any point stops the sequence and enters `Fault`.
 | `Booting` | steps 11-13 | `Idle`, `Manual` (debug / reduced mode), `Fault` |
 | `Idle` | rests `CooldownMs` after entering, then waits for a target **inside the detection zone** of a radar that is still sending frames; refuses if the turret is not upright | `Activate` |
 | `Activate` | says an *activate* line, opens the wings, waits until both are open (Hall), extends the guns, 0.5 s, then waits for the end of the line (3.5 s at most from the start) | `Firing` |
-| `Firing` | gunshot sound with its loop for 3 s, then lets it end | `Disengage` |
+| `Firing` | gunshot sound with its loop for `FireMs` (3 s); with `AimZ`, rotation Z follows the target (smoothed, ±60°) | `Searching` |
+| `Searching` | says a *search* line; with `AimZ`, sweeps rotation Z ±30° every 4 s. A target back in the zone fires again; nothing for `SearchMs` (4 s) retires. Decisions in `logic/CycleLogic.h`, tested natively | `Firing`, `Disengage` |
 | `Disengage` | says a *retire* line, retracts the guns, 0.5 s, closes the wings, waits, 0.5 s | `Idle` |
 | `Manual` | nothing: the state machine is stopped. Used by debug mode, reduced mode and every hardware test; in debug mode a demo cycle also ends here | `Booting` with the `resume` command |
 | `Fault` | power fault: servos detached, sound stopped, amplifier in shutdown, LEDs off | `Booting` after PWR_FLT has been high for 2 s |
 
-The turret does not aim at the target yet: the rotations stay centred, as in the upstream firmware.
+Aiming (`AimZ`, off by default): while firing, rotation Z follows the first target in the zone (angle `atan2(x, y)` of the radar, smoothed, ±60°); while searching it sweeps ±30°. The direction of the rotation against the radar x axis has not been checked on a turret yet: try `set AimZ true` with a target on one side, and swap the sign with `AngleOffsetZ` / the gear ratio in `Gantry` if it turns the wrong way. With `AimZ` off the rotations stay centred, as in the upstream firmware.
 
 ## 6. Modules
 
@@ -367,6 +371,9 @@ All settings are listed, with their limits, in the *Settings* tab of the web pag
 | `ServoRamp` | Power | 1000 | 0..20000 | speed of the positional servos on a weak supply (debug mode without `power full`), µs per second; 0 = no ramp |
 | `LedBright` | Lights | 255 | 0..255 | LED brightness |
 | `LedEffect` | Lights | 0 | 0..1 | outside a test: 0 red eye (ring red, guns glowing), 1 turning rainbow (ring, guns following LED 1) |
+| `FireMs` | Detection | 3000 | 500..20000 | length of one burst of fire (state `Firing`) |
+| `SearchMs` | Detection | 4000 | 0..30000 | after a burst, how long the turret looks for the target before retiring (state `Searching`); a target back in the zone fires again |
+| `AimZ` | Detection | false | | rotation Z follows the target while firing (±60°) and sweeps ±30° while searching. Off until the direction of the rotation has been checked on the turret (`AngleOffsetZ`, gear ratio) |
 | `LedMaxmA` | Power | 500 | 100..1500 | LED current limit (mA) |
 | `GreenLedMode` | Status LEDs | 0 | 0..3 | green LED after boot: 0 breathing, 1 heartbeat, 2 steady, 3 off |
 | `GreenLedPeriod` | Status LEDs | 4000 | 1000..10000 | one breath, or one heartbeat (ms) |
@@ -422,6 +429,7 @@ The header shows the Aperture logo (inline SVG, follows the light / dark theme),
 | `GET /` | the page |
 | `GET /api/status` | JSON: version, uptime, state, reset reason, counters, PWR_FLT, modes, active faults, radar, IMU, Hall, wings, servo pulses (`null` = released), amplifier, WiFi (access point, home network), time, free heap |
 | `GET /api/settings` | the setting table (key, label, group, type, value, default, min, max, `options` for a choice, `reboot`, `secret`) |
+| `GET /api/meta` | the lists the page needs, in the screen language (`Language`): fault names by number, IMU axes, voice names, servo aliases and names, board, version. The page keeps no copy of these lists |
 | `POST /api/settings` | form fields `key=value`; each becomes a `set` command (answer in the log) |
 | `POST /api/settings/reset` | optional field `group`; all settings otherwise |
 | `POST /api/action` | field `cmd`: any console command |
@@ -443,7 +451,8 @@ USB, 115200 baud. Type `help`.
 
 | Command | Does |
 |---|---|
-| `status` | the status JSON |
+| `help` | the commands by category, with their usage (generated from the command table of `control/Actions.cpp`; `scripts/check_commands.py` checks this section against it in the CI) |
+| `status` | the status JSON (`radar.bytes` / `frames` / `badFrames` tell a silent radar from a wrong baud rate) |
 | `scan` | I2C scan |
 | `imu` | gravity, dominant axis, upright, gyro, temperature |
 | `hall` | raw Hall values and positions |
@@ -545,14 +554,15 @@ Extra console commands of the simulator: `sim fault on|off`, `sim radar on|off`,
 
 The **debug menu can be tried in the browser**: Tests → *Debug screen*, buttons A, A long, B, B long. The simulator walks through the real tree of `src/ui/MenuTree.h`; the information pages show fake values.
 
-**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; detection zone; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain; voice upsampling, file choice, ID3 tag size, "tipped over" watch). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
+**Native tests**: `pio test -e native` compiles `test/test_logic` on the computer with the pure logic of `src/logic/` (radar decoding, compared with the upstream formula on all 65 536 values; radar frame parser: nominal frame, footer bytes inside the data, resync after an acknowledgement, a truncated frame and a stray byte; detection zone; firing cycle: aim angle, burst end across the millis() wrap-around, search decision, search sweep; Hall thresholds in both polarities; button debounce, short and long press; LED fault code; amplifier gain; voice upsampling, file choice, ID3 tag size, "tipped over" watch; sleep; debug menu). It needs a host `gcc` / `g++`: present on Linux and in the CI; on Windows install MinGW-w64 first (for example `winget install BrechtSanders.WinLibs.POSIX.UCRT`).
 
-`tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan, voice names of the page against the firmware, an MP3 in every voice folder of `data/`) and the JavaScript syntax with Node.js. The CI runs it too.
+`tools/check_web.py` runs the simulator and checks the API the page relies on (credentials, settings listed and clamped, passwords never sent, NVS key length, status fields, captive portal, WiFi scan, `/api/meta` voices against the firmware and no copy of the lists in the page, an MP3 in every voice folder of `data/`, every debug menu command in the command table) and the JavaScript syntax with Node.js, on the source and on the compacted page that `scripts/embed_page.py` embeds. The CI runs it too.
 
 ## 16. Known limits
 
 - Nothing has run on a board: every timing, threshold and default is a starting point.
-- The turret does not aim: the rotations are only centred.
+- Aiming (`AimZ`) is off by default: the direction of rotation Z against the radar axis has not been checked on a turret (section 5).
+- The web page is in English only; `/api/meta` already gives the fault names in the screen language, the rest of the text does not follow `Language`.
 - The voice lines have not been heard on a board yet: decoding is checked on the computer, the I2S timing and the loudness are not.
 - The web page uses HTTP Basic over plain HTTP: fine on a home network, not on an open one.
 - On iOS the captive portal window may not handle the password prompt: open Safari on `192.168.4.1` instead.

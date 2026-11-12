@@ -16,11 +16,37 @@ class StateMachine;
 class SelfTest;
 class Sleep;
 
-// Commands shared by the serial console (lot 10) and the web page (lot 12).
-// Everything that touches hardware runs in loop(): the web server task only
-// queues command lines (plan §10.2). Type "help" on the console for the list.
+// Commands shared by the serial console (lot 10), the web page (lot 12) and
+// the debug menu. Everything that touches hardware runs in loop(): the web
+// server task only queues command lines (plan §10.2).
+//
+// One command = one row of the COMMANDS table (Actions.cpp): name, usage,
+// one-line help, category, handler and what it needs (test mode, full power).
+// "help" is generated from the table; scripts/check_commands.py checks that
+// the README lists every row. Handlers live in three files by subject:
+// Actions.cpp (dispatch, settings, system, audio, network, status),
+// ActionsHardware.cpp (servos, wings, guns, LEDs, calibration),
+// ActionsLab.cpp (pins, rails, sweeps, load test).
 class Actions {
 public:
+  // What a command needs before its handler runs (bit mask).
+  enum Needs : uint8_t {
+    None = 0,
+    TestMode = 1,  // state machine stopped (Manual); refused in Fault / Booting
+    FullPower = 2, // refused in debug mode until "power full" (one servo at a time)
+  };
+  typedef String (Actions::*Handler)(const String &args);
+  struct Command {
+    const char *name;
+    const char *usage;    // for "help" and the usage answers
+    const char *help;     // one line
+    const char *category; // "help" groups the commands by category
+    Handler handler;
+    uint8_t needs;
+  };
+  static const Command COMMANDS[];
+  static const size_t COMMAND_COUNT;
+
   void Initialize(Turret &turret, StateMachine &stateMachine, AccessPoint &accessPoint, Station &station);
   // loop(): serial console input, queued web commands, OTA shutdown, reboot.
   void Update();
@@ -32,6 +58,10 @@ public:
 
   // GET /api/status. Cached values only (runs in the web server task).
   String StatusJson();
+  // GET /api/meta: the lists the page needs (fault names, IMU axes, voices,
+  // servo aliases, states), in the screen language, so that they live in one
+  // place (the firmware). Constant: read once by the page.
+  String MetaJson() const;
 
   // Reads every setting again into the modules that cache them (plan §10.5).
   void ApplyAllSettings();
@@ -61,29 +91,69 @@ public:
   String SelfTestReport() const;
 
 private:
-  String Help();
-  String ServoCommand(const String &args);
-  String LedCommand(const String &args);
-  String VoiceCommand(const String &args);
-  String SetCommand(const String &args);
-  String GetCommand(const String &args);
-  String ImuReport();
-  String HallReport();
-  String PinsReport() const;
-  String PinReport(uint8_t pin) const;
-  String RailsReport() const;
-  String RailCommand(const String &args);
+  // ---- Actions.cpp: dispatch, settings, system, audio, network, status
+  const Command *Find(const String &name) const;
   // Tests need the state machine stopped (Manual). False (and a message) if not possible.
   bool EnterTestMode(String &error);
   void ReadConsole();
-  String SweepCommand(const String &args);
-  String LoadTestCommand(const String &args);
+  void SaveVolume();
+  String CmdHelp(const String &args);
+  String CmdStatus(const String &args);
+  String CmdScan(const String &args);
+  String CmdFlt(const String &args);
+  String CmdResetReason(const String &args);
+  String CmdCrashlog(const String &args);
+  String CmdCoredump(const String &args);
+  String CmdGet(const String &args);
+  String CmdSet(const String &args);
+  String CmdResetSettings(const String &args);
+  String CmdFactoryReset(const String &args);
+  String CmdMute(const String &args);
+  String CmdVolume(const String &args);
+  String CmdGain(const String &args);
+  String CmdTone(const String &args);
+  String CmdShot(const String &args);
+  String CmdWifi(const String &args);
+  String CmdTime(const String &args);
+  String CmdReboot(const String &args);
+  String CmdResume(const String &args);
+  String CmdDemo(const String &args);
+  String CmdPower(const String &args);
+  String CmdKey(const String &args);
+  String CmdScreen(const String &args);
+  String CmdSelfTest(const String &args);
+  String CmdSleep(const String &args);
+  String CmdStats(const String &args);
+
+  // ---- ActionsHardware.cpp: servos, wings, guns, LEDs, voice, calibration, reports
+  void LimitToChannel(uint8_t index);
+  String WingOrGun(bool wing, const String &args);
+  String CmdImu(const String &args);
+  String CmdHall(const String &args);
+  String CmdInputs(const String &args);
+  String CmdServo(const String &args);
+  String CmdServos(const String &args);
+  String CmdWing(const String &args);
+  String CmdGun(const String &args);
+  String CmdWings(const String &args);
+  String CmdGuns(const String &args);
+  String CmdTrim(const String &args);
+  String CmdLed(const String &args);
+  String CmdVoice(const String &args);
+  String CmdCal(const String &args);
+
+  // ---- ActionsLab.cpp: pins, rails, sweeps, load test
+  String PinsReport() const;
+  String PinReport(uint8_t pin) const;
+  String RailsReport() const;
+  String CmdPins(const String &args);
+  String CmdRails(const String &args);
+  String CmdRail(const String &args);
+  String CmdSweep(const String &args);
+  String CmdLoadTest(const String &args);
   void UpdateSweep(ulong now);
   void UpdateLoadTest(ulong now);
   void CancelLabTests();
-  void LimitToChannel(uint8_t index);
-  String CalibrationCommand(const String &args);
-  void SaveVolume();
 
   // Debug menu: receives the keys of the "key" command (virtual buttons).
   std::function<void(logic::MenuKey)> keyHandler;
@@ -127,3 +197,6 @@ private:
   std::atomic<bool> otaRequested{false};
   std::atomic<bool> otaReady{false};
 };
+
+// Shared by the three Actions*.cpp files.
+String FirstWord(const String &text, String &rest);

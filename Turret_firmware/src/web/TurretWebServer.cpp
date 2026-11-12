@@ -163,6 +163,11 @@ void TurretWebServer::Initialize(Settings& settingsIn, Actions& actionsIn, Stati
     request->send(200, "application/json", ToJson(settings));
   });
 
+  // The lists of the page (fault names, axes, voices, servos), from the firmware.
+  webServer.on("/api/meta", HTTP_GET, [this](AsyncWebServerRequest* request) {
+    request->send(200, "application/json", actions->MetaJson());
+  });
+
   // Form-encoded key=value pairs; each becomes a "set" command for loop().
   webServer.on("/api/settings", HTTP_POST, [this](AsyncWebServerRequest* request) {
     int queued = 0;
